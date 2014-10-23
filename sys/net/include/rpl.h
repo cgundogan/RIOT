@@ -67,12 +67,14 @@ uint8_t rpl_init(int if_id);
 /**
  * @brief Initialization of RPL-root.
  *
- * This function initializes all RPL resources to act as a root node.
+ * This function initializes all RPL resources to act as a root node with the specified instance id.
  * Because the root has different features in different modes, the core
  * initialization just calls the root-initialization of the chosen mode
  *
+ * @param[in] instanceid               the id of the instance
+ *
  */
-void rpl_init_root(void);
+void rpl_init_root(uint8_t instanceid);
 
 /**
  * @brief Sends a DIO-message to a given destination

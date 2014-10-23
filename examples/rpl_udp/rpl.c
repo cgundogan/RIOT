@@ -82,7 +82,7 @@ void rpl_udp_init(int argc, char **argv)
             }
 
             if (command == 'r') {
-                rpl_init_root();
+                rpl_init_root(0);
                 ipv6_iface_set_routing_provider(rpl_get_next_hop);
                 is_root = 1;
             }

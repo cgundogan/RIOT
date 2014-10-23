@@ -117,16 +117,17 @@ rpl_dodag_t *rpl_new_dodag(uint8_t instanceid, ipv6_addr_t *dodagid)
 
 }
 
-rpl_dodag_t *rpl_get_dodag(ipv6_addr_t *id)
+rpl_dodag_t *rpl_get_dodag(uint8_t instanceid, ipv6_addr_t *id)
 {
     for (int i = 0; i < RPL_MAX_DODAGS; i++) {
-        if (dodags[i].used && (rpl_equal_id(&dodags[i].dodag_id, id))) {
+        if (dodags[i].used && rpl_equal_id(&dodags[i].dodag_id, id) && dodags[i].instance->id == instanceid) {
             return &dodags[i];
         }
     }
 
     return NULL;
 }
+
 rpl_dodag_t *rpl_get_my_dodag(void)
 {
     for (int i = 0; i < RPL_MAX_DODAGS; i++) {
@@ -189,13 +190,13 @@ rpl_parent_t *rpl_new_parent(rpl_dodag_t *dodag, ipv6_addr_t *address, uint16_t 
     return rpl_new_parent(dodag, address, rank);
 }
 
-rpl_parent_t *rpl_find_parent(ipv6_addr_t *address)
+rpl_parent_t *rpl_find_parent(uint8_t instanceid, ipv6_addr_t *address)
 {
     rpl_parent_t *parent;
     rpl_parent_t *end;
 
     for (parent = &parents[0], end = parents + RPL_MAX_PARENTS; parent < end; parent++) {
-        if ((parent->used) && (rpl_equal_id(address, &parent->addr))) {
+        if ((parent->used) && parent->dodag->instance->id == instanceid && (rpl_equal_id(address, &parent->addr))) {
             return parent;
         }
     }
@@ -447,4 +448,15 @@ ipv6_addr_t *rpl_get_my_preferred_parent(void)
 uint16_t rpl_calc_rank(uint16_t abs_rank, uint16_t minhoprankincrease)
 {
     return abs_rank / minhoprankincrease;
+}
+
+rpl_dodag_t *rpl_get_joined_dodag(uint8_t instanceid)
+{
+    for (int i = 0; i < RPL_MAX_DODAGS; i++) {
+        if (dodags[i].joined && dodags[i].instance->id == instanceid) {
+            return &dodags[i];
+        }
+    }
+
+    return NULL;
 }

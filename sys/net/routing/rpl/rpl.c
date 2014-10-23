@@ -119,7 +119,7 @@ uint8_t rpl_init(int if_id)
     return SIXLOWERROR_SUCCESS;
 }
 
-void rpl_init_root(void)
+void rpl_init_root(uint8_t instanceid)
 {
 #if (RPL_DEFAULT_MOP == RPL_NON_STORING_MODE)
 #ifndef RPL_NODE_IS_ROOT
@@ -132,7 +132,7 @@ puts("############################## ERROR ###############################\n");
 return;
 #endif
 #endif
-    rpl_init_root_mode();
+    rpl_init_root_mode(instanceid);
 }
 
 uint8_t rpl_is_root(void)
