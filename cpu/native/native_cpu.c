@@ -96,8 +96,21 @@ int reboot_arch(int mode)
  */
 static void _native_mod_ctx_leave_sigh(ucontext_t *ctx)
 {
+#ifdef __MACH__
+    _native_saved_eip = ((ucontext_t *)ctx)->uc_mcontext->__ss.__eip;
+    ((ucontext_t *)ctx)->uc_mcontext->__ss.__eip = (unsigned int)&_native_sig_leave_handler;
+#elif defined(__FreeBSD__)
+    _native_saved_eip = ((struct sigcontext *)ctx)->sc_eip;
+    ((struct sigcontext *)ctx)->sc_eip = (unsigned int)&_native_sig_leave_handler;
+#else /* Linux */
+#if defined(__arm__)
+    _native_saved_eip = ((ucontext_t *)ctx)->uc_mcontext.arm_pc;
+    ((ucontext_t *)ctx)->uc_mcontext.arm_pc = (unsigned int)&_native_sig_leave_handler;
+#else /* Linux/x86 */
     _native_saved_eip = ctx->uc_mcontext.gregs[REG_EIP];
     ctx->uc_mcontext.gregs[REG_EIP] = (unsigned int)&_native_sig_leave_handler;
+#endif
+#endif
 }
 
 /**
