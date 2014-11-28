@@ -45,7 +45,7 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-volatile int native_interrupts_enabled;
+volatile int native_interrupts_enabled = 0;
 volatile int _native_in_isr;
 volatile int _native_in_syscall;
 
@@ -303,8 +303,7 @@ void native_isr_entry(int sig, siginfo_t *info, void *context)
         return;
     }
 
-    /* XXX: Workaround safety check - whenever this happens it really
-     * indicates a bug in disableIRQ */
+    /* XXX: Workaround safety check */
     if (native_interrupts_enabled == 0) {
         //printf("interrupts are off, but I caught a signal.\n");
         return;
@@ -445,7 +444,6 @@ void native_interrupt_init(void)
     VALGRIND_STACK_REGISTER(__isr_stack, __isr_stack + sizeof(__isr_stack));
     VALGRIND_DEBUG("VALGRIND_STACK_REGISTER(%p, %p)\n", __isr_stack, (void*)((int)__isr_stack + sizeof(__isr_stack)));
 
-    native_interrupts_enabled = 1;
     _native_sigpend = 0;
 
     for (int i = 0; i < 255; i++) {
