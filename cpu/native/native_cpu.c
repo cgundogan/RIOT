@@ -18,6 +18,12 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+
+#define __USE_GNU
+#include <signal.h>
+#undef __USE_GNU
+
 
 #ifdef __MACH__
 #define _XOPEN_SOURCE
@@ -86,6 +92,15 @@ int reboot_arch(int mode)
 }
 
 /**
+ * make the new context assign `_native_in_isr = 0` before resuming
+ */
+static void _native_mod_ctx_leave_sigh(ucontext_t *ctx)
+{
+    _native_saved_eip = ctx->uc_mcontext.gregs[REG_EIP];
+    ctx->uc_mcontext.gregs[REG_EIP] = (unsigned int)&_native_sig_leave_handler;
+}
+
+/**
  * TODO: implement
  */
 void thread_print_stack(void)
@@ -145,10 +160,8 @@ void isr_cpu_switch_context_exit(void)
     DEBUG("isr_cpu_switch_context_exit: calling setcontext(%" PRIkernel_pid ")\n\n", sched_active_pid);
     ctx = (ucontext_t *)(sched_active_thread->sp);
 
-    /* the next context will have interrupts enabled due to ucontext */
-    DEBUG("isr_cpu_switch_context_exit: native_interrupts_enabled = 1;\n");
     native_interrupts_enabled = 1;
-    _native_in_isr = 0;
+    _native_mod_ctx_leave_sigh(ctx);
 
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_cpu_switch_context_exit: setcontext");
@@ -187,12 +200,18 @@ void isr_thread_yield(void)
 {
     DEBUG("isr_thread_yield\n");
 
+    if (_native_sigpend > 0) {
+        DEBUG("isr_thread_yield(): handling signals\n\n");
+        native_irq_handler();
+    }
+
     sched_run();
     ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
     DEBUG("isr_thread_yield: switching to(%" PRIkernel_pid ")\n\n", sched_active_pid);
 
     native_interrupts_enabled = 1;
-    _native_in_isr = 0;
+    _native_mod_ctx_leave_sigh(ctx);
+
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_thread_yield: setcontext");
     }
