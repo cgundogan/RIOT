@@ -28,6 +28,13 @@ __native_sig_leave_tramp:
     popfl
 
     ret
+
+.globl __native_sig_leave_handler
+__native_sig_leave_handler:
+    pushl __native_saved_eip
+    movl $0x0, __native_in_isr
+    ret
+
 #elif __arm__
 
 .globl _native_sig_leave_tramp
