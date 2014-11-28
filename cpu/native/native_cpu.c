@@ -203,7 +203,10 @@ void thread_yield_higher(void)
     if (_native_in_isr == 0) {
         ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
         _native_in_isr = 1;
-        dINT();
+        if (!native_interrupts_enabled) {
+            warnx("thread_yield_higher: interrupts are disabled - this should not be");
+        }
+        dINT(); /* interrupts have to be ON when thread_yield_higher is called */
         native_isr_context.uc_stack.ss_sp = __isr_stack;
         native_isr_context.uc_stack.ss_size = SIGSTKSZ;
         native_isr_context.uc_stack.ss_flags = 0;
