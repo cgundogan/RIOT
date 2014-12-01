@@ -72,6 +72,21 @@ _native_sig_leave_tramp:
     ldmia   sp!, {r0-r12}
     ldmia   sp!, {pc}
 
+.globl _native_sig_leave_handler
+_native_sig_leave_handler:
+    stmdb sp!, {r0}                 /* push r0, sp-- */ /* sp = 0x13e9c -> */
+    ldr r0, =_native_saved_eip      /* *eip -> r0 */
+    ldr r0, [r0]                    /* eip -> r0 */
+    stmdb sp!, {r1}                 /* push r1, sp-- */
+    ldr r1, [sp,#8]                 /* orig_r0 -> r1 */
+    str r0, [sp,#8]                 /* eip -> sp+8 */
+    stmdb sp!, {r1}                 /* orig_r0 -> sp, sp-- */ /* sp+12 [eip, orig_r1, orig_r0] sp */
+    eor r0, r0, r0                  /* 0x0 -> r0 */
+    ldr r1, =_native_in_isr         /* *in_isr -> r1  */
+    str r0, [r1]                    /* 0x0 -> in_isr */
+    ldmia sp!, {r0-r1}              /* orig_r0 -> r0, orig_r1 -> r1, sp+=8 */
+    ldmia sp!, {pc}                 /* eip -> pc, sp++ */
+
 #else
 .globl _native_sig_leave_tramp
 
