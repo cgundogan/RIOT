@@ -55,7 +55,6 @@ kernel_pid_t rpl_process_pid = KERNEL_PID_UNDEF;
 mutex_t rpl_send_mutex = MUTEX_INIT;
 msg_t rpl_msg_queue[RPL_PKT_RECV_BUF_SIZE];
 char rpl_process_buf[RPL_PROCESS_STACKSIZE];
-msg_t rpl_update_msg_queue[RPL_UPDATE_PKT_RECV_BUF_SIZE];
 uint8_t rpl_buffer[BUFFER_SIZE - LL_HDR_LEN];
 ipv6_addr_t mcast;
 
