@@ -31,7 +31,7 @@ char addr_str[IPV6_MAX_ADDR_STR_LEN];
 #endif
 #include "debug.h"
 
-kernel_pid_t rpl_update_pid;
+kernel_pid_t rpl_process_pid;
 rpl_instance_t instances[RPL_MAX_INSTANCES];
 rpl_dodag_t dodags[RPL_MAX_DODAGS];
 rpl_parent_t parents[RPL_MAX_PARENTS];
@@ -390,13 +390,13 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
     DEBUG("\tmy_preferred_parent rank\t%02X\n", my_dodag->my_preferred_parent->rank);
     DEBUG("\tmy_preferred_parent lifetime\t%04X\n", my_dodag->my_preferred_parent->lifetime);
 
-    start_trickle(rpl_update_pid, &my_dodag->trickle,
+    start_trickle(rpl_process_pid, &my_dodag->trickle,
             &my_dodag->trickle_msg_interval, &my_dodag->trickle_msg_interval.time, &my_dodag->trickle_msg_interval.timer,
             &my_dodag->trickle_msg_callback, &my_dodag->trickle_msg_callback.time, &my_dodag->trickle_msg_callback.timer,
             (1 << my_dodag->dio_min), my_dodag->dio_interval_doubling, my_dodag->dio_redundancy);
     delay_dao(my_dodag);
     vtimer_remove(&my_dodag->rt_msg.timer);
-    vtimer_set_msg(&my_dodag->rt_msg.timer, my_dodag->rt_msg.time, rpl_update_pid, &my_dodag->rt_msg);
+    vtimer_set_msg(&my_dodag->rt_msg.timer, my_dodag->rt_msg.time, rpl_process_pid, &my_dodag->rt_msg);
 }
 
 void rpl_global_repair(rpl_dodag_t *dodag, ipv6_addr_t *p_addr, uint16_t rank)

@@ -124,10 +124,6 @@ typedef struct __attribute__((packed)) {
 } rpl_opt_transit_t;
 
 typedef struct {
-#define RPL_MSG_TYPE_DAO_HANDLE                 1
-#define RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE       2
-#define RPL_MSG_TYPE_TRICKLE_INTERVAL           3
-#define RPL_MSG_TYPE_TRICKLE_CALLBACK           4
     uint8_t code;
     void *content;
     timex_t time;

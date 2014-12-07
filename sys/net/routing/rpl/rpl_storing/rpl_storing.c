@@ -215,12 +215,12 @@ void rpl_init_root_mode(void)
     }
 
     i_am_root = 1;
-    start_trickle(rpl_update_pid, &dodag->trickle,
+    start_trickle(rpl_process_pid, &dodag->trickle,
             &dodag->trickle_msg_interval, &dodag->trickle_msg_interval.time, &dodag->trickle_msg_interval.timer,
             &dodag->trickle_msg_callback, &dodag->trickle_msg_callback.time, &dodag->trickle_msg_callback.timer,
             (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
     vtimer_remove(&dodag->rt_msg.timer);
-    vtimer_set_msg(&dodag->rt_msg.timer, dodag->rt_msg.time, rpl_update_pid, &dodag->rt_msg);
+    vtimer_set_msg(&dodag->rt_msg.timer, dodag->rt_msg.time, rpl_process_pid, &dodag->rt_msg);
     DEBUGF("ROOT INIT FINISHED\n");
 
 }

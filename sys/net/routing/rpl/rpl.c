@@ -52,16 +52,15 @@ char addr_str[IPV6_MAX_ADDR_STR_LEN];
 
 /* global variables */
 kernel_pid_t rpl_process_pid = KERNEL_PID_UNDEF;
-kernel_pid_t rpl_update_pid = KERNEL_PID_UNDEF;
 mutex_t rpl_send_mutex = MUTEX_INIT;
 msg_t rpl_msg_queue[RPL_PKT_RECV_BUF_SIZE];
 char rpl_process_buf[RPL_PROCESS_STACKSIZE];
 msg_t rpl_update_msg_queue[RPL_UPDATE_PKT_RECV_BUF_SIZE];
 uint8_t rpl_buffer[BUFFER_SIZE - LL_HDR_LEN];
-char rpl_update_buf[RPL_UPDATE_STACKSIZE];
 ipv6_addr_t mcast;
 
-static void *rpl_update_thread(void *arg);
+static void dao_handle_send(rpl_dodag_t *dodag);
+static void rpl_update_routing_table(rpl_dodag_t *my_dodag);
 
 #if RPL_DEFAULT_MOP == RPL_NON_STORING_MODE
 uint8_t srh_buffer[BUFFER_SIZE];
@@ -78,7 +77,6 @@ ipv6_addr_t my_address;
 
 /* IPv6 message buffer */
 ipv6_hdr_t *ipv6_buf;
-icmpv6_hdr_t *icmp_buf;
 
 uint8_t rpl_init(int if_id)
 {
@@ -116,9 +114,6 @@ uint8_t rpl_init(int if_id)
     rpl_of_manager_init(&my_address);
     rpl_init_mode(&my_address);
 
-    rpl_update_pid = thread_create(rpl_update_buf, RPL_UPDATE_STACKSIZE,
-                                       PRIORITY_MAIN - 1, CREATE_STACKTEST,
-                                       rpl_update_thread, NULL, "rpl_update");
     return SIXLOWERROR_SUCCESS;
 }
 
@@ -170,81 +165,112 @@ void *rpl_process(void *arg)
 
     msg_t m_recv;
     msg_init_queue(rpl_msg_queue, RPL_PKT_RECV_BUF_SIZE);
+    rpl_msg_type_t *rpl_msg;
 
     while (1) {
         msg_receive(&m_recv);
 
-        /* differentiate packet types */
-        ipv6_buf = ((ipv6_hdr_t *)m_recv.content.ptr);
-        memcpy(&rpl_buffer, ipv6_buf, NTOHS(ipv6_buf->length) + IPV6_HDR_LEN);
+        rpl_msg = (rpl_msg_type_t *) m_recv.content.ptr;
+        rpl_dodag_t *dodag;
 
-        /* This is an RPL-related message. */
-        if (ipv6_buf->nextheader == IPV6_PROTO_NUM_ICMPV6) {
-            icmp_buf = ((icmpv6_hdr_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
-
-            /* get code for message-interpretation and process message */
-            DEBUGF("Received RPL information of type %04X and length %u\n", icmp_buf->code, NTOHS(ipv6_buf->length));
-
-            switch (icmp_buf->code) {
-                case (ICMP_CODE_DIS): {
-                    rpl_recv_DIS();
+        if (rpl_msg->code > ICMP_CODE_END) {
+            switch (rpl_msg->code) {
+                case RPL_MSG_TYPE_DAO_HANDLE:
+                    dao_handle_send((rpl_dodag_t *) rpl_msg->content);
                     break;
-                }
 
-                case (ICMP_CODE_DIO): {
-                    rpl_recv_DIO();
+                case RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE:
+                    rpl_update_routing_table((rpl_dodag_t *) rpl_msg->content);
                     break;
-                }
 
-                case (ICMP_CODE_DAO): {
-                    rpl_recv_DAO();
+                case RPL_MSG_TYPE_TRICKLE_INTERVAL:
+                    dodag = (rpl_dodag_t *) rpl_msg->content;
+                    trickle_interval(&dodag->trickle, &dodag->trickle_msg_interval, &dodag->trickle_msg_interval.time, &dodag->trickle_msg_interval.timer,
+                            &dodag->trickle_msg_callback, &dodag->trickle_msg_callback.time, &dodag->trickle_msg_callback.timer);
                     break;
-                }
 
-                case (ICMP_CODE_DAO_ACK): {
-                    rpl_recv_DAO_ACK();
+                case RPL_MSG_TYPE_TRICKLE_CALLBACK:
+                    dodag = (rpl_dodag_t *) rpl_msg->content;
+                    trickle_callback(&dodag->trickle);
                     break;
-                }
 
                 default:
                     break;
             }
+
         }
+        /* This is an RPL-related message. */
+        else {
+            /* differentiate packet types */
+            ipv6_buf = (ipv6_hdr_t *) rpl_msg->content;
+            memcpy(&rpl_buffer, ipv6_buf, NTOHS(ipv6_buf->length) + IPV6_HDR_LEN);
+
+            if (ipv6_buf->nextheader == IPV6_PROTO_NUM_ICMPV6) {
+
+                /* get code for message-interpretation and process message */
+                DEBUGF("Received RPL information of type %04X and length %u\n", rpl_msg->code, NTOHS(ipv6_buf->length));
+
+                switch (rpl_msg->code) {
+                    case (ICMP_CODE_DIS): {
+                        rpl_recv_DIS();
+                        break;
+                    }
+
+                    case (ICMP_CODE_DIO): {
+                        rpl_recv_DIO();
+                        break;
+                    }
+
+                    case (ICMP_CODE_DAO): {
+                        rpl_recv_DAO();
+                        break;
+                    }
+
+                    case (ICMP_CODE_DAO_ACK): {
+                        rpl_recv_DAO_ACK();
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+            }
 
 #if RPL_DEFAULT_MOP == RPL_NON_STORING_MODE
-        /* If the message is not RPL-type, it relates to non-storing mode */
-        else if (RPL_DEFAULT_MOP == RPL_NON_STORING_MODE) {
+            /* If the message is not RPL-type, it relates to non-storing mode */
+            else if (RPL_DEFAULT_MOP == RPL_NON_STORING_MODE) {
 
-            if (ipv6_buf->nextheader == IPV6_PROTO_NUM_SRH) {
-                srh_header = ((ipv6_srh_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
+                if (ipv6_buf->nextheader == IPV6_PROTO_NUM_SRH) {
+                    srh_header = ((ipv6_srh_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
 
-                /* if there are no segments left, the routing is finished */
-                if (srh_header->segments_left == 0) {
-                    DEBUGF("Source routing finished with next header: %02X.\n", srh_header->nextheader);
-                    DEBUGF("Size of srh: %d\n", srh_header->hdrextlen);
-                    uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN + sizeof(ipv6_srh_t)+srh_header->hdrextlen));
-                    rpl_remove_srh_header(ipv6_buf, payload, srh_header->nextheader);
-                }
-                else {
-                    internal_srh_process(srh_header);
-                    if (down_next_hop != NULL) {
-                        uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
-                        rpl_srh_sendto(payload, NTOHS(ipv6_buf->length), &ipv6_buf->srcaddr, down_next_hop, srh_header, 0);
+                    /* if there are no segments left, the routing is finished */
+                    if (srh_header->segments_left == 0) {
+                        DEBUGF("Source routing finished with next header: %02X.\n", srh_header->nextheader);
+                        DEBUGF("Size of srh: %d\n", srh_header->hdrextlen);
+                        uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN + sizeof(ipv6_srh_t)+srh_header->hdrextlen));
+                        rpl_remove_srh_header(ipv6_buf, payload, srh_header->nextheader);
+                    }
+                    else {
+                        internal_srh_process(srh_header);
+                        if (down_next_hop != NULL) {
+                            uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
+                            rpl_srh_sendto(payload, NTOHS(ipv6_buf->length), &ipv6_buf->srcaddr, down_next_hop, srh_header, 0);
+                        }
                     }
                 }
-            }
-            else  {
-                srh_header = rpl_get_srh_header(ipv6_buf);
+                else  {
+                    srh_header = rpl_get_srh_header(ipv6_buf);
 
-                if (srh_header != NULL) {
-                    uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
-                    rpl_srh_sendto(payload, NTOHS(ipv6_buf->length), &ipv6_buf->srcaddr, &ipv6_buf->destaddr, srh_header, srh_header->hdrextlen + sizeof(ipv6_srh_t));
+                    if (srh_header != NULL) {
+                        uint8_t *payload = ((uint8_t *)(m_recv.content.ptr + IPV6_HDR_LEN));
+                        rpl_srh_sendto(payload, NTOHS(ipv6_buf->length), &ipv6_buf->srcaddr, &ipv6_buf->destaddr, srh_header, srh_header->hdrextlen + sizeof(ipv6_srh_t));
+                    }
                 }
-            }
 
-        }
+            }
 
 #endif
+        }
     }
 }
 
@@ -353,7 +379,7 @@ void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
     vtimer_remove(&my_dodag->rt_msg.timer);
     my_dodag->rt_msg.content = (void *) my_dodag;
     my_dodag->rt_msg.code = RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE;
-    vtimer_set_msg(&my_dodag->rt_msg.timer, my_dodag->rt_msg.time, rpl_update_pid, &my_dodag->rt_msg);
+    vtimer_set_msg(&my_dodag->rt_msg.timer, my_dodag->rt_msg.time, rpl_process_pid, &my_dodag->rt_msg);
 }
 
 void delay_dao(rpl_dodag_t *dodag)
@@ -364,7 +390,7 @@ void delay_dao(rpl_dodag_t *dodag)
     vtimer_remove(&dodag->dao_msg.timer);
     dodag->dao_msg.content = (void *) dodag;
     dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_update_pid, &dodag->dao_msg);
+    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
 }
 
 /* This function is used for regular update of the routes. The Timer can be overwritten, as the normal delay_dao function gets called */
@@ -375,7 +401,7 @@ void long_delay_dao(rpl_dodag_t *dodag)
     dodag->ack_received = false;
     vtimer_remove(&dodag->dao_msg.timer);
     dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_update_pid, &dodag->dao_msg);
+    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
 }
 
 void dao_ack_received(rpl_dodag_t *dodag)
@@ -391,47 +417,11 @@ void dao_handle_send(rpl_dodag_t *dodag) {
         dodag->dao_msg.time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
         vtimer_remove(&dodag->dao_msg.timer);
         dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-        vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_update_pid, &dodag->dao_msg);
+        vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
     }
     else if (dodag->ack_received == false) {
         long_delay_dao(dodag);
     }
-}
-
-void *rpl_update_thread(void *arg)
-{
-    (void) arg;
-
-    msg_t m_recv;
-    msg_init_queue(rpl_update_msg_queue, RPL_UPDATE_PKT_RECV_BUF_SIZE);
-    rpl_dodag_t *dodag;
-
-    while (1) {
-        msg_receive(&m_recv);
-        rpl_msg_type_t *msg = (rpl_msg_type_t *) m_recv.content.ptr;
-
-        switch (msg->code) {
-            case RPL_MSG_TYPE_DAO_HANDLE:
-                dao_handle_send((rpl_dodag_t *) msg->content);
-                break;
-            case RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE:
-                rpl_update_routing_table((rpl_dodag_t *) msg->content);
-                break;
-            case RPL_MSG_TYPE_TRICKLE_INTERVAL:
-                dodag = (rpl_dodag_t *) msg->content;
-                trickle_interval(&dodag->trickle, &dodag->trickle_msg_interval, &dodag->trickle_msg_interval.time, &dodag->trickle_msg_interval.timer,
-                        &dodag->trickle_msg_callback, &dodag->trickle_msg_callback.time, &dodag->trickle_msg_callback.timer);
-                break;
-            case RPL_MSG_TYPE_TRICKLE_CALLBACK:
-                dodag = (rpl_dodag_t *) msg->content;
-                trickle_callback(&dodag->trickle);
-                break;
-            default:
-                break;
-        }
-
-    }
-    return NULL;
 }
 
 ipv6_addr_t *rpl_get_next_hop(ipv6_addr_t *addr)
