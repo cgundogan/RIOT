@@ -32,26 +32,28 @@
 #include "vtimer.h"
 #include "thread.h"
 
+/** @brief a generic callback function with arguments that is called by trickle periodically */
 typedef struct {
-    void (*func)(void *);
-    void *args;
+    void (*func)(void *);       /**< a generic callback function pointer */
+    void *args;                 /**< a generic parameter for the callback function pointer */
 } trickle_callback_t;
 
+/** @brief all state variables for a trickle timer */
 typedef struct {
-    uint8_t k;
-    uint32_t Imin;
-    uint8_t Imax;
-    uint32_t I;
-    uint32_t t;
-    uint16_t c;
-    kernel_pid_t pid;
-    trickle_callback_t callback;
-    uint16_t interval_msg_type;
-    timex_t msg_interval_time;
-    vtimer_t msg_interval_timer;
-    uint16_t callback_msg_type;
-    timex_t msg_callback_time;
-    vtimer_t msg_callback_timer;
+    uint8_t k;                      /**< redundancy constant */
+    uint32_t Imin;                  /**< minimum interval size */
+    uint8_t Imax;                   /**< maximum interval size, described as a number of doublings */
+    uint32_t I;                     /**< current interval size */
+    uint32_t t;                     /**< time within the current interval */
+    uint16_t c;                     /**< counter */
+    kernel_pid_t pid;               /**< pid of trickles target thread */
+    trickle_callback_t callback;    /**< the callback function and parameter that trickle is calling after each interval */
+    uint16_t interval_msg_type;     /**< the msg_t.type that trickle should use after an interval */
+    timex_t msg_interval_time;      /**< interval represented as timex_t */
+    vtimer_t msg_interval_timer;    /**< vtimer to send a msg_t to the target thread for a new interval */
+    uint16_t callback_msg_type;     /**< the msg_t.type that trickle should use after a callback */
+    timex_t msg_callback_time;      /**< callback interval represented as timex_t */
+    vtimer_t msg_callback_timer;    /**< vtimer to send a msg_t to the target thread for a callback */
 } trickle_t;
 
 void reset_trickletimer(trickle_t *trickle);
