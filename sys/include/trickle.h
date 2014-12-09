@@ -56,11 +56,52 @@ typedef struct {
     vtimer_t msg_callback_timer;    /**< vtimer to send a msg_t to the target thread for a callback */
 } trickle_t;
 
+/**
+ * @brief resets the trickle timer
+ *
+ * @param[in] trickle   the trickle timer
+ */
 void reset_trickletimer(trickle_t *trickle);
+
+/**
+ * @brief start the trickle timer
+ *
+ * @param[in] pid                   target thread
+ * @param[in] trickle               trickle timer
+ * @param[in] interval_msg_type     msg_t.type for interval messages
+ * @param[in] callback_msg_type     msg_t.type for callback messages
+ * @param[in] Imin                  minimum interval
+ * @param[in] Imax                  maximum interval
+ * @param[in] k                     redundancy constant
+ */
 void start_trickle(kernel_pid_t pid, trickle_t *trickle, uint16_t interval_msg_type, uint16_t callback_msg_type, uint32_t Imin, uint8_t Imax, uint8_t k);
+
+/**
+ * @brief stops the trickle timer
+ *
+ * @param[in] trickle   trickle timer
+ */
 void stop_trickle(trickle_t *trickle);
+
+/**
+ * @brief increments the counter by one
+ *
+ * @param[in] trickle   trickle timer
+ */
 void trickle_increment_counter(trickle_t *trickle);
+
+/**
+ * @brief is called after the interval is over and calculates the next interval
+ *
+ * @param[in] trickle   trickle timer
+ */
 void trickle_interval(trickle_t *trickle);
+
+/**
+ * @brief is called after the callback interval is over and calls the callback function
+ *
+ * @param[in] trickle   trickle timer
+ */
 void trickle_callback(trickle_t *trickle);
 
 #ifdef __cplusplus
