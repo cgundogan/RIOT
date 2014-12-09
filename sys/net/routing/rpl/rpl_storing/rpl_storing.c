@@ -215,12 +215,9 @@ void rpl_init_root_mode(void)
     }
 
     i_am_root = 1;
-    start_trickle(rpl_process_pid, &dodag->trickle,
-            &dodag->trickle_msg_interval, &dodag->trickle_msg_interval.time, &dodag->trickle_msg_interval.timer,
-            &dodag->trickle_msg_callback, &dodag->trickle_msg_callback.time, &dodag->trickle_msg_callback.timer,
-            (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
-    vtimer_remove(&dodag->rt_msg.timer);
-    vtimer_set_msg(&dodag->rt_msg.timer, dodag->rt_msg.time, rpl_process_pid, &dodag->rt_msg);
+    start_trickle(rpl_process_pid, &dodag->trickle, RPL_MSG_TYPE_TRICKLE_INTERVAL, RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
+    vtimer_remove(&dodag->rt_timer);
+    vtimer_set_msg(&dodag->rt_timer, dodag->rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, dodag);
     DEBUGF("ROOT INIT FINISHED\n");
 
 }
@@ -575,9 +572,7 @@ void rpl_recv_DIO_mode(void)
             if (my_dodag->my_rank == ROOT_RANK) {
                 DEBUGF("[Warning] Inconsistent Dodag Version\n");
                 my_dodag->version = RPL_COUNTER_INCREMENT(dio_dodag.version);
-                reset_trickletimer(&my_dodag->trickle,
-                        &my_dodag->trickle_msg_interval, &my_dodag->trickle_msg_interval.time, &my_dodag->trickle_msg_interval.timer,
-                        &my_dodag->trickle_msg_callback, &my_dodag->trickle_msg_callback.time, &my_dodag->trickle_msg_callback.timer);
+                reset_trickletimer(&my_dodag->trickle);
             }
             else {
                 DEBUGF("my dodag has no preferred_parent yet - seems to be odd since I have a parent.\n");
@@ -588,18 +583,14 @@ void rpl_recv_DIO_mode(void)
         }
         else if (RPL_COUNTER_GREATER_THAN(my_dodag->version, dio_dodag.version)) {
             /* ein Knoten hat noch eine kleinere Versionsnummer -> mehr DIOs senden */
-            reset_trickletimer(&my_dodag->trickle,
-                    &my_dodag->trickle_msg_interval, &my_dodag->trickle_msg_interval.time, &my_dodag->trickle_msg_interval.timer,
-                    &my_dodag->trickle_msg_callback, &my_dodag->trickle_msg_callback.time, &my_dodag->trickle_msg_callback.timer);
+            reset_trickletimer(&my_dodag->trickle);
             return;
         }
     }
 
     /* version matches, DODAG matches */
     if (rpl_dio_buf->rank == INFINITE_RANK) {
-        reset_trickletimer(&my_dodag->trickle,
-                &my_dodag->trickle_msg_interval, &my_dodag->trickle_msg_interval.time, &my_dodag->trickle_msg_interval.timer,
-                &my_dodag->trickle_msg_callback, &my_dodag->trickle_msg_callback.time, &my_dodag->trickle_msg_callback.timer);
+        reset_trickletimer(&my_dodag->trickle);
     }
 
     /* We are root, all done!*/

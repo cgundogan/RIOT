@@ -123,13 +123,6 @@ typedef struct __attribute__((packed)) {
     ipv6_addr_t parent;
 } rpl_opt_transit_t;
 
-typedef struct {
-    uint8_t code;
-    void *content;
-    timex_t time;
-    vtimer_t timer;
-} rpl_msg_type_t;
-
 struct rpl_dodag_t;
 
 typedef struct {
@@ -178,10 +171,10 @@ typedef struct rpl_dodag_t {
     trickle_t trickle;
     bool ack_received;
     uint8_t dao_counter;
-    rpl_msg_type_t dao_msg;
-    rpl_msg_type_t rt_msg;
-    rpl_msg_type_t trickle_msg_interval;
-    rpl_msg_type_t trickle_msg_callback;
+    timex_t dao_time;
+    vtimer_t dao_timer;
+    timex_t rt_time;
+    vtimer_t rt_timer;
 } rpl_dodag_t;
 
 typedef struct rpl_of_t {

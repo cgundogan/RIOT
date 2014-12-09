@@ -46,16 +46,19 @@ typedef struct {
     uint16_t c;
     kernel_pid_t pid;
     trickle_callback_t callback;
+    uint16_t interval_msg_type;
+    timex_t msg_interval_time;
+    vtimer_t msg_interval_timer;
+    uint16_t callback_msg_type;
+    timex_t msg_callback_time;
+    vtimer_t msg_callback_timer;
 } trickle_t;
 
-void reset_trickletimer(trickle_t *trickle, void *msg_interval, timex_t *msg_interval_time, vtimer_t *msg_interval_timer,
-        void *msg_callback, timex_t *msg_callback_time, vtimer_t *msg_callback_timer);
-void start_trickle(kernel_pid_t pid, trickle_t *trickle, void *msg_interval, timex_t *msg_interval_time, vtimer_t *msg_interval_timer,
-        void *msg_callback, timex_t *msg_callback_time, vtimer_t *msg_callback_timer, uint32_t Imin, uint8_t Imax, uint8_t k);
-void stop_trickle(vtimer_t *msg_interval_timer, vtimer_t *msg_callback_timer);
+void reset_trickletimer(trickle_t *trickle);
+void start_trickle(kernel_pid_t pid, trickle_t *trickle, uint16_t interval_msg_type, uint16_t callback_msg_type, uint32_t Imin, uint8_t Imax, uint8_t k);
+void stop_trickle(trickle_t *trickle);
 void trickle_increment_counter(trickle_t *trickle);
-void trickle_interval(trickle_t *trickle, void *msg_interval, timex_t *msg_interval_time, vtimer_t *msg_interval_timer,
-        void *msg_callback, timex_t *msg_callback_time, vtimer_t *msg_callback_timer);
+void trickle_interval(trickle_t *trickle);
 void trickle_callback(trickle_t *trickle);
 
 #ifdef __cplusplus

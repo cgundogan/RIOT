@@ -52,7 +52,6 @@ msg_t ip_msg_queue[IP_PKT_RECV_BUF_SIZE];
 ipv6_hdr_t *ipv6_buf;
 icmpv6_hdr_t *icmp_buf;
 uint8_t *nextheader;
-rpl_msg_type_t rpl_msg;
 
 kernel_pid_t udp_packet_handler_pid = KERNEL_PID_UNDEF;
 kernel_pid_t tcp_packet_handler_pid = KERNEL_PID_UNDEF;
@@ -284,9 +283,8 @@ int icmpv6_demultiplex(const icmpv6_hdr_t *hdr)
 
             if (_rpl_process_pid != KERNEL_PID_UNDEF) {
                 msg_t m_send;
-                rpl_msg.code = ((icmpv6_hdr_t *)(((char *) ipv6_buf) + IPV6_HDR_LEN))->code;
-                rpl_msg.content = (char *) ipv6_buf;
-                m_send.content.ptr = (void *) &rpl_msg;
+                m_send.content.ptr = (char *) ipv6_buf;
+                m_send.type = ((icmpv6_hdr_t *)(m_send.content.ptr + IPV6_HDR_LEN))->code;
                 msg_send(&m_send, _rpl_process_pid);
             }
             else {

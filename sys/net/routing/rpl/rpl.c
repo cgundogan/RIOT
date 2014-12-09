@@ -112,7 +112,6 @@ uint8_t rpl_init(int if_id)
     /* initialize objective function manager */
     rpl_of_manager_init(&my_address);
     rpl_init_mode(&my_address);
-
     return SIXLOWERROR_SUCCESS;
 }
 
@@ -164,33 +163,26 @@ void *rpl_process(void *arg)
 
     msg_t m_recv;
     msg_init_queue(rpl_msg_queue, RPL_PKT_RECV_BUF_SIZE);
-    rpl_msg_type_t *rpl_msg;
 
     while (1) {
         msg_receive(&m_recv);
 
-        rpl_msg = (rpl_msg_type_t *) m_recv.content.ptr;
-        rpl_dodag_t *dodag;
-
-        if (rpl_msg->code > ICMP_CODE_END) {
-            switch (rpl_msg->code) {
+        if (m_recv.type > ICMP_CODE_END) {
+            switch (m_recv.type) {
                 case RPL_MSG_TYPE_DAO_HANDLE:
-                    dao_handle_send((rpl_dodag_t *) rpl_msg->content);
+                    dao_handle_send((rpl_dodag_t *) m_recv.content.ptr);
                     break;
 
                 case RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE:
-                    rpl_update_routing_table((rpl_dodag_t *) rpl_msg->content);
+                    rpl_update_routing_table((rpl_dodag_t *) m_recv.content.ptr);
                     break;
 
                 case RPL_MSG_TYPE_TRICKLE_INTERVAL:
-                    dodag = (rpl_dodag_t *) rpl_msg->content;
-                    trickle_interval(&dodag->trickle, &dodag->trickle_msg_interval, &dodag->trickle_msg_interval.time, &dodag->trickle_msg_interval.timer,
-                            &dodag->trickle_msg_callback, &dodag->trickle_msg_callback.time, &dodag->trickle_msg_callback.timer);
+                    trickle_interval((trickle_t *) m_recv.content.ptr);
                     break;
 
                 case RPL_MSG_TYPE_TRICKLE_CALLBACK:
-                    dodag = (rpl_dodag_t *) rpl_msg->content;
-                    trickle_callback(&dodag->trickle);
+                    trickle_callback((trickle_t *) m_recv.content.ptr);
                     break;
 
                 default:
@@ -201,7 +193,7 @@ void *rpl_process(void *arg)
         /* This is an RPL-related message. */
         else {
             /* differentiate packet types */
-            ipv6_buf = (ipv6_hdr_t *) rpl_msg->content;
+            ipv6_buf = (ipv6_hdr_t *) m_recv.content.ptr;
             memcpy(&rpl_buffer, ipv6_buf, NTOHS(ipv6_buf->length) + IPV6_HDR_LEN);
 
             if (ipv6_buf->nextheader == IPV6_PROTO_NUM_ICMPV6) {
@@ -209,7 +201,7 @@ void *rpl_process(void *arg)
                 /* get code for message-interpretation and process message */
                 DEBUGF("Received RPL information of type %04X and length %u\n", rpl_msg->code, NTOHS(ipv6_buf->length));
 
-                switch (rpl_msg->code) {
+                switch (m_recv.type) {
                     case (ICMP_CODE_DIS): {
                         rpl_recv_DIS();
                         break;
@@ -374,33 +366,27 @@ void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
         }
     }
 
-    my_dodag->rt_msg.time = timex_set(0, 1000000);
-    vtimer_remove(&my_dodag->rt_msg.timer);
-    my_dodag->rt_msg.content = (void *) my_dodag;
-    my_dodag->rt_msg.code = RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE;
-    vtimer_set_msg(&my_dodag->rt_msg.timer, my_dodag->rt_msg.time, rpl_process_pid, &my_dodag->rt_msg);
+    vtimer_remove(&my_dodag->rt_timer);
+    vtimer_set_msg(&my_dodag->rt_timer, my_dodag->rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, my_dodag);
 }
 
 void delay_dao(rpl_dodag_t *dodag)
 {
-    dodag->dao_msg.time = timex_set(DEFAULT_DAO_DELAY, 0);
+    dodag->dao_time = timex_set(DEFAULT_DAO_DELAY, 0);
     dodag->dao_counter = 0;
     dodag->ack_received = false;
-    vtimer_remove(&dodag->dao_msg.timer);
-    dodag->dao_msg.content = (void *) dodag;
-    dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
+    vtimer_remove(&dodag->dao_timer);
+    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
 }
 
 /* This function is used for regular update of the routes. The Timer can be overwritten, as the normal delay_dao function gets called */
 void long_delay_dao(rpl_dodag_t *dodag)
 {
-    dodag->dao_msg.time = timex_set(REGULAR_DAO_INTERVAL, 0);
+    dodag->dao_time = timex_set(REGULAR_DAO_INTERVAL, 0);
     dodag->dao_counter = 0;
     dodag->ack_received = false;
-    vtimer_remove(&dodag->dao_msg.timer);
-    dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-    vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
+    vtimer_remove(&dodag->dao_timer);
+    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
 }
 
 void dao_ack_received(rpl_dodag_t *dodag)
@@ -413,10 +399,9 @@ void dao_handle_send(rpl_dodag_t *dodag) {
     if ((dodag->ack_received == false) && (dodag->dao_counter < DAO_SEND_RETRIES)) {
         dodag->dao_counter++;
         rpl_send_DAO(NULL, 0, true, 0);
-        dodag->dao_msg.time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
-        vtimer_remove(&dodag->dao_msg.timer);
-        dodag->dao_msg.code = RPL_MSG_TYPE_DAO_HANDLE;
-        vtimer_set_msg(&dodag->dao_msg.timer, dodag->dao_msg.time, rpl_process_pid, &dodag->dao_msg);
+        dodag->dao_time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
+        vtimer_remove(&dodag->dao_timer);
+        vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
     }
     else if (dodag->ack_received == false) {
         long_delay_dao(dodag);
