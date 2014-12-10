@@ -37,8 +37,9 @@ extern "C" {
  * This function initializes all RPL resources especially for root purposes. Initializes a new DODAG and sets
  * itself as root. Starts trickle-timer so sending DIOs starts and other can join the DODAG.
  *
+ * @param[in] instanceid       id of the new instance
  */
-void rpl_init_root_mode(void);
+void rpl_init_root_mode(uint8_t instanceid);
 
 /**
  * @brief Initialization of RPL storing mode.

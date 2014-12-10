@@ -165,14 +165,14 @@ void rpl_init_mode(ipv6_addr_t *init_address)
     memcpy(&my_address, init_address, sizeof(ipv6_addr_t));
 }
 
-void rpl_init_root_mode(void)
+void rpl_init_root_mode(uint8_t instanceid)
 {
     rpl_instance_t *inst;
     rpl_dodag_t *dodag;
 
     rpl_get_of_for_ocp(0);
 
-    inst = rpl_new_instance(RPL_DEFAULT_INSTANCE);
+    inst = rpl_new_instance(instanceid);
 
     if (inst == NULL) {
         DEBUGF("Error - No memory for another RPL instance\n");
@@ -392,15 +392,8 @@ void rpl_recv_DIO_mode(void)
     int len = DIO_BASE_LEN;
 
     rpl_instance_t *dio_inst = rpl_get_instance(rpl_dio_buf->rpl_instanceid);
-    rpl_instance_t *my_inst = rpl_get_my_instance();
 
     if (dio_inst == NULL) {
-        if (my_inst != NULL) {
-            /* already part of a DODAG -> impossible to join other instance */
-            DEBUGF("Not joining another DODAG!\n");
-            return;
-        }
-
         dio_inst = rpl_new_instance(rpl_dio_buf->rpl_instanceid);
 
         if (dio_inst == NULL) {
@@ -408,24 +401,10 @@ void rpl_recv_DIO_mode(void)
             return;
         }
     }
-    else if (my_inst == NULL) {
-        DEBUGF("Not joined an instance yet\n");
-    }
-    else if (my_inst->id != dio_inst->id) {
-        /* TODO: Add support support for several instances.  */
-
-        /* At the moment, nodes can only join one instance, this is
-        * the instance they join first.
-        * Instances cannot be switched later on.  */
-
-        DEBUGF("Ignoring instance - we are %d and got %d\n", my_inst->id, dio_inst->id);
-        return;
-    }
 
     rpl_dodag_t dio_dodag;
     memset(&dio_dodag, 0, sizeof(dio_dodag));
     memcpy(&dio_dodag.dodag_id, &rpl_dio_buf->dodagid, sizeof(dio_dodag.dodag_id));
-
     dio_dodag.dtsn = rpl_dio_buf->dtsn;
     dio_dodag.mop = ((rpl_dio_buf->g_mop_prf >> RPL_MOP_SHIFT) & RPL_SHIFTED_MOP_MASK);
     dio_dodag.grounded = rpl_dio_buf->g_mop_prf >> RPL_GROUNDED_SHIFT;
@@ -505,7 +484,7 @@ void rpl_recv_DIO_mode(void)
 
     DEBUGF("Handle packet content.\n");
     /* handle packet content... */
-    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
+    rpl_dodag_t *my_dodag = rpl_get_joined_dodag(dio_inst->id);
 
     if (my_dodag == NULL) {
         if (!has_dodag_conf_opt) {
@@ -582,7 +561,7 @@ void rpl_recv_DIO_mode(void)
     /*********************  Parent Handling *********************/
     DEBUGF("Parent handling.\n");
     rpl_parent_t *parent;
-    parent = rpl_find_parent(&ipv6_buf->srcaddr);
+    parent = rpl_find_parent(my_dodag->instance->id, &ipv6_buf->srcaddr);
 
     if (parent == NULL) {
         /* add new parent candidate */
