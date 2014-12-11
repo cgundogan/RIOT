@@ -166,6 +166,7 @@ typedef struct rpl_dodag_t {
     uint8_t dao_seq;
     uint16_t min_rank;
     uint8_t joined;
+    uint8_t i_am_root;
     rpl_parent_t *my_preferred_parent;
     struct rpl_of_t *of;
     trickle_t trickle;
@@ -191,6 +192,7 @@ typedef struct {
     ipv6_addr_t next_hop;
     uint16_t lifetime;
     uint8_t used;
+    rpl_dodag_t *dodag;
 } rpl_routing_entry_t;
 
 #ifdef __cplusplus

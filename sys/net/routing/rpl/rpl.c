@@ -57,6 +57,7 @@ uint8_t rpl_buffer[BUFFER_SIZE - LL_HDR_LEN];
 ipv6_addr_t mcast;
 timex_t rt_time;
 vtimer_t rt_timer;
+rpl_parent_t parents[RPL_MAX_PARENTS];
 
 static void dao_handle_send(rpl_dodag_t *dodag);
 static void rpl_update_routing_table(void);
@@ -281,22 +282,22 @@ void *rpl_process(void *arg)
     }
 }
 
-void rpl_send_DIO(ipv6_addr_t *destination)
+void rpl_send_DIO(ipv6_addr_t *destination, rpl_dodag_t *dodag)
 {
     if (destination) {
         DEBUGF("Send DIO to %s\n", ipv6_addr_to_str(addr_str, IPV6_MAX_ADDR_STR_LEN, destination));
     }
 
-    rpl_send_DIO_mode(destination);
+    rpl_send_DIO_mode(destination, dodag);
 }
 
-void rpl_send_DAO(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index)
+void rpl_send_DAO(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *dodag)
 {
     if (destination) {
         DEBUGF("Send DAO to %s\n", ipv6_addr_to_str(addr_str, IPV6_MAX_ADDR_STR_LEN, destination));
     }
 
-    rpl_send_DAO_mode(destination, lifetime, default_lifetime, start_index);
+    rpl_send_DAO_mode(destination, lifetime, default_lifetime, start_index, dodag);
 }
 
 void rpl_send_DIS(ipv6_addr_t *destination)
@@ -308,13 +309,13 @@ void rpl_send_DIS(ipv6_addr_t *destination)
     rpl_send_DIS_mode(destination);
 }
 
-void rpl_send_DAO_ACK(ipv6_addr_t *destination)
+void rpl_send_DAO_ACK(ipv6_addr_t *destination, rpl_dodag_t *dodag)
 {
     if (destination) {
         DEBUGF("Send DAO ACK to %s\n", ipv6_addr_to_str(addr_str, IPV6_MAX_ADDR_STR_LEN, destination));
     }
 
-    rpl_send_DAO_ACK_mode(destination);
+    rpl_send_DAO_ACK_mode(destination, dodag);
 }
 
 void rpl_recv_DIO(void)
@@ -347,30 +348,38 @@ void rpl_recv_DAO_ACK(void)
 }
 
 void rpl_update_routing_table(void) {
-    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
+    rpl_dodag_t *my_dodag;
     rpl_routing_entry_t *rt;
-    if (my_dodag != NULL) {
-        rt = rpl_get_routing_table();
+    rpl_parent_t *parent, *parent_end;
 
-        for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
-            if (rt[i].used) {
-                if (rt[i].lifetime <= 1) {
-                    memset(&rt[i], 0, sizeof(rt[i]));
-                }
-                else {
-                    rt[i].lifetime = rt[i].lifetime - RPL_LIFETIME_STEP;
+    rt = rpl_get_routing_table();
+    for(uint8_t i = 0; i < RPL_MAX_DODAGS; i++) {
+        my_dodag = &dodags[i];
+        if (my_dodag->used) {
+            for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
+                if (rt[i].used && rt[i].dodag != NULL && rpl_equal_id(&rt[i].dodag->dodag_id, &my_dodag->dodag_id)) {
+                    if (rt[i].lifetime <= 1) {
+                        memset(&rt[i], 0, sizeof(rt[i]));
+                    }
+                    else {
+                        rt[i].lifetime = rt[i].lifetime - RPL_LIFETIME_STEP;
+                    }
                 }
             }
-        }
 
-        /* Parent is NULL for root too */
-        if (my_dodag->my_preferred_parent != NULL) {
-            if (my_dodag->my_preferred_parent->lifetime <= 1) {
-                DEBUGF("parent lifetime timeout\n");
-                rpl_parent_update(NULL);
+            /* Parent is NULL for root too */
+            for (parent = &parents[0], parent_end = parents + RPL_MAX_PARENTS; parent < parent_end; parent++) {
+                if (parent->dodag != NULL && rpl_equal_id(&parent->dodag->dodag_id, &my_dodag->dodag_id)
+                        && parent->lifetime > 0) {
+                    parent->lifetime = parent->lifetime - RPL_LIFETIME_STEP;
+                }
             }
-            else {
-                my_dodag->my_preferred_parent->lifetime = my_dodag->my_preferred_parent->lifetime - RPL_LIFETIME_STEP;
+
+            if (my_dodag->my_preferred_parent != NULL) {
+                if (my_dodag->my_preferred_parent->lifetime < 1) {
+                    DEBUGF("parent lifetime timeout\n");
+                    rpl_parent_update(NULL, my_dodag);
+                }
             }
         }
     }
@@ -407,7 +416,7 @@ void dao_ack_received(rpl_dodag_t *dodag)
 void dao_handle_send(rpl_dodag_t *dodag) {
     if ((dodag->ack_received == false) && (dodag->dao_counter < DAO_SEND_RETRIES)) {
         dodag->dao_counter++;
-        rpl_send_DAO(NULL, 0, true, 0);
+        rpl_send_DAO(NULL, 0, true, 0, dodag);
         dodag->dao_time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
         vtimer_remove(&dodag->dao_timer);
         vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
@@ -441,12 +450,12 @@ ipv6_addr_t *rpl_get_next_hop(ipv6_addr_t *addr)
         }
     }
 
-    return (rpl_get_my_preferred_parent());
+    return NULL;
 }
 
-void rpl_add_routing_entry(ipv6_addr_t *addr, ipv6_addr_t *next_hop, uint16_t lifetime)
+void rpl_add_routing_entry(ipv6_addr_t *addr, ipv6_addr_t *next_hop, uint16_t lifetime, rpl_dodag_t *dodag)
 {
-    rpl_routing_entry_t *entry = rpl_find_routing_entry(addr);
+    rpl_routing_entry_t *entry = rpl_find_routing_entry(addr, dodag);
 
     if (entry != NULL) {
         entry->lifetime = lifetime;
@@ -461,6 +470,7 @@ void rpl_add_routing_entry(ipv6_addr_t *addr, ipv6_addr_t *next_hop, uint16_t li
             memcpy(&rpl_routing_table[i].next_hop, next_hop, sizeof(ipv6_addr_t));
             rpl_routing_table[i].lifetime = lifetime;
             rpl_routing_table[i].used = 1;
+            rpl_routing_table[i].dodag = dodag;
             break;
         }
     }
@@ -479,13 +489,16 @@ void rpl_del_routing_entry(ipv6_addr_t *addr)
     }
 }
 
-rpl_routing_entry_t *rpl_find_routing_entry(ipv6_addr_t *addr)
+rpl_routing_entry_t *rpl_find_routing_entry(ipv6_addr_t *addr, rpl_dodag_t *dodag)
 {
 
     DEBUGF("Finding routing entry %s\n", ipv6_addr_to_str(addr_str, IPV6_MAX_ADDR_STR_LEN, addr));
 
     for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
-        if (rpl_routing_table[i].used && rpl_equal_id(&rpl_routing_table[i].address, addr)) {
+        if (rpl_routing_table[i].used
+                && rpl_routing_table[i].dodag != NULL
+                && rpl_equal_id(&rpl_routing_table[i].dodag->dodag_id, &dodag->dodag_id)
+                && rpl_equal_id(&rpl_routing_table[i].address, addr)) {
             return &rpl_routing_table[i];
         }
     }

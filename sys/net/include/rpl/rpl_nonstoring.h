@@ -70,9 +70,10 @@ uint8_t rpl_is_root_mode(void);
  * This function sends a DIO message to a given destination. This is triggered by the trickle-timer.
  *
  * @param[in] destination           IPv6-address of the destination of the DIO. Should be a direct neighbor or multicast address.
+ * @param[in] dodag                 the appropriate DODAG
  *
  */
-void rpl_send_DIO_mode(ipv6_addr_t *destination);
+void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *dodag);
 
 /**
  * @brief Sends a DAO-message to a given destination
@@ -83,9 +84,10 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination);
  * @param[in] lifetime              Lifetime of the node. Reflect the estimated time of presence in the network.
  * @param[in] default_lifetime      If true, param lifetime is ignored and lifetime is DODAG default-lifetime
  * @param[in] start_index           Describes whether a DAO must be split because of too many routing entries.
+ * @param[in] dodag                 the appropriate DODAG
  *
  */
-void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index);
+void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *dodag);
 
 /**
  * @brief Sends a DIS-message to a given destination
@@ -103,9 +105,10 @@ void rpl_send_DIS_mode(ipv6_addr_t *destination);
  * This function sends a DAO_ACK message to a given destination.
  *
  * @param[in] destination           IPv6-address of the destination of the DAO_ACK. Should be a direct neighbor.
+ * @param[in] dodag                 the appropriate DODAG
  *
  */
-void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination);
+void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination, rpl_dodag_t *dodag);
 
 /**
  * @brief Receives a DIO message

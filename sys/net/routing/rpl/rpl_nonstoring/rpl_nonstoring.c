@@ -224,16 +224,13 @@ uint8_t rpl_is_root_mode(void)
     return i_am_root;
 }
 
-void rpl_send_DIO_mode(ipv6_addr_t *destination)
+void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *mydodag)
 {
     if (i_am_leaf) {
         return;
     }
 
-    rpl_dodag_t *mydodag;
     icmp_send_buf = get_rpl_send_icmpv6_buf(ipv6_ext_hdr_len);
-
-    mydodag = rpl_get_my_dodag();
 
     if (mydodag == NULL) {
         DEBUGF("Error - trying to send DIO without being part of a dodag.\n");
@@ -283,11 +280,11 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination)
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
 }
 
-void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index)
+void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *my_dodag)
 {
     (void) start_index;
 
-    if (i_am_root) {
+    if (my_dodag->i_am_root) {
         return;
     }
 
@@ -295,9 +292,7 @@ void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_
     start_index++;
      */
 
-    rpl_dodag_t *my_dodag;
-
-    if ((my_dodag = rpl_get_my_dodag()) == NULL) {
+    if (my_dodag == NULL) {
         DEBUGF("send_DAO: Not part of a DODAG\n");
         return;
     }
@@ -341,9 +336,9 @@ void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_
     rpl_send_opt_transit_buf->path_control = 0x00;
     rpl_send_opt_transit_buf->path_sequence = 0x00;
     rpl_send_opt_transit_buf->path_lifetime = lifetime;
-    memcpy(&rpl_send_opt_transit_buf->parent, rpl_get_my_preferred_parent(), sizeof(ipv6_addr_t));
+    memcpy(&rpl_send_opt_transit_buf->parent, rpl_get_my_preferred_parent(my_dodag), sizeof(ipv6_addr_t));
     DEBUGF("My pref parent is:%s\n", ipv6_addr_to_str(addr_str_mode, IPV6_MAX_ADDR_STR_LEN,
-            rpl_get_my_preferred_parent()));
+            rpl_get_my_preferred_parent(my_dodag)));
     DEBUGF("Send DAO with instance %04X and sequence %04X to %s\n",
            rpl_send_dao_buf->rpl_instanceid, rpl_send_dao_buf->dao_sequence,
            ipv6_addr_to_str(addr_str_mode, IPV6_MAX_ADDR_STR_LEN, destination));
@@ -366,10 +361,11 @@ void rpl_send_DIS_mode(ipv6_addr_t *destination)
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
 }
 
-void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination)
+void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination, rpl_dodag_t *dodag)
 {
     /* This is just for suppressing the mandatory unused parameter warning */
     (void) destination;
+    (void) dodag;
     /* A DAO-ACK would require a complete source routing header. Since DAO-ACKS are optional, this one is suppressed in
      * non-storing mode.
      */
@@ -578,7 +574,7 @@ void rpl_recv_DIO_mode(void)
 
     /* update parent rank */
     parent->rank = rpl_dio_buf->rank;
-    rpl_parent_update(parent);
+    rpl_parent_update(parent, my_dodag);
 
     if (my_dodag->my_preferred_parent == NULL) {
         DEBUGF("My dodag has no preferred_parent yet - seems to be odd since I have a parent.\n");
@@ -747,7 +743,7 @@ void rpl_recv_DIS_mode(void)
         }
     }
 
-    rpl_send_DIO(&ipv6_buf->srcaddr);
+    rpl_send_DIO(&ipv6_buf->srcaddr, my_dodag);
 
 }
 
@@ -803,34 +799,6 @@ void rpl_send(ipv6_addr_t *destination, uint8_t *payload, uint16_t p_len, uint8_
         memcpy(p_ptr, payload, p_len);
     }
 
-    if (ipv6_addr_is_multicast(&ipv6_send_buf->destaddr)) {
-        ipv6_send_packet(ipv6_send_buf, NULL);
-    }
-    else {
-        /* find appropriate next hop before sending */
-        ipv6_addr_t *next_hop = rpl_get_next_hop(&ipv6_send_buf->destaddr);
-        DEBUGF("Trying to send to destination: %s\n", ipv6_addr_to_str(addr_str_mode,
-                IPV6_MAX_ADDR_STR_LEN, next_hop));
-
-        if (next_hop == NULL) {
-            if (i_am_root) {
-                DEBUGF("[Error] destination unknown: %s\n", ipv6_addr_to_str(addr_str_mode,
-                        IPV6_MAX_ADDR_STR_LEN, &ipv6_send_buf->destaddr));
-                return;
-            }
-            else {
-                next_hop = rpl_get_my_preferred_parent();
-
-                if (next_hop == NULL) {
-                    DEBUGF("[Error] no preferred parent, dropping package\n");
-                    return;
-                }
-            }
-        }
-
-        DEBUGF("Sending done (for RPL)\n");
-        ipv6_send_packet(ipv6_send_buf, NULL);
-    }
-
+    ipv6_send_packet(ipv6_send_buf, NULL);
 }
 

@@ -34,9 +34,7 @@ char addr_str_mode[IPV6_MAX_ADDR_STR_LEN];
 
 /* global variables */
 static ipv6_addr_t my_address;
-
-/* Identification variables */
-static char i_am_root;
+rpl_dodag_t dodags[RPL_MAX_DODAGS];
 
 /* in send buffer we need space fpr LL_HDR */
 static uint8_t rpl_send_buffer[BUFFER_SIZE];
@@ -213,7 +211,7 @@ void rpl_init_root_mode(uint8_t instanceid)
         return;
     }
 
-    i_am_root = 1;
+    dodag->i_am_root = 1;
     start_trickle(rpl_process_pid, &dodag->trickle, RPL_MSG_TYPE_TRICKLE_INTERVAL, RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
     DEBUGF("ROOT INIT FINISHED\n");
 
@@ -221,15 +219,18 @@ void rpl_init_root_mode(uint8_t instanceid)
 
 uint8_t rpl_is_root_mode(void)
 {
-    return i_am_root;
+    for (uint8_t i = 0; i < RPL_MAX_DODAGS; i++) {
+        if (dodags[i].i_am_root) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
-void rpl_send_DIO_mode(ipv6_addr_t *destination)
+void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *mydodag)
 {
-    rpl_dodag_t *mydodag;
     icmp_send_buf = get_rpl_send_icmpv6_buf(ipv6_ext_hdr_len);
-
-    mydodag = rpl_get_my_dodag();
 
     if (mydodag == NULL) {
         DEBUGF("Error - trying to send DIO without being part of a dodag.\n");
@@ -277,15 +278,13 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination)
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
 }
 
-void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index)
+void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *my_dodag)
 {
-    if (i_am_root) {
+    if (my_dodag->i_am_root) {
         return;
     }
 
-    rpl_dodag_t *my_dodag;
-
-    if ((my_dodag = rpl_get_my_dodag()) == NULL) {
+    if (my_dodag == NULL) {
         DEBUGF("send_DAO: I have no my_dodag\n");
         return;
     }
@@ -369,7 +368,7 @@ void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
 
     if (continue_index > 1) {
-        rpl_send_DAO(destination, lifetime, default_lifetime, continue_index);
+        rpl_send_DAO(destination, lifetime, default_lifetime, continue_index, my_dodag);
     }
 }
 
@@ -386,11 +385,8 @@ void rpl_send_DIS_mode(ipv6_addr_t *destination)
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
 }
 
-void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination)
+void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination, rpl_dodag_t *my_dodag)
 {
-    rpl_dodag_t *my_dodag;
-    my_dodag = rpl_get_my_dodag();
-
     if (my_dodag == NULL) {
         return;
     }
@@ -514,6 +510,18 @@ void rpl_recv_DIO_mode(void)
     /* handle packet content... */
     rpl_dodag_t *my_dodag = rpl_get_joined_dodag(dio_inst->id);
 
+    if (my_dodag != NULL && !rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {
+        rpl_parent_t tmp_parent;
+        tmp_parent.rank = rpl_dio_buf->rank;
+        tmp_parent.dodag = &dio_dodag;
+        dio_dodag.my_preferred_parent = &tmp_parent;
+        dio_dodag.my_rank = dio_dodag.of->calc_rank(&tmp_parent, tmp_parent.rank);
+        if (my_dodag != my_dodag->of->which_dodag(my_dodag, &dio_dodag)) {
+            rpl_leave_dodag(my_dodag);
+            my_dodag = NULL;
+        }
+    }
+
     if (my_dodag == NULL) {
         if (!has_dodag_conf_opt) {
             DEBUGF("send DIS\n");
@@ -600,9 +608,10 @@ void rpl_recv_DIO_mode(void)
 
     /* update parent rank */
     parent->rank = rpl_dio_buf->rank;
-    rpl_parent_update(parent);
+    rpl_parent_update(parent, my_dodag);
 
     if (my_dodag->my_preferred_parent == NULL) {
+        rpl_leave_dodag(my_dodag);
         DEBUGF("My dodag has no preferred_parent yet - seems to be odd since I have a parent...\n");
     }
     else if (rpl_equal_id(&parent->addr, &my_dodag->my_preferred_parent->addr) &&
@@ -616,17 +625,17 @@ void rpl_recv_DIO_mode(void)
 
 void rpl_recv_DAO_mode(void)
 {
-    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
+    ipv6_buf = get_rpl_ipv6_buf();
+    rpl_dao_buf = get_rpl_dao_buf();
+    DEBUG("instance %04X ", rpl_dao_buf->rpl_instanceid);
+    DEBUG("sequence %04X\n", rpl_dao_buf->dao_sequence);
+
+    rpl_dodag_t *my_dodag = rpl_get_joined_dodag(rpl_dao_buf->rpl_instanceid);
 
     if (my_dodag == NULL) {
         DEBUG("[Error] got DAO although not a DODAG\n");
         return;
     }
-
-    ipv6_buf = get_rpl_ipv6_buf();
-    rpl_dao_buf = get_rpl_dao_buf();
-    DEBUG("instance %04X ", rpl_dao_buf->rpl_instanceid);
-    DEBUG("sequence %04X\n", rpl_dao_buf->dao_sequence);
 
     int len = DAO_BASE_LEN;
     uint8_t increment_seq = 0;
@@ -676,7 +685,7 @@ void rpl_recv_DAO_mode(void)
                       ipv6_addr_to_str(addr_str_mode, IPV6_MAX_ADDR_STR_LEN, &ipv6_buf->srcaddr),
                       (rpl_opt_transit_buf->path_lifetime * my_dodag->lifetime_unit));
                 rpl_add_routing_entry(&rpl_opt_target_buf->target, &ipv6_buf->srcaddr,
-                        rpl_opt_transit_buf->path_lifetime * my_dodag->lifetime_unit);
+                        rpl_opt_transit_buf->path_lifetime * my_dodag->lifetime_unit, my_dodag);
                 increment_seq = 1;
                 break;
             }
@@ -696,7 +705,7 @@ void rpl_recv_DAO_mode(void)
         }
     }
 
-    rpl_send_DAO_ACK(&ipv6_buf->srcaddr);
+    rpl_send_DAO_ACK(&ipv6_buf->srcaddr, my_dodag);
 
     if (increment_seq) {
         RPL_COUNTER_INCREMENT(my_dodag->dao_seq);
@@ -706,15 +715,11 @@ void rpl_recv_DAO_mode(void)
 
 void rpl_recv_DIS_mode(void)
 {
-    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
-
-    if (my_dodag == NULL) {
-        return;
-    }
-
     ipv6_buf = get_rpl_ipv6_buf();
     rpl_dis_buf = get_rpl_dis_buf();
     int len = DIS_BASE_LEN;
+    rpl_dodag_t *dodag, *end;
+    uint8_t options_missing = 1;
 
     while (len < (NTOHS(ipv6_buf->length) - ICMPV6_HDR_LEN)) {
         rpl_opt_buf = get_rpl_opt_buf(len);
@@ -731,6 +736,7 @@ void rpl_recv_DIS_mode(void)
             }
 
             case (RPL_OPT_SOLICITED_INFO): {
+                options_missing = 0;
                 len += RPL_OPT_SOLICITED_INFO_LEN;
 
                 /* extract and check */
@@ -741,22 +747,26 @@ void rpl_recv_DIS_mode(void)
 
                 rpl_opt_solicited_buf = get_rpl_opt_solicited_buf(len);
 
-                if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_I_MASK) {
-                    if (my_dodag->instance->id != rpl_opt_solicited_buf->rplinstanceid) {
-                        return;
+                for (dodag = &dodags[0], end = dodag + RPL_MAX_DODAGS; dodag < end; dodag++) {
+                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_I_MASK) {
+                        if (dodag->instance->id != rpl_opt_solicited_buf->rplinstanceid) {
+                            continue;
+                        }
                     }
-                }
 
-                if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_D_MASK) {
-                    if (!rpl_equal_id(&my_dodag->dodag_id, &rpl_opt_solicited_buf->dodagid)) {
-                        return;
+                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_D_MASK) {
+                        if (!rpl_equal_id(&dodag->dodag_id, &rpl_opt_solicited_buf->dodagid)) {
+                            continue;
+                        }
                     }
-                }
 
-                if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_V_MASK) {
-                    if (my_dodag->version != rpl_opt_solicited_buf->version) {
-                        return;
+                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_V_MASK) {
+                        if (dodag->version != rpl_opt_solicited_buf->version) {
+                            continue;
+                        }
                     }
+
+                    rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
                 }
 
                 break;
@@ -767,19 +777,22 @@ void rpl_recv_DIS_mode(void)
         }
     }
 
-    rpl_send_DIO(&ipv6_buf->srcaddr);
-
+    if (options_missing) {
+        for (dodag = &dodags[0], end = dodag + RPL_MAX_DODAGS; dodag < end; dodag++) {
+            rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
+        }
+    }
 }
 
 void rpl_recv_dao_ack_mode(void)
 {
-    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
+    rpl_dao_ack_buf = get_rpl_dao_ack_buf();
+
+    rpl_dodag_t *my_dodag = rpl_get_joined_dodag(rpl_dao_ack_buf->rpl_instanceid);
 
     if (my_dodag == NULL) {
         return;
     }
-
-    rpl_dao_ack_buf = get_rpl_dao_ack_buf();
 
     if (rpl_dao_ack_buf->rpl_instanceid != my_dodag->instance->id) {
         return;
@@ -821,30 +834,5 @@ void rpl_send(ipv6_addr_t *destination, uint8_t *payload, uint16_t p_len, uint8_
         memcpy(p_ptr, payload, p_len);
     }
 
-    if (ipv6_addr_is_multicast(&ipv6_send_buf->destaddr)) {
-        ipv6_send_packet(ipv6_send_buf, NULL);
-    }
-    else {
-        /* find appropriate next hop before sending */
-        ipv6_addr_t *next_hop = rpl_get_next_hop(&ipv6_send_buf->destaddr);
-
-        if (next_hop == NULL) {
-            if (i_am_root) {
-                DEBUGF("[Error] destination unknown: %s\n", ipv6_addr_to_str(addr_str_mode,
-                        IPV6_MAX_ADDR_STR_LEN, &ipv6_send_buf->destaddr));
-                return;
-            }
-            else {
-                next_hop = rpl_get_my_preferred_parent();
-
-                if (next_hop == NULL) {
-                    DEBUGF("[Error] no preferred parent, dropping package\n");
-                    return;
-                }
-            }
-        }
-
-        ipv6_send_packet(ipv6_send_buf, NULL);
-    }
-
+    ipv6_send_packet(ipv6_send_buf, NULL);
 }

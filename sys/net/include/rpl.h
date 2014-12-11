@@ -84,9 +84,10 @@ void rpl_init_root(uint8_t instanceid);
  * sending function of the chosen mode.
  *
  * @param[in] destination       IPv6-address of the destination of the DIO. Should be a direct neighbor.
+ * @param[in] dodag             the appropriate DODAG
  *
  */
-void rpl_send_DIO(ipv6_addr_t *destination);
+void rpl_send_DIO(ipv6_addr_t *destination, rpl_dodag_t *dodag);
 
 /**
  * @brief Sends a DAO-message to a given destination
@@ -99,9 +100,10 @@ void rpl_send_DIO(ipv6_addr_t *destination);
  * @param[in] lifetime          Lifetime of the node. Reflect the estimated time of presence in the network.
  * @param[in] default_lifetime  If true, param lifetime is ignored and lifetime is dodag default-lifetime
  * @param[in] start_index       Describes whether a DAO must be split because of too many routing entries.
+ * @param[in] dodag             the appropriate DODAG
  *
  */
-void rpl_send_DAO(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index);
+void rpl_send_DAO(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *dodag);
 
 /**
  * @brief Sends a DIS-message to a given destination
@@ -123,9 +125,10 @@ void rpl_send_DIS(ipv6_addr_t *destination);
  * sending function of the chosen mode.
  *
  * @param[in] destination       IPv6-address of the destination of the DAO_ACK. Should be a direct neighbor.
+ * @param[in] dodag             the appropriate DODAG
  *
  */
-void rpl_send_DAO_ACK(ipv6_addr_t *destination);
+void rpl_send_DAO_ACK(ipv6_addr_t *destination, rpl_dodag_t *dodag);
 
 /**
  * @brief Receives a DIO message
@@ -195,9 +198,10 @@ ipv6_addr_t *rpl_get_next_hop(ipv6_addr_t *addr);
  * @param[in] addr                  Destination address
  * @param[in] next_hop              Next hop address
  * @param[in] lifetime              Lifetime of the entry
+ * @param[in] dodag                 the appropriate DODAG
  *
  * */
-void rpl_add_routing_entry(ipv6_addr_t *addr, ipv6_addr_t *next_hop, uint16_t lifetime);
+void rpl_add_routing_entry(ipv6_addr_t *addr, ipv6_addr_t *next_hop, uint16_t lifetime, rpl_dodag_t *dodag);
 
 /**
  * @brief Deletes routing entry to routing table
@@ -217,11 +221,12 @@ void rpl_del_routing_entry(ipv6_addr_t *addr);
  * common routing information base.
  *
  * @param[in] addr                  Destination address
+ * @param[in] dodag                 the appropriate DODAG
  *
  * @return Routing entry address
  *
  * */
-rpl_routing_entry_t *rpl_find_routing_entry(ipv6_addr_t *addr);
+rpl_routing_entry_t *rpl_find_routing_entry(ipv6_addr_t *addr, rpl_dodag_t *dodag);
 
 /**
  * @brief Clears routing table.

@@ -68,7 +68,7 @@ uint16_t calc_rank(rpl_parent_t *parent, uint16_t base_rank)
         add = DEFAULT_MIN_HOP_RANK_INCREASE;
     }
 
-    if (base_rank + add < base_rank) {
+    if ((base_rank + add < base_rank) || (base_rank + add >= INFINITE_RANK)) {
         return INFINITE_RANK;
     }
 
@@ -78,7 +78,7 @@ uint16_t calc_rank(rpl_parent_t *parent, uint16_t base_rank)
 /* We simply return the Parent with lower rank */
 rpl_parent_t *which_parent(rpl_parent_t *p1, rpl_parent_t *p2)
 {
-    if (p1->rank < p2->rank) {
+    if (p1->rank <= p2->rank) {
         return p1;
     }
 
@@ -88,6 +88,5 @@ rpl_parent_t *which_parent(rpl_parent_t *p1, rpl_parent_t *p2)
 /* Not used yet, as the implementation only makes use of one dodag for now. */
 rpl_dodag_t *which_dodag(rpl_dodag_t *d1, rpl_dodag_t *d2)
 {
-    (void) d2;
-    return d1;
+    return d1->my_rank <= d2->my_rank ? d1 : d2;
 }
