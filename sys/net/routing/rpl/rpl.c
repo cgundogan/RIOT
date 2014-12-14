@@ -349,7 +349,7 @@ void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
                     memset(&rt[i], 0, sizeof(rt[i]));
                 }
                 else {
-                    rt[i].lifetime--;
+                    rt[i].lifetime = rt[i].lifetime - RPL_LIFETIME_STEP;
                 }
             }
         }
@@ -361,7 +361,7 @@ void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
                 rpl_parent_update(NULL);
             }
             else {
-                my_dodag->my_preferred_parent->lifetime--;
+                my_dodag->my_preferred_parent->lifetime = my_dodag->my_preferred_parent->lifetime - RPL_LIFETIME_STEP;
             }
         }
     }

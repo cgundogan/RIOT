@@ -156,6 +156,7 @@ static inline bool RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define RPL_ROOT_RANK 256
 #define RPL_DEFAULT_LIFETIME 0xff
 #define RPL_LIFETIME_UNIT 2
+#define RPL_LIFETIME_STEP 2
 #define RPL_GROUNDED 1
 #define RPL_PRF_MASK 0x7
 #define RPL_MOP_SHIFT 3

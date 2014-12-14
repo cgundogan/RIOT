@@ -106,7 +106,7 @@ rpl_dodag_t *rpl_new_dodag(uint8_t instanceid, ipv6_addr_t *dodagid)
             dodag->used = 1;
             dodag->ack_received = true;
             dodag->dao_counter = 0;
-            dodag->rt_time = timex_set(0, 1000000);
+            dodag->rt_time = timex_set(0, RPL_LIFETIME_STEP * 1000000);
             dodag->trickle.callback.func = &rpl_trickle_send_dio;
             dodag->trickle.callback.args = (void *) &mcast;
             memcpy(&dodag->dodag_id, dodagid, sizeof(*dodagid));
