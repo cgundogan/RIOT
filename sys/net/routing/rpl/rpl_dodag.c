@@ -372,7 +372,7 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
     my_dodag->dao_seq = RPL_COUNTER_INIT;
     my_dodag->min_rank = dodag->my_rank;
 
-    preferred_parent = rpl_new_parent(dodag, parent, parent_rank);
+    preferred_parent = rpl_new_parent(my_dodag, parent, parent_rank);
 
     if (preferred_parent == NULL) {
         rpl_del_dodag(my_dodag);
