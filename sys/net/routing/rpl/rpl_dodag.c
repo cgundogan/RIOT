@@ -382,6 +382,33 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
     my_dodag->my_preferred_parent = preferred_parent;
     my_dodag->my_rank = dodag->of->calc_rank(preferred_parent, dodag->my_rank);
 
+    my_dodag->is_p2p = dodag->is_p2p;
+    if (my_dodag->is_p2p) {
+        my_dodag->p2p_reply = dodag->p2p_reply;
+        my_dodag->p2p_hop_by_hop = dodag->p2p_hop_by_hop;
+        my_dodag->p2p_no_of_routes = dodag->p2p_no_of_routes;
+        my_dodag->p2p_compr = dodag->p2p_compr;
+        my_dodag->p2p_lifetime = dodag->p2p_lifetime;
+        my_dodag->p2p_maxrank_nexthop = dodag->p2p_maxrank_nexthop;
+        my_dodag->p2p_target = dodag->p2p_target;
+        memcpy(my_dodag->p2p_addresses, dodag->p2p_addresses, sizeof(ipv6_addr_t) * RPL_P2P_RDO_MAX_ADDRESSES);
+
+        ipv6_addr_t src;
+        ipv6_net_if_get_best_src_addr(&src, &mcast);
+
+        if (!rpl_equal_id(&src, &my_dodag->p2p_target)) {
+            for(uint8_t i = 0; i < RPL_P2P_RDO_MAX_ADDRESSES; i++) {
+               if (my_dodag->p2p_addresses[i].uint32[3] == 0) {
+                   memcpy(&my_dodag->p2p_addresses[i], &src, sizeof(ipv6_addr_t));
+                   break;
+               }
+            }
+        }
+        else {
+            my_dodag->node_status = LEAF_NODE;
+        }
+    }
+
     DEBUG("Joint DODAG:\n");
     DEBUG("\tMOP:\t%02X\n", my_dodag->mop);
     DEBUG("\tminhoprankincrease :\t%04X\n", my_dodag->minhoprankincrease);

@@ -47,6 +47,7 @@ static ipv6_hdr_t *ipv6_send_buf;
 static struct rpl_dio_t *rpl_send_dio_buf;
 static struct rpl_dao_t *rpl_send_dao_buf;
 static rpl_opt_dodag_conf_t *rpl_send_opt_dodag_conf_buf;
+static rpl_opt_p2p_rdo_t *rpl_send_opt_p2p_rdo_buf;
 static rpl_opt_target_t *rpl_send_opt_target_buf;
 static rpl_opt_transit_t *rpl_send_opt_transit_buf;
 
@@ -58,6 +59,7 @@ static struct rpl_dao_ack_t *rpl_dao_ack_buf;
 static rpl_opt_dodag_conf_t *rpl_opt_dodag_conf_buf;
 static rpl_opt_target_t *rpl_opt_target_buf;
 static rpl_opt_transit_t *rpl_opt_transit_buf;
+static rpl_opt_p2p_rdo_t *rpl_opt_p2p_rdo_buf;
 static struct rpl_dis_t *rpl_dis_buf;
 static rpl_opt_t *rpl_opt_buf;
 static rpl_opt_solicited_t *rpl_opt_solicited_buf;
@@ -113,6 +115,11 @@ static rpl_opt_transit_t *get_rpl_send_opt_transit_buf(uint8_t rpl_msg_len)
     return ((rpl_opt_transit_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
+static rpl_opt_p2p_rdo_t *get_rpl_send_opt_p2p_rdo_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_p2p_rdo_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+
 
 /* RECEIVE BUFFERS */
 static ipv6_hdr_t *get_rpl_ipv6_buf(void)
@@ -165,9 +172,69 @@ static rpl_opt_solicited_t *get_rpl_opt_solicited_buf(uint8_t rpl_msg_len)
     return ((rpl_opt_solicited_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
+static rpl_opt_p2p_rdo_t *get_rpl_opt_p2p_rdo_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_p2p_rdo_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+
 void rpl_init_mode(ipv6_addr_t *init_address)
 {
     memcpy(&my_address, init_address, sizeof(ipv6_addr_t));
+}
+
+void rpl_init_p2p_mode(uint8_t instanceid, uint8_t reply, uint8_t hop_by_hop, uint8_t no_of_routes,
+        uint8_t compr, uint8_t lifetime, uint8_t maxrank_nexthop, ipv6_addr_t target)
+{
+    rpl_instance_t *inst;
+    rpl_dodag_t *dodag;
+
+    inst = rpl_new_instance(instanceid);
+
+    if (inst == NULL) {
+        DEBUGF("Error - No memory for another RPL instance\n");
+        return;
+    }
+
+    inst->joined = 1;
+
+    dodag = rpl_new_dodag(instanceid, &my_address);
+
+    if (dodag != NULL) {
+        dodag->of = (struct rpl_of_t *) rpl_get_of_for_ocp(RPL_DEFAULT_OCP);
+        dodag->instance = inst;
+        dodag->mop = RPL_P2P_MODE;
+        dodag->dtsn = 0;
+        dodag->prf = 0;
+        dodag->dio_interval_doubling = DEFAULT_DIO_INTERVAL_DOUBLINGS;
+        dodag->dio_min = DEFAULT_DIO_INTERVAL_MIN;
+        dodag->dio_redundancy = DEFAULT_DIO_REDUNDANCY_CONSTANT;
+        dodag->maxrankincrease = 0;
+        dodag->minhoprankincrease = (uint16_t)DEFAULT_MIN_HOP_RANK_INCREASE;
+        dodag->default_lifetime = (uint8_t)RPL_DEFAULT_LIFETIME;
+        dodag->lifetime_unit = RPL_LIFETIME_UNIT;
+        dodag->version = 0;
+        dodag->grounded = 1;
+        dodag->node_status = (uint8_t) ROOT_NODE;
+        dodag->my_rank = RPL_ROOT_RANK;
+        dodag->joined = 1;
+        dodag->my_preferred_parent = NULL;
+        dodag->i_am_root = 1;
+        dodag->is_p2p = 1;
+        dodag->p2p_reply = reply;
+        dodag->p2p_hop_by_hop = hop_by_hop;
+        dodag->p2p_no_of_routes = no_of_routes;
+        dodag->p2p_compr = compr;
+        dodag->p2p_lifetime = lifetime;
+        dodag->p2p_maxrank_nexthop = maxrank_nexthop;
+        dodag->p2p_target = target;
+    }
+    else {
+        DEBUGF("Error - could not generate DODAG\n");
+        return;
+    }
+
+    start_trickle(rpl_process_pid, &dodag->trickle, RPL_MSG_TYPE_TRICKLE_INTERVAL, RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
+    DEBUGF("P2P ROOT INIT FINISHED\n");
 }
 
 void rpl_init_root_mode(uint8_t instanceid)
@@ -237,6 +304,11 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *mydodag)
         return;
     }
 
+    if (mydodag->node_status == LEAF_NODE) {
+        DEBUGF("Leaf Node - do not send DIOs\n");
+        return;
+    }
+
     icmp_send_buf->type = ICMPV6_TYPE_RPL_CONTROL;
     icmp_send_buf->code = ICMP_CODE_DIO;
 
@@ -273,6 +345,27 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *mydodag)
     rpl_send_opt_dodag_conf_buf->lifetime_unit = mydodag->lifetime_unit;
 
     opt_hdr_len += RPL_OPT_DODAG_CONF_LEN;
+
+    if (mydodag->is_p2p) {
+        rpl_send_opt_p2p_rdo_buf = get_rpl_send_opt_p2p_rdo_buf(DIO_BASE_LEN + opt_hdr_len);
+        rpl_send_opt_p2p_rdo_buf->type = RPL_OPT_P2P_RDO;
+        rpl_send_opt_p2p_rdo_buf->reply = mydodag->p2p_reply;
+        rpl_send_opt_p2p_rdo_buf->hop_by_hop = mydodag->p2p_hop_by_hop;
+        rpl_send_opt_p2p_rdo_buf->no_of_routes = mydodag->p2p_no_of_routes;
+        rpl_send_opt_p2p_rdo_buf->compr = mydodag->p2p_compr;
+        rpl_send_opt_p2p_rdo_buf->lifetime = mydodag->p2p_lifetime;
+        rpl_send_opt_p2p_rdo_buf->target = mydodag->p2p_target;
+        rpl_send_opt_p2p_rdo_buf->length = RPL_OPT_P2P_RDO_LEN;
+
+        ipv6_addr_t *addresses = (ipv6_addr_t *) (rpl_send_opt_p2p_rdo_buf + 1);
+        for (uint8_t i = 0; i < RPL_P2P_RDO_MAX_ADDRESSES; i++) {
+            if (mydodag->p2p_addresses[i].uint32[3] != 0) {
+                memcpy(addresses++, &mydodag->p2p_addresses[i], sizeof(ipv6_addr_t));
+                rpl_send_opt_p2p_rdo_buf->length += sizeof(ipv6_addr_t);
+            }
+        }
+        opt_hdr_len += rpl_send_opt_p2p_rdo_buf->length + RPL_OPT_LEN;
+    }
 
     uint16_t plen = ICMPV6_HDR_LEN + DIO_BASE_LEN + opt_hdr_len;
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
@@ -500,6 +593,27 @@ void rpl_recv_DIO_mode(void)
                 }
 
                 len += RPL_OPT_PREFIX_INFO_LEN;
+                break;
+            }
+
+            case (RPL_OPT_P2P_RDO): {
+                dio_dodag.is_p2p = 1;
+                rpl_opt_p2p_rdo_buf = get_rpl_opt_p2p_rdo_buf(len);
+                dio_dodag.p2p_reply = rpl_opt_p2p_rdo_buf->reply;
+                dio_dodag.p2p_hop_by_hop = rpl_opt_p2p_rdo_buf->hop_by_hop;
+                dio_dodag.p2p_no_of_routes = rpl_opt_p2p_rdo_buf->no_of_routes;
+                dio_dodag.p2p_compr = rpl_opt_p2p_rdo_buf->compr;
+                dio_dodag.p2p_lifetime = rpl_opt_p2p_rdo_buf->lifetime;
+                dio_dodag.p2p_maxrank_nexthop = rpl_opt_p2p_rdo_buf->maxrank_nexthop;
+                dio_dodag.p2p_target = rpl_opt_p2p_rdo_buf->target;
+
+                ipv6_addr_t *addresses = (ipv6_addr_t *) (rpl_opt_p2p_rdo_buf + 1);
+                uint8_t j = 0;
+                for (uint8_t i = RPL_OPT_P2P_RDO_LEN; i < rpl_opt_p2p_rdo_buf->length; i += sizeof(ipv6_addr_t)) {
+                    memcpy(&dio_dodag.p2p_addresses[j++], addresses++, sizeof(ipv6_addr_t));
+                }
+
+                len += RPL_OPT_LEN + rpl_opt_p2p_rdo_buf->length;
                 break;
             }
 

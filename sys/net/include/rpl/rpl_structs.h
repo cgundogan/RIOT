@@ -28,6 +28,7 @@ extern "C" {
 #include <string.h>
 #include "ipv6.h"
 #include "trickle.h"
+#include "rpl_config.h"
 
 /* Modes of Operation */
 
@@ -167,6 +168,7 @@ typedef struct rpl_dodag_t {
     uint16_t min_rank;
     uint8_t joined;
     uint8_t i_am_root;
+    uint8_t is_p2p;
     rpl_parent_t *my_preferred_parent;
     struct rpl_of_t *of;
     trickle_t trickle;
@@ -174,6 +176,14 @@ typedef struct rpl_dodag_t {
     uint8_t dao_counter;
     timex_t dao_time;
     vtimer_t dao_timer;
+    uint8_t p2p_compr;
+    uint8_t p2p_no_of_routes;
+    uint8_t p2p_hop_by_hop;
+    uint8_t p2p_reply;
+    uint8_t p2p_lifetime;
+    uint8_t p2p_maxrank_nexthop;
+    ipv6_addr_t p2p_target;
+    ipv6_addr_t p2p_addresses[RPL_P2P_RDO_MAX_ADDRESSES];
 } rpl_dodag_t;
 
 typedef struct rpl_of_t {
@@ -194,6 +204,19 @@ typedef struct {
     uint8_t used;
     rpl_dodag_t *dodag;
 } rpl_routing_entry_t;
+
+/* P2P Route Discovery Option (P2P-RDO) (RFC 6997 Fig. 1, Page 15) */
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t length;
+    uint8_t compr           :4;
+    uint8_t no_of_routes    :1;
+    uint8_t hop_by_hop      :2;
+    uint8_t reply           :1;
+    uint8_t lifetime        :2;
+    uint8_t maxrank_nexthop :6;
+    ipv6_addr_t target;
+} rpl_opt_p2p_rdo_t;
 
 #ifdef __cplusplus
 }

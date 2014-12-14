@@ -44,6 +44,25 @@ extern "C" {
 void rpl_init_root_mode(uint8_t instanceid);
 
 /**
+ * @brief Initialization of RPL-root in P2P-Mode
+ *
+ * This function initializes all RPL resources especially for root purposes with the P2P-Mode MOP.
+ * Initializes a new DODAG and sets itself as root. Starts trickle-timer so sending DIOs starts and other can join the DODAG.
+ *
+ * @param[in] instanceid        the id of the instance
+ * @param[in] reply             if 1, the target MUST send a DRO
+ * @param[in] hop_by_hop        1, if hop-by-hop route is desired, 0 for source routes
+ * @param[in] no_of_routes      number of desired source routes, requires hop_by_hop = 0
+ * @param[in] compr             number of prefix octets elided from the target field and the address vector
+ * @param[in] lifetime          lifetime of the temporary dodag
+ * @param[in] maxrank_nexthop   in DIO: upper limit for rank, in P2P-DRO: index of next hop in the address vector
+ * @param[in] target            the target to find
+ *
+ */
+void rpl_init_p2p_mode(uint8_t instanceid, uint8_t reply, uint8_t hop_by_hop, uint8_t no_of_routes,
+        uint8_t compr, uint8_t lifetime, uint8_t maxrank_nexthop, ipv6_addr_t target);
+
+/**
  * @brief Initialization of RPL storing mode.
  *
  * This function initializes all basic RPL mode resources. For this mode this includes only acquiring the own

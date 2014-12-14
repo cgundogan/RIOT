@@ -136,6 +136,12 @@ return;
     rpl_init_root_mode(instanceid);
 }
 
+void rpl_init_p2p(uint8_t instanceid, uint8_t reply, uint8_t hop_by_hop, uint8_t no_of_routes,
+        uint8_t compr, uint8_t lifetime, uint8_t maxrank_nexthop, ipv6_addr_t target)
+{
+    rpl_init_p2p_mode(instanceid, reply, hop_by_hop, no_of_routes, compr, lifetime, maxrank_nexthop, target);
+}
+
 uint8_t rpl_is_root(void)
 {
     return rpl_is_root_mode();

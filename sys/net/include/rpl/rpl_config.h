@@ -31,6 +31,7 @@ extern "C" {
 #define RPL_NON_STORING_MODE    0x01
 #define RPL_STORING_MODE_NO_MC  0x02
 #define RPL_STORING_MODE_MC     0x03
+#define RPL_P2P_MODE            0x04
 
 #define RPL_SEQUENCE_WINDOW         16
 /* RPL Message type */
@@ -60,6 +61,7 @@ enum RPL_MSG_CODE {
 #define RPL_OPT_SOLICITED_INFO_LEN  21
 #define RPL_OPT_TARGET_LEN          20
 #define RPL_OPT_TRANSIT_LEN         22
+#define RPL_OPT_P2P_RDO_LEN         (2 + sizeof(ipv6_addr_t))
 
 /* message options */
 #define RPL_OPT_PAD1                 0
@@ -72,12 +74,15 @@ enum RPL_MSG_CODE {
 #define RPL_OPT_SOLICITED_INFO       7
 #define RPL_OPT_PREFIX_INFO          8
 #define RPL_OPT_TARGET_DESC          9
+#define RPL_OPT_P2P_RDO             10
 
 /* Counters */
 #define RPL_COUNTER_MAX                 255
 #define RPL_COUNTER_LOWER_REGION        127
 #define RPL_COUNTER_SEQ_WINDOW          16
 #define RPL_COUNTER_INIT                (RPL_COUNTER_MAX - RPL_COUNTER_SEQ_WINDOW + 1)
+
+#define RPL_P2P_RDO_MAX_ADDRESSES   10
 
 static inline uint8_t RPL_COUNTER_INCREMENT(uint8_t counter)
 {
