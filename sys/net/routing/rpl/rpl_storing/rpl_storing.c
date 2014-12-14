@@ -510,7 +510,7 @@ void rpl_recv_DIO_mode(void)
     /* handle packet content... */
     rpl_dodag_t *my_dodag = rpl_get_joined_dodag(dio_inst->id);
 
-    if (my_dodag != NULL && !rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {
+    if (my_dodag != NULL && !my_dodag->i_am_root && !rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {
         rpl_parent_t tmp_parent;
         tmp_parent.rank = rpl_dio_buf->rank;
         tmp_parent.dodag = &dio_dodag;
