@@ -380,6 +380,8 @@ void rpl_send_DIS_mode(ipv6_addr_t *destination)
     icmp_send_buf->code = ICMP_CODE_DIS;
 
     rpl_send_dis_buf = get_rpl_send_dis_buf();
+    rpl_send_dis_buf->flags = 0;
+    rpl_send_dis_buf->reserved = 0;
 
     uint16_t plen = ICMPV6_HDR_LEN + DIS_BASE_LEN;
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
@@ -731,7 +733,7 @@ void rpl_recv_DIS_mode(void)
             }
 
             case (RPL_OPT_PADN): {
-                len += rpl_opt_buf->length;
+                len += (rpl_opt_buf->length + RPL_OPT_LEN);
                 break;
             }
 
@@ -740,7 +742,7 @@ void rpl_recv_DIS_mode(void)
                 len += RPL_OPT_SOLICITED_INFO_LEN;
 
                 /* extract and check */
-                if (rpl_opt_buf->length != RPL_OPT_SOLICITED_INFO_LEN) {
+                if (rpl_opt_buf->length != (RPL_OPT_SOLICITED_INFO_LEN - RPL_OPT_LEN)) {
                     /* error malformed */
                     return;
                 }
@@ -767,6 +769,7 @@ void rpl_recv_DIS_mode(void)
                     }
 
                     rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
+                    reset_trickletimer(&dodag->trickle);
                 }
 
                 break;
@@ -779,7 +782,10 @@ void rpl_recv_DIS_mode(void)
 
     if (options_missing) {
         for (dodag = &dodags[0], end = dodag + RPL_MAX_DODAGS; dodag < end; dodag++) {
-            rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
+            if (dodag->joined) {
+                rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
+                reset_trickletimer(&dodag->trickle);
+            }
         }
     }
 }
