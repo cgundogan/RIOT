@@ -149,6 +149,8 @@ void rpl_leave_dodag(rpl_dodag_t *dodag)
     dodag->my_preferred_parent = NULL;
     rpl_delete_all_parents();
     stop_trickle(&dodag->trickle);
+    vtimer_remove(&dodag->dao_timer);
+    vtimer_remove(&dodag->rt_timer);
 }
 
 bool rpl_equal_id(ipv6_addr_t *id1, ipv6_addr_t *id2)
