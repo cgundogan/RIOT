@@ -46,19 +46,23 @@ void rpl_udp_init(int argc, char **argv)
     msg_t m;
     uint8_t chan = RADIO_CHANNEL;
 
-    if (argc != 2) {
-        printf("Usage: %s (r|n|h)\n", argv[0]);
+    if (argc != 2 && argc != 3) {
+        printf("Usage: %s (r|n|h|p) [target_id]\n", argv[0]);
         printf("\tr\tinitialize as root\n");
         printf("\tn\tinitialize as node router\n");
         printf("\th\tinitialize as non-routing node (host-mode)\n");
+        printf("\tp\tinitialize as root with P2P-Mode using the target_id\n");
         return;
     }
 
     char command = argv[1][0];
-    if ((command == 'n') || (command == 'r') || (command == 'h')) {
+    if ((command == 'n') || (command == 'r') || (command == 'h') || (command == 'p')) {
         printf("INFO: Initialize as %srouting %s on address %d\n",
                ((command == 'h') ? "non-" : ""),
                (((command == 'n') || (command == 'h')) ? "node" : "root"), id);
+        if (command == 'p') {
+            printf("P2P-Mode\n");
+        }
 
 #if (defined(MODULE_CC110X) || defined(MODULE_CC110X_LEGACY) || defined(MODULE_CC110X_LEGACY_CSMA))
         if (!id || (id > 255)) {
@@ -82,7 +86,18 @@ void rpl_udp_init(int argc, char **argv)
             }
 
             if (command == 'r') {
-                rpl_init_root(0);
+                rpl_init_root(id);
+                ipv6_iface_set_routing_provider(rpl_get_next_hop);
+                is_root = 1;
+            }
+            else if (command == 'p') {
+                ipv6_addr_t ll_address, target;
+                ipv6_addr_set_link_local_prefix(&ll_address);
+                ipv6_net_if_get_best_src_addr(&target, &ll_address);
+                uint8_t target_id;
+                sscanf(argv[2], "%" SCNu8, &target_id);
+                target.uint8[15] = target_id;
+                rpl_init_p2p(128 + id, 1, 1, 0, 0, 2, 0, target);
                 ipv6_iface_set_routing_provider(rpl_get_next_hop);
                 is_root = 1;
             }
