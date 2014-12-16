@@ -243,7 +243,9 @@ void rpl_delete_all_parents(rpl_dodag_t *my_dodag)
     }
 
     for (int i = 0; i < RPL_MAX_PARENTS; i++) {
-        if (parents[i].dodag != NULL && rpl_equal_id(&parents[i].dodag->dodag_id, &my_dodag->dodag_id)) {
+        if (parents[i].dodag != NULL
+                && parents[i].dodag->instance->id == my_dodag->instance->id
+                && rpl_equal_id(&parents[i].dodag->dodag_id, &my_dodag->dodag_id)) {
             memset(&parents[i], 0, sizeof(parents[i]));
         }
     }
