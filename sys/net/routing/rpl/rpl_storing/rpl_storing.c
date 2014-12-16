@@ -216,8 +216,6 @@ void rpl_init_root_mode(void)
 
     i_am_root = 1;
     start_trickle(rpl_process_pid, &dodag->trickle, RPL_MSG_TYPE_TRICKLE_INTERVAL, RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min), dodag->dio_interval_doubling, dodag->dio_redundancy);
-    vtimer_remove(&dodag->rt_timer);
-    vtimer_set_msg(&dodag->rt_timer, dodag->rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, dodag);
     DEBUGF("ROOT INIT FINISHED\n");
 
 }

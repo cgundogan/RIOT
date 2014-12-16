@@ -173,8 +173,6 @@ typedef struct rpl_dodag_t {
     uint8_t dao_counter;
     timex_t dao_time;
     vtimer_t dao_timer;
-    timex_t rt_time;
-    vtimer_t rt_timer;
 } rpl_dodag_t;
 
 typedef struct rpl_of_t {

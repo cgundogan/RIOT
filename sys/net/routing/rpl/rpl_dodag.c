@@ -106,7 +106,6 @@ rpl_dodag_t *rpl_new_dodag(uint8_t instanceid, ipv6_addr_t *dodagid)
             dodag->used = 1;
             dodag->ack_received = true;
             dodag->dao_counter = 0;
-            dodag->rt_time = timex_set(0, RPL_LIFETIME_STEP * 1000000);
             dodag->trickle.callback.func = &rpl_trickle_send_dio;
             dodag->trickle.callback.args = (void *) &mcast;
             memcpy(&dodag->dodag_id, dodagid, sizeof(*dodagid));
@@ -140,6 +139,7 @@ rpl_dodag_t *rpl_get_my_dodag(void)
 }
 void rpl_del_dodag(rpl_dodag_t *dodag)
 {
+    rpl_leave_dodag(dodag);
     memset(dodag, 0, sizeof(*dodag));
 }
 
@@ -150,7 +150,6 @@ void rpl_leave_dodag(rpl_dodag_t *dodag)
     rpl_delete_all_parents();
     stop_trickle(&dodag->trickle);
     vtimer_remove(&dodag->dao_timer);
-    vtimer_remove(&dodag->rt_timer);
 }
 
 bool rpl_equal_id(ipv6_addr_t *id1, ipv6_addr_t *id2)
@@ -383,8 +382,6 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
 
     start_trickle(rpl_process_pid, &my_dodag->trickle, RPL_MSG_TYPE_TRICKLE_INTERVAL, RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << my_dodag->dio_min), my_dodag->dio_interval_doubling, my_dodag->dio_redundancy);
     delay_dao(my_dodag);
-    vtimer_remove(&my_dodag->rt_timer);
-    vtimer_set_msg(&my_dodag->rt_timer, my_dodag->rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, my_dodag);
 }
 
 void rpl_global_repair(rpl_dodag_t *dodag, ipv6_addr_t *p_addr, uint16_t rank)

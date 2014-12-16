@@ -57,9 +57,11 @@ msg_t rpl_msg_queue[RPL_PKT_RECV_BUF_SIZE];
 char rpl_process_buf[RPL_PROCESS_STACKSIZE];
 uint8_t rpl_buffer[BUFFER_SIZE - LL_HDR_LEN];
 ipv6_addr_t mcast;
+timex_t rt_time;
+vtimer_t rt_timer;
 
 static void dao_handle_send(rpl_dodag_t *dodag);
-static void rpl_update_routing_table(rpl_dodag_t *my_dodag);
+static void rpl_update_routing_table(void);
 
 #if RPL_DEFAULT_MOP == RPL_NON_STORING_MODE
 uint8_t srh_buffer[BUFFER_SIZE];
@@ -112,6 +114,10 @@ uint8_t rpl_init(int if_id)
     /* initialize objective function manager */
     rpl_of_manager_init(&my_address);
     rpl_init_mode(&my_address);
+
+    rt_time = timex_set(0, RPL_LIFETIME_STEP * 1000000);
+    vtimer_set_msg(&rt_timer, rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, NULL);
+
     return SIXLOWERROR_SUCCESS;
 }
 
@@ -164,25 +170,37 @@ void *rpl_process(void *arg)
     msg_t m_recv;
     msg_init_queue(rpl_msg_queue, RPL_PKT_RECV_BUF_SIZE);
 
+    rpl_dodag_t *dodag;
+    trickle_t *trickle;
+
     while (1) {
         msg_receive(&m_recv);
 
         if (m_recv.type > ICMP_CODE_END) {
             switch (m_recv.type) {
                 case RPL_MSG_TYPE_DAO_HANDLE:
-                    dao_handle_send((rpl_dodag_t *) m_recv.content.ptr);
+                    dodag = (rpl_dodag_t *) m_recv.content.ptr;
+                    if (dodag->joined) {
+                        dao_handle_send(dodag);
+                    }
                     break;
 
                 case RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE:
-                    rpl_update_routing_table((rpl_dodag_t *) m_recv.content.ptr);
+                    rpl_update_routing_table();
                     break;
 
                 case RPL_MSG_TYPE_TRICKLE_INTERVAL:
-                    trickle_interval((trickle_t *) m_recv.content.ptr);
+                    trickle = (trickle_t *) m_recv.content.ptr;
+                    if (trickle->callback.func != NULL) {
+                        trickle_interval(trickle);
+                    }
                     break;
 
                 case RPL_MSG_TYPE_TRICKLE_CALLBACK:
-                    trickle_callback((trickle_t *) m_recv.content.ptr);
+                    trickle = (trickle_t *) m_recv.content.ptr;
+                    if (trickle->callback.func != NULL) {
+                        trickle_callback(trickle);
+                    }
                     break;
 
                 default:
@@ -338,7 +356,8 @@ void rpl_recv_DAO_ACK(void)
     rpl_recv_dao_ack_mode();
 }
 
-void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
+void rpl_update_routing_table(void) {
+    rpl_dodag_t *my_dodag = rpl_get_my_dodag();
     rpl_routing_entry_t *rt;
     if (my_dodag != NULL) {
         rt = rpl_get_routing_table();
@@ -366,8 +385,8 @@ void rpl_update_routing_table(rpl_dodag_t *my_dodag) {
         }
     }
 
-    vtimer_remove(&my_dodag->rt_timer);
-    vtimer_set_msg(&my_dodag->rt_timer, my_dodag->rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, my_dodag);
+    vtimer_remove(&rt_timer);
+    vtimer_set_msg(&rt_timer, rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, NULL);
 }
 
 void delay_dao(rpl_dodag_t *dodag)
