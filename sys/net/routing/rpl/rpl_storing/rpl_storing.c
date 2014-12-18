@@ -750,26 +750,28 @@ void rpl_recv_DIS_mode(void)
                 rpl_opt_solicited_buf = get_rpl_opt_solicited_buf(len);
 
                 for (dodag = &dodags[0], end = dodag + RPL_MAX_DODAGS; dodag < end; dodag++) {
-                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_I_MASK) {
-                        if (dodag->instance->id != rpl_opt_solicited_buf->rplinstanceid) {
-                            continue;
+                    if (dodag->used) {
+                        if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_I_MASK) {
+                            if (dodag->instance->id != rpl_opt_solicited_buf->rplinstanceid) {
+                                continue;
+                            }
                         }
-                    }
 
-                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_D_MASK) {
-                        if (!rpl_equal_id(&dodag->dodag_id, &rpl_opt_solicited_buf->dodagid)) {
-                            continue;
+                        if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_D_MASK) {
+                            if (!rpl_equal_id(&dodag->dodag_id, &rpl_opt_solicited_buf->dodagid)) {
+                                continue;
+                            }
                         }
-                    }
 
-                    if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_V_MASK) {
-                        if (dodag->version != rpl_opt_solicited_buf->version) {
-                            continue;
+                        if (rpl_opt_solicited_buf->VID_Flags & RPL_DIS_V_MASK) {
+                            if (dodag->version != rpl_opt_solicited_buf->version) {
+                                continue;
+                            }
                         }
-                    }
 
-                    rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
-                    reset_trickletimer(&dodag->trickle);
+                        rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
+                        reset_trickletimer(&dodag->trickle);
+                    }
                 }
 
                 break;

@@ -90,6 +90,8 @@ void stop_trickle(trickle_t *trickle)
 {
     vtimer_remove(&trickle->msg_interval_timer);
     vtimer_remove(&trickle->msg_callback_timer);
+    trickle->callback.func = NULL;
+    trickle->callback.args = NULL;
 }
 
 void trickle_increment_counter(trickle_t *trickle)

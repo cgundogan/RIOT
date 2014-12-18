@@ -147,6 +147,7 @@ void rpl_del_dodag(rpl_dodag_t *dodag)
 void rpl_leave_dodag(rpl_dodag_t *dodag)
 {
     dodag->joined = 0;
+    dodag->used = 0;
     dodag->my_preferred_parent = NULL;
     rpl_delete_all_parents(dodag);
     stop_trickle(&dodag->trickle);
@@ -206,8 +207,9 @@ rpl_parent_t *rpl_find_parent(uint8_t instanceid, ipv6_addr_t *address)
 
 void rpl_delete_parent(rpl_parent_t *parent, rpl_dodag_t *my_dodag)
 {
-    if ((my_dodag != NULL) && rpl_equal_id(&my_dodag->my_preferred_parent->addr,
-                                           &parent->addr)) {
+    if ((my_dodag != NULL)
+            && parent->dodag->instance->id == my_dodag->instance->id
+            && rpl_equal_id(&my_dodag->my_preferred_parent->addr, &parent->addr)) {
         my_dodag->my_preferred_parent = NULL;
     }
 
