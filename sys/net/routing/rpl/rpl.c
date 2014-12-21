@@ -217,7 +217,7 @@ void *rpl_process(void *arg)
             if (ipv6_buf->nextheader == IPV6_PROTO_NUM_ICMPV6) {
 
                 /* get code for message-interpretation and process message */
-                DEBUGF("Received RPL information of type %04X and length %u\n", rpl_msg->code, NTOHS(ipv6_buf->length));
+                DEBUGF("Received RPL information of type %04X and length %u\n", m_recv.type, NTOHS(ipv6_buf->length));
 
                 switch (m_recv.type) {
                     case (ICMP_CODE_DIS): {
