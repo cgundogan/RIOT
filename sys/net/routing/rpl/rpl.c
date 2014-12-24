@@ -382,13 +382,22 @@ void rpl_update_routing_table(void) {
             }
 
             if (my_dodag->my_preferred_parent != NULL) {
-                if (my_dodag->my_preferred_parent->lifetime < RPL_LIFETIME_STEP) {
+                if (!my_dodag->is_p2p && my_dodag->my_preferred_parent->lifetime < RPL_LIFETIME_STEP) {
                     rpl_send_DIS(&mcast);
                 }
 
                 if (my_dodag->my_preferred_parent->lifetime < 1) {
                     DEBUGF("parent lifetime timeout\n");
                     rpl_parent_update(NULL, my_dodag);
+                }
+            }
+
+            if (my_dodag->is_p2p) {
+                if (my_dodag->p2p_lifetime_sec >= 1) {
+                    my_dodag->p2p_lifetime_sec = my_dodag->p2p_lifetime_sec - RPL_LIFETIME_STEP;
+                }
+                else if (my_dodag->p2p_lifetime_sec < 1) {
+                    rpl_leave_dodag(my_dodag);
                 }
             }
         }

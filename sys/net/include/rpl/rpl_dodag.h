@@ -28,6 +28,7 @@ extern "C" {
 
 extern ipv6_addr_t mcast;
 extern rpl_dodag_t dodags[RPL_MAX_DODAGS];
+extern const uint8_t p2p_lifetime_lookup[4];
 
 void dao_ack_received(rpl_dodag_t *dodag);
 void delay_dao(rpl_dodag_t *dodag);

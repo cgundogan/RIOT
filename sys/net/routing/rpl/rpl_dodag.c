@@ -148,10 +148,10 @@ void rpl_leave_dodag(rpl_dodag_t *dodag)
 {
     dodag->joined = 0;
     dodag->used = 0;
-    dodag->my_preferred_parent = NULL;
     rpl_delete_all_parents(dodag);
     stop_trickle(&dodag->trickle);
     vtimer_remove(&dodag->dao_timer);
+    memset(dodag->instance, 0, sizeof(rpl_instance_t));
 }
 
 bool rpl_equal_id(ipv6_addr_t *id1, ipv6_addr_t *id2)
@@ -389,6 +389,7 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
         my_dodag->p2p_no_of_routes = dodag->p2p_no_of_routes;
         my_dodag->p2p_compr = dodag->p2p_compr;
         my_dodag->p2p_lifetime = dodag->p2p_lifetime;
+        my_dodag->p2p_lifetime_sec = p2p_lifetime_lookup[my_dodag->p2p_lifetime];
         my_dodag->p2p_maxrank_nexthop = dodag->p2p_maxrank_nexthop;
         my_dodag->p2p_target = dodag->p2p_target;
         memcpy(my_dodag->p2p_addresses, dodag->p2p_addresses, sizeof(ipv6_addr_t) * RPL_P2P_RDO_MAX_ADDRESSES);

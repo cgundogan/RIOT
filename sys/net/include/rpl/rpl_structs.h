@@ -181,6 +181,7 @@ typedef struct rpl_dodag_t {
     uint8_t p2p_hop_by_hop;
     uint8_t p2p_reply;
     uint8_t p2p_lifetime;
+    int8_t p2p_lifetime_sec;
     uint8_t p2p_maxrank_nexthop;
     ipv6_addr_t p2p_target;
     ipv6_addr_t p2p_addresses[RPL_P2P_RDO_MAX_ADDRESSES];

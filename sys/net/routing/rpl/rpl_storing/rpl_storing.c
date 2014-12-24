@@ -35,6 +35,7 @@ char addr_str_mode[IPV6_MAX_ADDR_STR_LEN];
 /* global variables */
 static ipv6_addr_t my_address;
 rpl_dodag_t dodags[RPL_MAX_DODAGS];
+const uint8_t p2p_lifetime_lookup[4] = { 1U, 4U, 16U, 64U };
 
 /* in send buffer we need space fpr LL_HDR */
 static uint8_t rpl_send_buffer[BUFFER_SIZE];
@@ -225,6 +226,7 @@ void rpl_init_p2p_mode(uint8_t instanceid, uint8_t reply, uint8_t hop_by_hop, ui
         dodag->p2p_no_of_routes = no_of_routes;
         dodag->p2p_compr = compr;
         dodag->p2p_lifetime = lifetime;
+        dodag->p2p_lifetime_sec = p2p_lifetime_lookup[lifetime];
         dodag->p2p_maxrank_nexthop = maxrank_nexthop;
         dodag->p2p_target = target;
     }
@@ -667,6 +669,10 @@ void rpl_recv_DIO_mode(void)
         return;
     }
 
+    if (my_dodag->is_p2p && my_dodag->p2p_lifetime_sec < 1) {
+        rpl_leave_dodag(my_dodag);
+        return;
+    }
 
     if (rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {
         /* "our" DODAG */
@@ -898,7 +904,7 @@ void rpl_recv_DIS_mode(void)
 
     if (options_missing) {
         for (dodag = &dodags[0], end = dodag + RPL_MAX_DODAGS; dodag < end; dodag++) {
-            if (dodag->joined) {
+            if (!dodag->is_p2p && dodag->joined) {
                 rpl_send_DIO(&ipv6_buf->srcaddr, dodag);
                 reset_trickletimer(&dodag->trickle);
             }
