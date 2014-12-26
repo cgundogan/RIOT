@@ -132,6 +132,14 @@ void rpl_send_DIS_mode(ipv6_addr_t *destination);
 void rpl_send_DAO_ACK_mode(ipv6_addr_t *destination, rpl_dodag_t *dodag);
 
 /**
+ * @brief Sends a DRO-message containing a RDO option to the multicast address
+ *
+ * @param[in] dodag           the appropriate DODAG
+ *
+ */
+void rpl_send_DRO_mode(rpl_dodag_t *dodag);
+
+/**
  * @brief Receives a DIO message
  *
  * This function handles receiving a DIO message in any mode .

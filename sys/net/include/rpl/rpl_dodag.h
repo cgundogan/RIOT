@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 extern ipv6_addr_t mcast;
+extern ipv6_addr_t my_address;
 extern rpl_dodag_t dodags[RPL_MAX_DODAGS];
 extern const uint8_t p2p_lifetime_lookup[4];
 

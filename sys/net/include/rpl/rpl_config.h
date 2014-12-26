@@ -40,6 +40,7 @@ enum RPL_MSG_CODE {
     ICMP_CODE_DIO,
     ICMP_CODE_DAO,
     ICMP_CODE_DAO_ACK,
+    ICMP_CODE_DRO,
     /* put all ICMP codes before the end marker */
     ICMP_CODE_END,
     RPL_MSG_TYPE_DAO_HANDLE,
@@ -62,6 +63,7 @@ enum RPL_MSG_CODE {
 #define RPL_OPT_TARGET_LEN          20
 #define RPL_OPT_TRANSIT_LEN         22
 #define RPL_OPT_P2P_RDO_LEN         (2 + sizeof(ipv6_addr_t))
+#define DRO_BASE_LEN                20
 
 /* message options */
 #define RPL_OPT_PAD1                 0

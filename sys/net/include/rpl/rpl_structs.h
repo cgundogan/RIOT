@@ -206,6 +206,9 @@ typedef struct {
     rpl_dodag_t *dodag;
 } rpl_routing_entry_t;
 
+#define RPL_P2P_GET(y, name)        ( ( (y) & RPL_P2P_##name##_MASK ) >> RPL_P2P_##name##_SHIFT )
+#define RPL_P2P_SET(y, x, name)     ( y = ( (y) & ~RPL_P2P_##name##_MASK ) | \
+                                    ( ((x) << RPL_P2P_##name##_SHIFT) & RPL_P2P_##name##_MASK ) )
 /* P2P Route Discovery Option (P2P-RDO) (RFC 6997 Fig. 1, Page 15) */
 typedef struct __attribute__((packed)) {
     uint8_t type;
@@ -218,6 +221,22 @@ typedef struct __attribute__((packed)) {
     uint8_t maxrank_nexthop :6;
     ipv6_addr_t target;
 } rpl_opt_p2p_rdo_t;
+
+/* P2P Discovery Reply Object (P2P-DRO) (RFC 6997 Fig. 2, Page 19) */
+typedef struct __attribute__((packed)) {
+#define RPL_P2P_RDO_STOP_MASK       (0x0001)
+#define RPL_P2P_RDO_STOP_SHIFT      (0x0)
+#define RPL_P2P_RDO_ACK_MASK        (0x0002)
+#define RPL_P2P_RDO_ACK_SHIFT       (0x1)
+#define RPL_P2P_RDO_SEQ_NO_MASK     (0x000C)
+#define RPL_P2P_RDO_SEQ_NO_SHIFT    (0x2)
+#define RPL_P2P_RDO_RESERVED_MASK   (0xFFF0)
+#define RPL_P2P_RDO_RESERVED_SHIFT  (0x4)
+    uint8_t instance_id;
+    uint8_t version;
+    uint16_t flags_reserved;
+    ipv6_addr_t dodagid;
+} rpl_p2p_dro_t;
 
 #ifdef __cplusplus
 }

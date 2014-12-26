@@ -55,6 +55,7 @@ msg_t rpl_msg_queue[RPL_PKT_RECV_BUF_SIZE];
 char rpl_process_buf[RPL_PROCESS_STACKSIZE];
 uint8_t rpl_buffer[BUFFER_SIZE - LL_HDR_LEN];
 ipv6_addr_t mcast;
+ipv6_addr_t my_address;
 timex_t rt_time;
 vtimer_t rt_timer;
 rpl_parent_t parents[RPL_MAX_PARENTS];
@@ -73,7 +74,6 @@ msg_t srh_m_send, srh_m_recv;
 rpl_routing_entry_t rpl_routing_table[RPL_MAX_ROUTING_ENTRIES];
 
 uint8_t rpl_max_routing_entries;
-ipv6_addr_t my_address;
 
 /* IPv6 message buffer */
 ipv6_hdr_t *ipv6_buf;
@@ -322,6 +322,13 @@ void rpl_send_DAO_ACK(ipv6_addr_t *destination, rpl_dodag_t *dodag)
     }
 
     rpl_send_DAO_ACK_mode(destination, dodag);
+}
+
+void rpl_send_DRO(rpl_dodag_t *dodag)
+{
+    DEBUGF("Send DRO\n");
+
+    rpl_send_DRO_mode(dodag);
 }
 
 void rpl_recv_DIO(void)

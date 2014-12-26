@@ -394,18 +394,7 @@ void rpl_join_dodag(rpl_dodag_t *dodag, ipv6_addr_t *parent, uint16_t parent_ran
         my_dodag->p2p_target = dodag->p2p_target;
         memcpy(my_dodag->p2p_addresses, dodag->p2p_addresses, sizeof(ipv6_addr_t) * RPL_P2P_RDO_MAX_ADDRESSES);
 
-        ipv6_addr_t src;
-        ipv6_net_if_get_best_src_addr(&src, &mcast);
-
-        if (!rpl_equal_id(&src, &my_dodag->p2p_target)) {
-            for(uint8_t i = 0; i < RPL_P2P_RDO_MAX_ADDRESSES; i++) {
-               if (my_dodag->p2p_addresses[i].uint32[3] == 0) {
-                   memcpy(&my_dodag->p2p_addresses[i], &src, sizeof(ipv6_addr_t));
-                   break;
-               }
-            }
-        }
-        else {
+        if (rpl_equal_id(&my_address, &my_dodag->p2p_target)) {
             my_dodag->node_status = LEAF_NODE;
         }
     }
