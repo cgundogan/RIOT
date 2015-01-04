@@ -214,8 +214,8 @@ typedef struct __attribute__((packed)) {
     uint8_t type;
     uint8_t length;
     uint8_t compr           :4;
-    uint8_t no_of_routes    :1;
-    uint8_t hop_by_hop      :2;
+    uint8_t no_of_routes    :2;
+    uint8_t hop_by_hop      :1;
     uint8_t reply           :1;
     uint8_t lifetime        :2;
     uint8_t maxrank_nexthop :6;

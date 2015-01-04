@@ -172,6 +172,11 @@ void rpl_recv_DIS_mode(void);
 void rpl_recv_dao_ack_mode(void);
 
 /**
+ * @brief Receives a DRO
+ */
+void rpl_recv_DRO_mode(void);
+
+/**
  * @brief Sends a RPL message to a given destination
  *
  * This function sends any RPl related messages to a given destination. This implementation should be equal

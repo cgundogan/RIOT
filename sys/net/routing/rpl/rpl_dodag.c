@@ -151,6 +151,14 @@ void rpl_leave_dodag(rpl_dodag_t *dodag)
     rpl_delete_all_parents(dodag);
     stop_trickle(&dodag->trickle);
     vtimer_remove(&dodag->dao_timer);
+    rpl_routing_entry_t *rt = rpl_get_routing_table();
+    for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
+        if (rt[i].used && rt[i].dodag != NULL
+                && rt[i].dodag->instance->id == dodag->instance->id
+                && rpl_equal_id(&rt[i].dodag->dodag_id, &dodag->dodag_id)) {
+            rt[i].dodag = NULL;
+        }
+    }
     memset(dodag->instance, 0, sizeof(rpl_instance_t));
 }
 

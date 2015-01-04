@@ -64,6 +64,7 @@ static rpl_opt_p2p_rdo_t *rpl_opt_p2p_rdo_buf;
 static struct rpl_dis_t *rpl_dis_buf;
 static rpl_opt_t *rpl_opt_buf;
 static rpl_opt_solicited_t *rpl_opt_solicited_buf;
+static rpl_p2p_dro_t *rpl_dro_buf;
 
 /*  SEND BUFFERS */
 static icmpv6_hdr_t *get_rpl_send_icmpv6_buf(uint8_t ext_len)
@@ -183,9 +184,9 @@ static rpl_opt_p2p_rdo_t *get_rpl_opt_p2p_rdo_buf(uint8_t rpl_msg_len)
     return ((rpl_opt_p2p_rdo_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
-static rpl_p2p_dro_t *get_rpl_p2p_dro_buf(uint8_t rpl_msg_len)
+static rpl_p2p_dro_t *get_rpl_p2p_dro_buf(void)
 {
-    return ((rpl_p2p_dro_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+    return ((rpl_p2p_dro_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN]));
 }
 
 void rpl_init_mode(ipv6_addr_t *init_address)
@@ -395,7 +396,7 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination, rpl_dodag_t *mydodag)
 
 void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_lifetime, uint8_t start_index, rpl_dodag_t *my_dodag)
 {
-    if (my_dodag->i_am_root) {
+    if (my_dodag->i_am_root || my_dodag->is_p2p) {
         return;
     }
 
@@ -433,8 +434,12 @@ void rpl_send_DAO_mode(ipv6_addr_t *destination, uint8_t lifetime, bool default_
     uint8_t entries = 0;
     uint8_t continue_index = 0;
 
+    rpl_routing_entry_t *route = NULL;
     for (uint8_t i = start_index; i < rpl_max_routing_entries; i++) {
-        if (rpl_get_routing_table()[i].used) {
+        route = &rpl_get_routing_table()[i];
+        if (route->used &&
+                route->dodag != NULL && route->dodag->instance->id == my_dodag->instance->id
+                && rpl_equal_id(&route->dodag->dodag_id, &my_dodag->dodag_id)) {
             rpl_send_opt_target_buf->type = RPL_OPT_TARGET;
             rpl_send_opt_target_buf->length = (RPL_OPT_TARGET_LEN - RPL_OPT_LEN);
             rpl_send_opt_target_buf->flags = 0x00;
@@ -562,6 +567,7 @@ void rpl_send_DRO_mode(rpl_dodag_t *mydodag)
         if (mydodag->p2p_addresses[i].uint32[3] != 0) {
             memcpy(addresses++, &mydodag->p2p_addresses[i], sizeof(ipv6_addr_t));
             rpl_send_opt_p2p_rdo_buf->length += sizeof(ipv6_addr_t);
+            rpl_send_opt_p2p_rdo_buf->maxrank_nexthop++;
         }
     }
     opt_hdr_len += rpl_send_opt_p2p_rdo_buf->length + RPL_OPT_LEN;
@@ -1007,6 +1013,66 @@ void rpl_recv_dao_ack_mode(void)
 
     dao_ack_received(my_dodag);
 
+}
+
+void rpl_recv_DRO_mode(void)
+{
+    rpl_dro_buf = get_rpl_p2p_dro_buf();
+
+    rpl_dodag_t *my_dodag = rpl_get_joined_dodag(rpl_dro_buf->instance_id);
+
+    if (my_dodag == NULL) {
+        return;
+    }
+
+    if (rpl_dro_buf->instance_id != my_dodag->instance->id) {
+        return;
+    }
+
+    int len = DRO_BASE_LEN;
+
+    while (len < (NTOHS(ipv6_buf->length) - ICMPV6_HDR_LEN)) {
+        rpl_opt_buf = get_rpl_opt_buf(len);
+        switch (rpl_opt_buf->type) {
+            case (RPL_OPT_P2P_RDO): {
+                rpl_opt_p2p_rdo_buf = get_rpl_opt_p2p_rdo_buf(len);
+                if (!my_dodag->i_am_root) {
+                    rpl_opt_p2p_rdo_buf->maxrank_nexthop--;
+                    if (rpl_equal_id(&my_address, &rpl_opt_p2p_rdo_buf->target) ||
+                        !rpl_equal_id(&my_address,
+                                (((ipv6_addr_t *) (rpl_opt_p2p_rdo_buf +1)) + rpl_opt_p2p_rdo_buf->maxrank_nexthop))) {
+                        return;
+                    }
+                }
+
+                rpl_add_routing_entry(&rpl_opt_p2p_rdo_buf->target, &ipv6_buf->srcaddr,
+                        my_dodag->default_lifetime * my_dodag->lifetime_unit, my_dodag);
+
+                len += rpl_opt_p2p_rdo_buf->length + RPL_OPT_LEN;
+                break;
+            }
+
+            default:
+                DEBUGF("[Error] Unsupported DRO option\n");
+                return;
+        }
+    }
+
+    if (RPL_P2P_GET(rpl_dro_buf->flags_reserved, RDO_STOP)) {
+        stop_trickle(&my_dodag->trickle);
+    }
+
+    icmp_send_buf = get_rpl_send_icmpv6_buf(ipv6_ext_hdr_len);
+    icmp_send_buf->type = ICMPV6_TYPE_RPL_CONTROL;
+    icmp_send_buf->code = ICMP_CODE_DRO;
+    rpl_send_dro_buf = get_rpl_send_dro_buf();
+    memcpy(rpl_send_dro_buf, rpl_dro_buf, len);
+
+    uint16_t plen = ICMPV6_HDR_LEN + len;
+    if (!my_dodag->i_am_root) {
+        rpl_send(&mcast, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
+    }
+    return;
 }
 
 /* obligatory for each mode. normally not modified */

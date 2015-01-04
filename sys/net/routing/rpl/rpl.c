@@ -244,6 +244,10 @@ void *rpl_process(void *arg)
                         rpl_recv_DAO_ACK();
                         break;
                     }
+                    case (ICMP_CODE_DRO): {
+                        rpl_recv_DRO();
+                        break;
+                    }
 
                     default:
                         break;
@@ -360,26 +364,33 @@ void rpl_recv_DAO_ACK(void)
     rpl_recv_dao_ack_mode();
 }
 
+void rpl_recv_DRO(void)
+{
+    DEBUGF("DRO received\n");
+
+    rpl_recv_DRO_mode();
+}
+
 void rpl_update_routing_table(void) {
     rpl_dodag_t *my_dodag;
     rpl_routing_entry_t *rt;
     rpl_parent_t *parent, *parent_end;
 
     rt = rpl_get_routing_table();
+    for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
+        if (rt[i].used) {
+            if (rt[i].lifetime <= 1) {
+                memset(&rt[i], 0, sizeof(rt[i]));
+            }
+            else {
+                rt[i].lifetime = rt[i].lifetime - RPL_LIFETIME_STEP;
+            }
+        }
+    }
+
     for(uint8_t i = 0; i < RPL_MAX_DODAGS; i++) {
         my_dodag = &dodags[i];
         if (my_dodag->used) {
-            for (uint8_t i = 0; i < rpl_max_routing_entries; i++) {
-                if (rt[i].used && rt[i].dodag != NULL && rpl_equal_id(&rt[i].dodag->dodag_id, &my_dodag->dodag_id)) {
-                    if (rt[i].lifetime <= 1) {
-                        memset(&rt[i], 0, sizeof(rt[i]));
-                    }
-                    else {
-                        rt[i].lifetime = rt[i].lifetime - RPL_LIFETIME_STEP;
-                    }
-                }
-            }
-
             /* Parent is NULL for root too */
             for (parent = &parents[0], parent_end = parents + RPL_MAX_PARENTS; parent < parent_end; parent++) {
                 if (parent->dodag != NULL && rpl_equal_id(&parent->dodag->dodag_id, &my_dodag->dodag_id)
@@ -416,39 +427,47 @@ void rpl_update_routing_table(void) {
 
 void delay_dao(rpl_dodag_t *dodag)
 {
-    dodag->dao_time = timex_set(DEFAULT_DAO_DELAY, 0);
-    dodag->dao_counter = 0;
-    dodag->ack_received = false;
-    vtimer_remove(&dodag->dao_timer);
-    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    if (!dodag->is_p2p) {
+        dodag->dao_time = timex_set(DEFAULT_DAO_DELAY, 0);
+        dodag->dao_counter = 0;
+        dodag->ack_received = false;
+        vtimer_remove(&dodag->dao_timer);
+        vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    }
 }
 
 /* This function is used for regular update of the routes. The Timer can be overwritten, as the normal delay_dao function gets called */
 void long_delay_dao(rpl_dodag_t *dodag)
 {
-    dodag->dao_time = timex_set(REGULAR_DAO_INTERVAL, 0);
-    dodag->dao_counter = 0;
-    dodag->ack_received = false;
-    vtimer_remove(&dodag->dao_timer);
-    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    if (!dodag->is_p2p) {
+        dodag->dao_time = timex_set(REGULAR_DAO_INTERVAL, 0);
+        dodag->dao_counter = 0;
+        dodag->ack_received = false;
+        vtimer_remove(&dodag->dao_timer);
+        vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    }
 }
 
 void dao_ack_received(rpl_dodag_t *dodag)
 {
-    dodag->ack_received = true;
-    long_delay_dao(dodag);
+    if (!dodag->is_p2p) {
+        dodag->ack_received = true;
+        long_delay_dao(dodag);
+    }
 }
 
 void dao_handle_send(rpl_dodag_t *dodag) {
-    if ((dodag->ack_received == false) && (dodag->dao_counter < DAO_SEND_RETRIES)) {
-        dodag->dao_counter++;
-        rpl_send_DAO(NULL, 0, true, 0, dodag);
-        dodag->dao_time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
-        vtimer_remove(&dodag->dao_timer);
-        vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
-    }
-    else if (dodag->ack_received == false) {
-        long_delay_dao(dodag);
+    if (!dodag->is_p2p) {
+        if ((dodag->ack_received == false) && (dodag->dao_counter < DAO_SEND_RETRIES)) {
+            dodag->dao_counter++;
+            rpl_send_DAO(NULL, 0, true, 0, dodag);
+            dodag->dao_time = timex_set(DEFAULT_WAIT_FOR_DAO_ACK, 0);
+            vtimer_remove(&dodag->dao_timer);
+            vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, rpl_process_pid, RPL_MSG_TYPE_DAO_HANDLE, dodag);
+        }
+        else if (dodag->ack_received == false) {
+            long_delay_dao(dodag);
+        }
     }
 }
 

@@ -198,6 +198,12 @@ void rpl_recv_DIS(void);
 void rpl_recv_DAO_ACK(void);
 
 /**
+ * @brief Receives a DRO
+ *
+ */
+void rpl_recv_DRO(void);
+
+/**
  * @brief Initialization of RPl-root.
  *
  * This function initializes all RPL resources especially for root purposes.
