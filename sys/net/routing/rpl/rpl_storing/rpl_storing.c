@@ -25,12 +25,15 @@
 
 #include "sixlowpan.h"
 #include "net_help.h"
+#include "hashes.h"
+#include "bloom.h"
 
 #define ENABLE_DEBUG    (0)
 #if ENABLE_DEBUG
 static char addr_str_mode[IPV6_MAX_ADDR_STR_LEN];
 #endif
 #include "debug.h"
+char addr_str_mode[IPV6_MAX_ADDR_STR_LEN];
 
 /* global variables */
 static ipv6_addr_t my_address;
@@ -49,6 +52,7 @@ static ipv6_hdr_t *ipv6_send_buf;
 static rpl_dio_t *rpl_send_dio_buf;
 static rpl_dao_t *rpl_send_dao_buf;
 static rpl_opt_dodag_conf_t *rpl_send_opt_dodag_conf_buf;
+static rpl_opt_tentative_pref_parent_t *rpl_send_opt_tentative_pref_parent_buf;
 static rpl_opt_target_t *rpl_send_opt_target_buf;
 static rpl_opt_transit_t *rpl_send_opt_transit_buf;
 
@@ -58,6 +62,7 @@ static rpl_dio_t *rpl_dio_buf;
 static rpl_dao_t *rpl_dao_buf;
 static rpl_dao_ack_t *rpl_dao_ack_buf;
 static rpl_opt_dodag_conf_t *rpl_opt_dodag_conf_buf;
+static rpl_opt_tentative_pref_parent_t *rpl_opt_tentative_pref_parent_buf;
 static rpl_opt_target_t *rpl_opt_target_buf;
 static rpl_opt_transit_t *rpl_opt_transit_buf;
 static rpl_dis_t *rpl_dis_buf;
@@ -115,6 +120,11 @@ static rpl_opt_transit_t *get_rpl_send_opt_transit_buf(uint8_t rpl_msg_len)
     return ((rpl_opt_transit_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
+static rpl_opt_tentative_pref_parent_t *get_rpl_send_opt_tentative_pref_parent_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_tentative_pref_parent_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+
 
 /* RECEIVE BUFFERS */
 static ipv6_hdr_t *get_rpl_ipv6_buf(void)
@@ -165,6 +175,11 @@ static rpl_opt_t *get_rpl_opt_buf(uint8_t rpl_msg_len)
 static rpl_opt_solicited_t *get_rpl_opt_solicited_buf(uint8_t rpl_msg_len)
 {
     return ((rpl_opt_solicited_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+
+static rpl_opt_tentative_pref_parent_t *get_rpl_opt_tentative_pref_parent_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_tentative_pref_parent_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
 void rpl_init_mode(ipv6_addr_t *init_address)
@@ -275,6 +290,14 @@ void rpl_send_DIO_mode(ipv6_addr_t *destination)
     rpl_send_opt_dodag_conf_buf->lifetime_unit = mydodag->lifetime_unit;
 
     opt_hdr_len += RPL_OPT_DODAG_CONF_LEN_WITH_OPT_LEN;
+
+    if (mydodag->node_status != ROOT_NODE) {
+        rpl_send_opt_tentative_pref_parent_buf = get_rpl_send_opt_tentative_pref_parent_buf(DIO_BASE_LEN + opt_hdr_len);
+        rpl_send_opt_tentative_pref_parent_buf->type = RPL_OPT_TENTATIVE_PREF_PARENT;
+        rpl_send_opt_tentative_pref_parent_buf->length = RPL_OPT_TENTATIVE_PREF_PARENT_LEN;
+        rpl_send_opt_tentative_pref_parent_buf->pref_parent = mydodag->my_preferred_parent->addr;
+        opt_hdr_len += RPL_OPT_TENTATIVE_PREF_PARENT_LEN_WITH_OPT_LEN;
+    }
 
     uint16_t plen = ICMPV6_HDR_LEN + DIO_BASE_LEN + opt_hdr_len;
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
@@ -464,7 +487,7 @@ void rpl_recv_DIO_mode(void)
     dio_dodag.version = rpl_dio_buf->version_number;
     dio_dodag.instance = dio_inst;
 
-    uint8_t has_dodag_conf_opt = 0;
+    uint8_t has_dodag_conf_opt = 0, has_tentative_pref_parent = 0;
 
     /* Parse until all options are consumed.
      * ipv6_buf->length contains the packet length minus ipv6 and
@@ -528,6 +551,25 @@ void rpl_recv_DIO_mode(void)
                 break;
             }
 
+            case (RPL_OPT_TENTATIVE_PREF_PARENT): {
+                if (rpl_opt_buf->length != RPL_OPT_TENTATIVE_PREF_PARENT_LEN) {
+                    /* error malformed */
+                    return;
+                }
+
+                rpl_opt_tentative_pref_parent_buf = get_rpl_opt_tentative_pref_parent_buf(len);
+                printf("Tentative Pref. Parent: %s\n",
+                        ipv6_addr_to_str(addr_str_mode,
+                            IPV6_MAX_ADDR_STR_LEN,
+                            &rpl_opt_tentative_pref_parent_buf->pref_parent));
+
+                if (!memcmp(&rpl_opt_tentative_pref_parent_buf->pref_parent, &my_address, sizeof(ipv6_addr_t))) {
+                    has_tentative_pref_parent = 1;
+                }
+                len += RPL_OPT_TENTATIVE_PREF_PARENT_LEN_WITH_OPT_LEN;
+                break;
+            }
+
             default:
                 DEBUGF("[Error] Unsupported DIO option\n");
                 return;
@@ -564,6 +606,10 @@ void rpl_recv_DIO_mode(void)
         }
 
         return;
+    }
+
+    if (has_tentative_pref_parent) {
+        bloom_add(my_dodag, (uint8_t *) &ipv6_buf->srcaddr, sizeof(ipv6_addr_t));
     }
 
     if (rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {

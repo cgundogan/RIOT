@@ -28,6 +28,7 @@ extern "C" {
 #include <string.h>
 #include "ipv6.h"
 #include "trickle.h"
+#include "bloom.h"
 
 /* Modes of Operation */
 
@@ -123,6 +124,13 @@ typedef struct __attribute__((packed)) {
     ipv6_addr_t parent;
 } rpl_opt_transit_t;
 
+/* DIO option for link symmetry check, type = 0x0B */
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t length;
+    ipv6_addr_t pref_parent;
+} rpl_opt_tentative_pref_parent_t;
+
 struct rpl_dodag_t;
 
 typedef struct {
@@ -173,6 +181,7 @@ typedef struct rpl_dodag_t {
     uint8_t dao_counter;
     timex_t dao_time;
     vtimer_t dao_timer;
+    bloom_t *recent_neighbours;
 } rpl_dodag_t;
 
 typedef struct rpl_of_t {

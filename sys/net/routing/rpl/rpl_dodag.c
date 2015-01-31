@@ -24,6 +24,8 @@
 #include "rpl/rpl_dodag.h"
 #include "trickle.h"
 #include "rpl.h"
+#include "hashes.h"
+#include "bloom.h"
 
 #define ENABLE_DEBUG (0)
 #if ENABLE_DEBUG
@@ -110,6 +112,9 @@ rpl_dodag_t *rpl_new_dodag(uint8_t instanceid, ipv6_addr_t *dodagid)
             dodag->dao_counter = 0;
             dodag->trickle.callback.func = &rpl_trickle_send_dio;
             memcpy(&dodag->dodag_id, dodagid, sizeof(*dodagid));
+            dodag->recent_neighbours = bloom_new(64,8, fnv_hash, sax_hash, sdbm_hash,
+                                      djb2_hash, kr_hash, dek_hash, rotating_hash, one_at_a_time_hash);
+
             return dodag;
         }
     }

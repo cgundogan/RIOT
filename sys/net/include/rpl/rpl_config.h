@@ -48,34 +48,37 @@ enum RPL_MSG_CODE {
 };
 
 /* packet base lengths */
-#define DIO_BASE_LEN                            24
-#define DIS_BASE_LEN                            2
-#define DAO_BASE_LEN                            4
-#define DAO_D_LEN                               24
-#define DAO_ACK_LEN                             4
-#define DAO_ACK_D_LEN                           24
-#define RPL_OPT_LEN                             2
-#define RPL_OPT_DODAG_CONF_LEN                  14
-#define RPL_OPT_DODAG_CONF_LEN_WITH_OPT_LEN     (RPL_OPT_DODAG_CONF_LEN + RPL_OPT_LEN)
-#define RPL_OPT_PREFIX_INFO_LEN                 30
-#define RPL_OPT_PREFIX_INFO_LEN_WITH_OPT_LEN    (RPL_OPT_PREFIX_INFO_LEN + RPL_OPT_LEN)
-#define RPL_OPT_SOLICITED_INFO_LEN              21
-#define RPL_OPT_TARGET_LEN                      18
-#define RPL_OPT_TARGET_LEN_WITH_OPT_LEN         (RPL_OPT_TARGET_LEN + RPL_OPT_LEN)
-#define RPL_OPT_TRANSIT_LEN                     20
-#define RPL_OPT_TRANSIT_LEN_WITH_OPT_LEN        (RPL_OPT_TRANSIT_LEN + RPL_OPT_LEN)
+#define DIO_BASE_LEN                                        24
+#define DIS_BASE_LEN                                        2
+#define DAO_BASE_LEN                                        4
+#define DAO_D_LEN                                           24
+#define DAO_ACK_LEN                                         4
+#define DAO_ACK_D_LEN                                       24
+#define RPL_OPT_LEN                                         2
+#define RPL_OPT_DODAG_CONF_LEN                              14
+#define RPL_OPT_DODAG_CONF_LEN_WITH_OPT_LEN                 (RPL_OPT_DODAG_CONF_LEN + RPL_OPT_LEN)
+#define RPL_OPT_PREFIX_INFO_LEN                             30
+#define RPL_OPT_PREFIX_INFO_LEN_WITH_OPT_LEN                (RPL_OPT_PREFIX_INFO_LEN + RPL_OPT_LEN)
+#define RPL_OPT_SOLICITED_INFO_LEN                          21
+#define RPL_OPT_TARGET_LEN                                  18
+#define RPL_OPT_TARGET_LEN_WITH_OPT_LEN                     (RPL_OPT_TARGET_LEN + RPL_OPT_LEN)
+#define RPL_OPT_TRANSIT_LEN                                 20
+#define RPL_OPT_TRANSIT_LEN_WITH_OPT_LEN                    (RPL_OPT_TRANSIT_LEN + RPL_OPT_LEN)
+#define RPL_OPT_TENTATIVE_PREF_PARENT_LEN                   16
+#define RPL_OPT_TENTATIVE_PREF_PARENT_LEN_WITH_OPT_LEN      18
 
 /* message options */
-#define RPL_OPT_PAD1                 0
-#define RPL_OPT_PADN                 1
-#define RPL_OPT_DAG_METRIC_CONTAINER 2
-#define RPL_OPT_ROUTE_INFO           3
-#define RPL_OPT_DODAG_CONF           4
-#define RPL_OPT_TARGET               5
-#define RPL_OPT_TRANSIT              6
-#define RPL_OPT_SOLICITED_INFO       7
-#define RPL_OPT_PREFIX_INFO          8
-#define RPL_OPT_TARGET_DESC          9
+#define RPL_OPT_PAD1                                0
+#define RPL_OPT_PADN                                1
+#define RPL_OPT_DAG_METRIC_CONTAINER                2
+#define RPL_OPT_ROUTE_INFO                          3
+#define RPL_OPT_DODAG_CONF                          4
+#define RPL_OPT_TARGET                              5
+#define RPL_OPT_TRANSIT                             6
+#define RPL_OPT_SOLICITED_INFO                      7
+#define RPL_OPT_PREFIX_INFO                         8
+#define RPL_OPT_TARGET_DESC                         9
+#define RPL_OPT_TENTATIVE_PREF_PARENT               11
 
 /* Counters */
 #define RPL_COUNTER_MAX                 255
