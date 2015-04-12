@@ -35,6 +35,11 @@ static char addr_str[IPV6_MAX_ADDR_STR_LEN];
 #endif
 #include "debug.h"
 
+#if RPL_LINKSYM_CHECK
+#include "hashes.h"
+#include "bloom.h"
+#endif
+
 /* in send buffer we need space for LL_HDR */
 static uint8_t rpl_send_buffer[BUFFER_SIZE];
 
@@ -51,6 +56,10 @@ static rpl_opt_dodag_conf_t *rpl_send_opt_dodag_conf_buf;
 static rpl_opt_target_t *rpl_send_opt_target_buf;
 static rpl_opt_transit_t *rpl_send_opt_transit_buf;
 static rpl_opt_prefix_information_t *rpl_send_opt_prefix_information_buf;
+#if RPL_LINKSYM_CHECK
+static rpl_opt_tentative_pref_parent_t *rpl_send_opt_tentative_pref_parent_buf;
+static rpl_opt_recent_neighbors_t *rpl_send_opt_recent_neighbors_buf;
+#endif
 
 /* RECEIVE BUFFERS */
 static ipv6_hdr_t *ipv6_buf;
@@ -64,6 +73,10 @@ static rpl_dis_t *rpl_dis_buf;
 static rpl_opt_t *rpl_opt_buf;
 static rpl_opt_solicited_t *rpl_opt_solicited_buf;
 static rpl_opt_prefix_information_t *rpl_opt_prefix_information_buf;
+#if RPL_LINKSYM_CHECK
+static rpl_opt_tentative_pref_parent_t *rpl_opt_tentative_pref_parent_buf;
+static rpl_opt_recent_neighbors_t *rpl_opt_recent_neighbors_buf;
+#endif
 
 /*  SEND BUFFERS */
 static icmpv6_hdr_t *get_rpl_send_icmpv6_buf(uint8_t ext_len)
@@ -123,6 +136,16 @@ static rpl_opt_prefix_information_t *get_rpl_send_opt_prefix_information_buf(uin
     return ((rpl_opt_prefix_information_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
 
+#if RPL_LINKSYM_CHECK
+static rpl_opt_tentative_pref_parent_t *get_rpl_send_opt_tentative_pref_parent_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_tentative_pref_parent_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+static rpl_opt_recent_neighbors_t *get_rpl_send_opt_recent_neighbors_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_recent_neighbors_t *) & (rpl_send_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+#endif
 
 /* RECEIVE BUFFERS */
 static ipv6_hdr_t *get_rpl_ipv6_buf(void)
@@ -179,6 +202,19 @@ static rpl_opt_prefix_information_t *get_rpl_opt_prefix_information_buf(uint8_t 
 {
     return ((rpl_opt_prefix_information_t *) & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
 }
+
+#if RPL_LINKSYM_CHECK
+static rpl_opt_tentative_pref_parent_t *get_rpl_opt_tentative_pref_parent_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_tentative_pref_parent_t *)
+            & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+static rpl_opt_recent_neighbors_t *get_rpl_opt_recent_neighbors_buf(uint8_t rpl_msg_len)
+{
+    return ((rpl_opt_recent_neighbors_t *)
+            & (rpl_buffer[IPV6_HDR_LEN + ICMPV6_HDR_LEN + rpl_msg_len]));
+}
+#endif
 
 void rpl_init_root(rpl_options_t *rpl_opts)
 {
@@ -328,6 +364,29 @@ void rpl_send_DIO(rpl_dodag_t *mydodag, ipv6_addr_t *destination)
 
         opt_hdr_len += RPL_OPT_PREFIX_INFO_LEN_WITH_OPT_LEN;
     }
+
+#if RPL_LINKSYM_CHECK
+    if ((mydodag->node_status != ROOT_NODE) &&
+            (mydodag->my_preferred_parent->link_dir == RPL_LINKSYM_UNIDIR)) {
+        rpl_send_opt_tentative_pref_parent_buf =
+            get_rpl_send_opt_tentative_pref_parent_buf(DIO_BASE_LEN + opt_hdr_len);
+        rpl_send_opt_tentative_pref_parent_buf->type = RPL_OPT_TENT_PARENT;
+        rpl_send_opt_tentative_pref_parent_buf->length = RPL_OPT_TENT_PARENT_LEN;
+        rpl_send_opt_tentative_pref_parent_buf->pref_parent = mydodag->my_preferred_parent->addr;
+        opt_hdr_len += RPL_OPT_TENT_PARENT_LEN_WITH_OPT_LEN;
+     }
+
+    if (mydodag->link_check_requested) {
+        mydodag->link_check_requested = 0;
+        rpl_send_opt_recent_neighbors_buf =
+            get_rpl_send_opt_recent_neighbors_buf(DIO_BASE_LEN + opt_hdr_len);
+        rpl_send_opt_recent_neighbors_buf->type = RPL_OPT_RECENT_NEIGHBORS;
+        rpl_send_opt_recent_neighbors_buf->length = RPL_LINKSYM_BLOOM_SIZE/CHAR_BIT;
+        memcpy((rpl_send_opt_recent_neighbors_buf + 1), mydodag->recent_neighbors->a,
+                RPL_LINKSYM_BLOOM_SIZE/CHAR_BIT);
+        opt_hdr_len += rpl_send_opt_recent_neighbors_buf->length + RPL_OPT_LEN;
+    }
+#endif
 
     uint16_t plen = ICMPV6_HDR_LEN + DIO_BASE_LEN + opt_hdr_len;
     rpl_send(destination, (uint8_t *)icmp_send_buf, plen, IPV6_PROTO_NUM_ICMPV6);
@@ -553,6 +612,10 @@ void rpl_recv_DIO(void)
     dio_dodag.instance = dio_inst;
 
     uint8_t has_dodag_conf_opt = 0;
+#if RPL_LINKSYM_CHECK
+    uint8_t has_tentative_pref_parent = 0;
+    uint8_t link_dir = RPL_LINKSYM_UNIDIR;
+#endif
 
     /* Parse until all options are consumed.
      * ipv6_buf->length contains the packet length minus ipv6 and
@@ -647,7 +710,49 @@ void rpl_recv_DIO(void)
                 len += RPL_OPT_PREFIX_INFO_LEN_WITH_OPT_LEN;
                 break;
             }
+#if RPL_LINKSYM_CHECK
+            case (RPL_OPT_TENT_PARENT): {
+                if (rpl_opt_buf->length != RPL_OPT_TENT_PARENT_LEN) {
+                    /* error malformed */
+                    return;
+                }
 
+                rpl_opt_tentative_pref_parent_buf = get_rpl_opt_tentative_pref_parent_buf(len);
+                ipv6_addr_t tmp;
+                ipv6_addr_set_link_local_prefix(&tmp);
+                ipv6_addr_set_by_eui64(&tmp, rpl_if_id, &tmp);
+                if (!memcmp(&rpl_opt_tentative_pref_parent_buf->pref_parent, &tmp,
+                            sizeof(ipv6_addr_t))) {
+                    has_tentative_pref_parent = 1;
+                }
+                len += RPL_OPT_TENT_PARENT_LEN_WITH_OPT_LEN;
+                break;
+            }
+            case (RPL_OPT_RECENT_NEIGHBORS): {
+                rpl_opt_recent_neighbors_buf = get_rpl_opt_recent_neighbors_buf(len);
+                /* TODO: change bloom api to accept a buffer for its values instead of malloc */
+                bloom_t *tmp = bloom_new(RPL_LINKSYM_BLOOM_SIZE, RPL_LINKSYM_BLOOM_HASHES,
+                    fnv_hash, sax_hash, sdbm_hash, djb2_hash, kr_hash, dek_hash,
+                    rotating_hash, one_at_a_time_hash);
+                /* HACK: create new bloom and copy value from DIO option to check bloom */
+                memcpy(tmp->a, (rpl_opt_recent_neighbors_buf+1), (RPL_LINKSYM_BLOOM_SIZE/CHAR_BIT));
+                char addr_str[IPV6_MAX_ADDR_STR_LEN];
+
+                ipv6_net_if_addr_t *myaddr = NULL;
+                while ((myaddr = (ipv6_net_if_addr_t *) net_if_iter_addresses(rpl_if_id,
+                                 (net_if_addr_t **) &myaddr)) != NULL) {
+                    if (bloom_check(tmp, (uint8_t *) myaddr->addr_data, sizeof(ipv6_addr_t))) {
+                        link_dir = RPL_LINKSYM_BIDIR;
+                        printf("Link is symmetric to: %s\n",
+                                ipv6_addr_to_str(addr_str,
+                                IPV6_MAX_ADDR_STR_LEN, &ipv6_buf->destaddr));
+                    }
+                }
+
+                len += RPL_OPT_LEN + rpl_opt_recent_neighbors_buf->length;
+                break;
+            }
+#endif
             default:
                 DEBUGF("[Error] Unsupported DIO option\n");
                 return;
@@ -685,6 +790,14 @@ void rpl_recv_DIO(void)
 
         return;
     }
+
+#if RPL_LINKSYM_CHECK
+    if (has_tentative_pref_parent) {
+        my_dodag->link_check_requested = 1;
+        trickle_reset_timer(&my_dodag->trickle);
+        bloom_add(my_dodag->recent_neighbors, (uint8_t *) &ipv6_buf->srcaddr, sizeof(ipv6_addr_t));
+    }
+#endif
 
     if (rpl_equal_id(&my_dodag->dodag_id, &dio_dodag.dodag_id)) {
         /* "our" DODAG */
@@ -743,6 +856,15 @@ void rpl_recv_DIO(void)
 
     /* update parent rank */
     parent->rank = byteorder_ntohs(rpl_dio_buf->rank);
+#if RPL_LINKSYM_CHECK
+    parent->link_dir = link_dir;
+    if (link_dir == RPL_LINKSYM_BIDIR) {
+        parent->rank &= ~(1 << 15);
+        if (my_dodag->my_preferred_parent == parent) {
+            my_dodag->my_rank = my_dodag->of->calc_rank(parent, 0);
+        }
+    }
+#endif
     rpl_parent_update(my_dodag, parent);
 
     if (my_dodag->my_preferred_parent == NULL) {

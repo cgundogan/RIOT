@@ -64,6 +64,10 @@ enum RPL_MSG_CODE {
 #define RPL_OPT_TARGET_LEN_WITH_OPT_LEN         (RPL_OPT_TARGET_LEN + RPL_OPT_LEN)
 #define RPL_OPT_TRANSIT_LEN                     20
 #define RPL_OPT_TRANSIT_LEN_WITH_OPT_LEN        (RPL_OPT_TRANSIT_LEN + RPL_OPT_LEN)
+#if RPL_LINKSYM_CHECK
+#define RPL_OPT_TENT_PARENT_LEN                 16
+#define RPL_OPT_TENT_PARENT_LEN_WITH_OPT_LEN    18
+#endif
 
 /* message options */
 #define RPL_OPT_PAD1                 0
@@ -76,12 +80,20 @@ enum RPL_MSG_CODE {
 #define RPL_OPT_SOLICITED_INFO       7
 #define RPL_OPT_PREFIX_INFO          8
 #define RPL_OPT_TARGET_DESC          9
+#if RPL_LINKSYM_CHECK
+#define RPL_OPT_TENT_PARENT         11
+#define RPL_OPT_RECENT_NEIGHBORS    12
+#endif
 
 /* Counters */
 #define RPL_COUNTER_MAX                 255
 #define RPL_COUNTER_LOWER_REGION        127
 #define RPL_COUNTER_SEQ_WINDOW          16
 #define RPL_COUNTER_INIT                (RPL_COUNTER_MAX - RPL_COUNTER_SEQ_WINDOW + 1)
+#if RPL_LINKSYM_CHECK
+#define RPL_LINKSYM_BLOOM_SIZE          64
+#define RPL_LINKSYM_BLOOM_HASHES        8
+#endif
 
 static inline uint8_t RPL_COUNTER_INCREMENT(uint8_t counter)
 {

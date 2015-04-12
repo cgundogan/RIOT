@@ -24,6 +24,10 @@
 #include "rpl/rpl_dodag.h"
 #include "trickle.h"
 #include "rpl.h"
+#if RPL_LINKSYM_CHECK
+#include "hashes.h"
+#include "bloom.h"
+#endif
 
 #define ENABLE_DEBUG (0)
 #if ENABLE_DEBUG
@@ -103,6 +107,12 @@ rpl_dodag_t *rpl_new_dodag(rpl_instance_t *inst, ipv6_addr_t *dodagid)
             dodag->trickle.callback.func = &rpl_trickle_send_dio;
             dodag->trickle.callback.args = dodag;
             memcpy(&dodag->dodag_id, dodagid, sizeof(*dodagid));
+#if RPL_LINKSYM_CHECK
+            dodag->link_check_requested = 0;
+            dodag->recent_neighbors = bloom_new(RPL_LINKSYM_BLOOM_SIZE, RPL_LINKSYM_BLOOM_HASHES,
+                    fnv_hash, sax_hash, sdbm_hash, djb2_hash, kr_hash, dek_hash,
+                    rotating_hash, one_at_a_time_hash);
+#endif
             return dodag;
         }
     }
@@ -136,6 +146,9 @@ rpl_dodag_t *rpl_get_my_dodag(void)
 void rpl_del_dodag(rpl_dodag_t *dodag)
 {
     rpl_leave_dodag(dodag);
+#if RPL_LINKSYM_CHECK
+	bloom_del(dodag->recent_neighbors);
+#endif
     memset(dodag, 0, sizeof(*dodag));
 }
 
@@ -177,6 +190,10 @@ rpl_parent_t *rpl_new_parent(rpl_dodag_t *dodag, ipv6_addr_t *address, uint16_t 
             parent->lifetime = dodag->default_lifetime * dodag->lifetime_unit;
             /* dtsn is set at the end of recv_dio function */
             parent->dtsn = 0;
+#if RPL_LINKSYM_CHECK
+            parent->link_dir = RPL_LINKSYM_UNIDIR;
+            parent->rank |= (1 << 15);
+#endif
             return parent;
         }
     }

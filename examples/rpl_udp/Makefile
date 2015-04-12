@@ -42,5 +42,6 @@ USEMODULE += vtimer
 USEMODULE += defaulttransceiver
 USEMODULE += rpl
 USEMODULE += udp
+USEMODULE += bloom
 
 include $(RIOTBASE)/Makefile.include

@@ -28,6 +28,9 @@ extern "C" {
 #include <string.h>
 #include "ipv6.h"
 #include "trickle.h"
+#if RPL_LINKSYM_CHECK
+#include "bloom.h"
+#endif
 
 /* Modes of Operation */
 
@@ -150,6 +153,11 @@ typedef struct {
     double              link_metric;
     uint8_t             link_metric_type;
     uint8_t             used;
+#if RPL_LINKSYM_CHECK
+#define RPL_LINKSYM_UNIDIR  0
+#define RPL_LINKSYM_BIDIR   1
+    uint8_t             link_dir;
+#endif
 } rpl_parent_t;
 
 struct rpl_of_t;
@@ -194,6 +202,10 @@ typedef struct rpl_dodag_t {
     uint8_t prefix_flags;
     timex_t dao_time;
     vtimer_t dao_timer;
+#if RPL_LINKSYM_CHECK
+    uint8_t link_check_requested;
+    bloom_t *recent_neighbors;
+#endif
 } rpl_dodag_t;
 
 typedef struct rpl_of_t {
@@ -223,6 +235,21 @@ typedef struct {
     uint32_t prefix_valid_lifetime;
     uint32_t prefix_preferred_lifetime;
 } rpl_options_t;
+
+#if RPL_LINKSYM_CHECK
+/* DIO option for link symmetry check, type = 0x0B */
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t length;
+    ipv6_addr_t pref_parent;
+} rpl_opt_tentative_pref_parent_t;
+
+/* DIO option for link symmetry check, type = 0x0C */
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t length;
+} rpl_opt_recent_neighbors_t;
+#endif
 
 #ifdef __cplusplus
 }

@@ -38,4 +38,8 @@ ifneq (,$(RPL_NODE_IS_ROOT))
 	CFLAGS += -DRPL_NODE_IS_ROOT
 endif
 
+ifneq (,$(RPL_LINKSYM_CHECK))
+	CFLAGS += -DRPL_LINKSYM_CHECK=$(RPL_LINKSYM_CHECK)
+endif
+
 include $(RIOTBASE)/Makefile.base
