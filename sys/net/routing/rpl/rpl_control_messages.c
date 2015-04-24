@@ -366,15 +366,27 @@ void rpl_send_DIO(rpl_dodag_t *mydodag, ipv6_addr_t *destination)
     }
 
 #if RPL_LINKSYM_CHECK
-    if ((mydodag->node_status != ROOT_NODE) &&
-            (mydodag->my_preferred_parent->link_dir == RPL_LINKSYM_UNIDIR)) {
-        rpl_send_opt_tentative_pref_parent_buf =
-            get_rpl_send_opt_tentative_pref_parent_buf(DIO_BASE_LEN + opt_hdr_len);
-        rpl_send_opt_tentative_pref_parent_buf->type = RPL_OPT_TENT_PARENT;
-        rpl_send_opt_tentative_pref_parent_buf->length = RPL_OPT_TENT_PARENT_LEN;
-        rpl_send_opt_tentative_pref_parent_buf->pref_parent = mydodag->my_preferred_parent->addr;
-        opt_hdr_len += RPL_OPT_TENT_PARENT_LEN_WITH_OPT_LEN;
-     }
+    rpl_parent_t *parent;
+    rpl_parent_t *end;
+    for (parent = &rpl_parents[0], end = rpl_parents + RPL_MAX_PARENTS; parent < end; parent++) {
+        if (parent->used == 0) {
+            continue;
+        }
+
+        if (parent->checks_requested >= 3) {
+            parent->link_dir = RPL_LINKSYM_UNIDIR;
+            vtimer_now(&parent->blacklisted_at);
+        }
+        else if ((mydodag->node_status != ROOT_NODE) && (parent->link_dir == RPL_LINKSYM_UNKNOWN)) {
+            parent->checks_requested++;
+            rpl_send_opt_tentative_pref_parent_buf =
+                get_rpl_send_opt_tentative_pref_parent_buf(DIO_BASE_LEN + opt_hdr_len);
+            rpl_send_opt_tentative_pref_parent_buf->type = RPL_OPT_TENT_PARENT;
+            rpl_send_opt_tentative_pref_parent_buf->length = RPL_OPT_TENT_PARENT_LEN;
+            rpl_send_opt_tentative_pref_parent_buf->pref_parent = parent->addr;
+            opt_hdr_len += RPL_OPT_TENT_PARENT_LEN_WITH_OPT_LEN;
+        }
+    }
 
     if (mydodag->link_check_requested) {
         mydodag->link_check_requested = 0;
@@ -614,7 +626,7 @@ void rpl_recv_DIO(void)
     uint8_t has_dodag_conf_opt = 0;
 #if RPL_LINKSYM_CHECK
     uint8_t has_tentative_pref_parent = 0;
-    uint8_t link_dir = RPL_LINKSYM_UNIDIR;
+    uint8_t link_dir = RPL_LINKSYM_UNKNOWN;
 #endif
 
     /* Parse until all options are consumed.
@@ -745,7 +757,7 @@ void rpl_recv_DIO(void)
                         link_dir = RPL_LINKSYM_BIDIR;
                         printf("Link is symmetric to: %s\n",
                                 ipv6_addr_to_str(addr_str,
-                                IPV6_MAX_ADDR_STR_LEN, &ipv6_buf->destaddr));
+                                IPV6_MAX_ADDR_STR_LEN, &ipv6_buf->srcaddr));
                     }
                 }
 
@@ -857,12 +869,15 @@ void rpl_recv_DIO(void)
     /* update parent rank */
     parent->rank = byteorder_ntohs(rpl_dio_buf->rank);
 #if RPL_LINKSYM_CHECK
-    parent->link_dir = link_dir;
-    if (link_dir == RPL_LINKSYM_BIDIR) {
+    if (link_dir != RPL_LINKSYM_UNKNOWN) {
+        parent->link_dir = link_dir;
+    }
+
+    if (parent->link_dir == RPL_LINKSYM_BIDIR) {
         parent->rank &= ~(1 << 15);
-        if (my_dodag->my_preferred_parent == parent) {
-            my_dodag->my_rank = my_dodag->of->calc_rank(parent, 0);
-        }
+    }
+    else {
+        parent->rank |= (1 << 15);
     }
 #endif
     rpl_parent_update(my_dodag, parent);

@@ -303,6 +303,21 @@ void _rpl_update_routing_table(void)
         }
     }
 
+#ifdef RPL_LINKSYM_CHECK
+    rpl_parent_t *parent;
+    rpl_parent_t *parent_end;
+    timex_t now;
+    vtimer_now(&now);
+    for (parent = &rpl_parents[0], parent_end = rpl_parents + RPL_MAX_PARENTS;
+            parent < parent_end; parent++) {
+        if (parent->used && (parent->link_dir == RPL_LINKSYM_UNIDIR) &&
+                (now.seconds - parent->blacklisted_at.seconds >= 120)) {
+            parent->link_dir = RPL_LINKSYM_UNKNOWN;
+            parent->checks_requested = 0;
+            trickle_reset_timer(&parent->dodag->trickle);
+        }
+    }
+#endif
     vtimer_remove(&rt_timer);
     vtimer_set_msg(&rt_timer, rt_time, rpl_process_pid, RPL_MSG_TYPE_ROUTING_ENTRY_UPDATE, NULL);
 }

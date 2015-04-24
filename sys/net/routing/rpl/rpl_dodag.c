@@ -191,7 +191,8 @@ rpl_parent_t *rpl_new_parent(rpl_dodag_t *dodag, ipv6_addr_t *address, uint16_t 
             /* dtsn is set at the end of recv_dio function */
             parent->dtsn = 0;
 #if RPL_LINKSYM_CHECK
-            parent->link_dir = RPL_LINKSYM_UNIDIR;
+            parent->link_dir = RPL_LINKSYM_UNKNOWN;
+            parent->checks_requested = 0;
             parent->rank |= (1 << 15);
 #endif
             return parent;
@@ -333,6 +334,8 @@ void rpl_parent_update(rpl_dodag_t *my_dodag, rpl_parent_t *parent)
     if (rpl_find_preferred_parent(my_dodag) == NULL) {
         rpl_local_repair(my_dodag);
     }
+
+    my_dodag->my_rank = my_dodag->of->calc_rank(my_dodag->my_preferred_parent, 0);
 
     if (rpl_calc_rank(old_rank, my_dodag->minhoprankincrease) !=
         rpl_calc_rank(my_dodag->my_rank, my_dodag->minhoprankincrease)) {

@@ -154,9 +154,12 @@ typedef struct {
     uint8_t             link_metric_type;
     uint8_t             used;
 #if RPL_LINKSYM_CHECK
-#define RPL_LINKSYM_UNIDIR  0
-#define RPL_LINKSYM_BIDIR   1
+#define RPL_LINKSYM_UNKNOWN 0
+#define RPL_LINKSYM_UNIDIR  1
+#define RPL_LINKSYM_BIDIR   2
     uint8_t             link_dir;
+    uint8_t             checks_requested;
+    timex_t             blacklisted_at;
 #endif
 } rpl_parent_t;
 
