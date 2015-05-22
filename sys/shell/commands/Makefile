@@ -67,6 +67,9 @@ endif
 ifneq (,$(filter ng_icmpv6_echo vtimer,$(USEMODULE)))
     SRC += sc_icmpv6_echo.c
 endif
+ifneq (,$(filter ng_rpl,$(USEMODULE)))
+    SRC += sc_ng_rpl.c
+endif
 
 # TODO
 # Conditional building not possible at the moment due to
