@@ -58,6 +58,9 @@ typedef enum {
 #ifdef MODULE_NG_ICMPV6
     NG_NETTYPE_ICMPV6,          /**< Protocol is ICMPv6 */
 #endif
+#ifdef MODULE_NG_RPL
+    NG_NETTYPE_RPL_CTRL,        /**< Protocol is ICMPv6, RPL sub-type */
+#endif
     /**
      * @}
      */
