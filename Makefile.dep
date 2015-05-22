@@ -309,3 +309,11 @@ ifneq (,$(filter cpp11-compat,$(USEMODULE)))
   USEMODULE += timex
   FEATURES_REQUIRED += cpp
 endif
+
+ifneq (,$(filter ng_rpl,$(USEMODULE)))
+  USEMODULE += timex
+  USEMODULE += vtimer
+  USEMODULE += ng_ipv6_router_default
+  USEMODULE += trickle
+  USEMODULE += fib
+endif
