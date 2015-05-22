@@ -41,6 +41,9 @@ endif
 ifneq (,$(filter rpl,$(USEMODULE)))
     DIRS += net/routing/rpl
 endif
+ifneq (,$(filter ng_rpl,$(USEMODULE)))
+    DIRS += net/routing/ng_rpl
+endif
 ifneq (,$(filter routing,$(USEMODULE)))
     DIRS += net/routing
 endif
