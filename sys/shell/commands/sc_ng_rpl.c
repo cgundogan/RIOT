@@ -163,7 +163,7 @@ int _ng_rpl_trickle_reset(char *arg1, char *arg2)
         return 1;
     }
 
-	trickle_reset_timer(&dodag->trickle);
+    trickle_reset_timer(&dodag->trickle);
 
     printf("success: resetted trickle timer of DODAG (%s) from instance (%d)\n",
             ng_ipv6_addr_to_str(addr_str, &dodag_id, sizeof(addr_str)),
@@ -200,7 +200,7 @@ int _ng_rpl_trickle_stop(char *arg1, char *arg2)
         return 1;
     }
 
-	trickle_stop(&dodag->trickle);
+    trickle_stop(&dodag->trickle);
 
     printf("success: stopped trickle timer of DODAG (%s) from instance (%d)\n",
             ng_ipv6_addr_to_str(addr_str, &dodag_id, sizeof(addr_str)),
@@ -249,8 +249,8 @@ int _ng_rpl_trickle_start(char *arg1, char *arg2)
 
 int _ng_rpl_send_dis(void)
 {
-	ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
-	ng_rpl_send_DIS(NULL, &all_RPL_nodes);
+    ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
+    ng_rpl_send_DIS(NULL, &all_RPL_nodes);
 
     puts("success: send a DIS\n");
     return 0;
@@ -334,8 +334,8 @@ TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
             ng_rpl_parent_t *parent;
             LL_FOREACH(dodag->parents, parent) {
                 printf("\t\tparent [addr: %s | rank: %d | lifetime: %ds]\n",
-						ng_ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)),
-						parent->rank, (parent->lifetime.seconds - now.seconds));
+                        ng_ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)),
+                        parent->rank, (parent->lifetime.seconds - now.seconds));
             }
         }
     }
@@ -361,22 +361,22 @@ int _ng_rpl(int argc, char **argv)
             return _ng_rpl_instance_remove(argv[2]);
         }
     }
-	else if (strcmp(argv[1], "trickle") == 0) {
-		if ((argc == 5) && (strcmp(argv[2], "reset") == 0)) {
-			return _ng_rpl_trickle_reset(argv[3], argv[4]);
-		}
+    else if (strcmp(argv[1], "trickle") == 0) {
+        if ((argc == 5) && (strcmp(argv[2], "reset") == 0)) {
+            return _ng_rpl_trickle_reset(argv[3], argv[4]);
+        }
         else if ((argc == 5) && (strcmp(argv[2], "stop") == 0)) {
-			return _ng_rpl_trickle_stop(argv[3], argv[4]);
-		}
+            return _ng_rpl_trickle_stop(argv[3], argv[4]);
+        }
         else if ((argc == 5) && (strcmp(argv[2], "start") == 0)) {
-			return _ng_rpl_trickle_start(argv[3], argv[4]);
-		}
-	}
-	else if (strcmp(argv[1], "send") == 0) {
-		if ((argc == 3) && (strcmp(argv[2], "dis") == 0)) {
-			return _ng_rpl_send_dis();
-		}
-	}
+            return _ng_rpl_trickle_start(argv[3], argv[4]);
+        }
+    }
+    else if (strcmp(argv[1], "send") == 0) {
+        if ((argc == 3) && (strcmp(argv[2], "dis") == 0)) {
+            return _ng_rpl_send_dis();
+        }
+    }
 
     printf("usage: %s [help|init|rm|root|show]\n", argv[0]);
     puts("\t* help\t\t\t\t\t\t- show usage");
