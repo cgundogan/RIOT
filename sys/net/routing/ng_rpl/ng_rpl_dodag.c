@@ -235,18 +235,18 @@ bool ng_rpl_parent_add_by_addr(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr, ng_r
         LL_APPEND(dodag->parents, *parent);
         (*parent)->state = 1;
         (*parent)->addr = *addr;
-		if ((*parent) == (*parent)->dodag->parents) {
-			ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
-			ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
-			kernel_pid_t if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
-			if (if_id == KERNEL_PID_UNDEF) {
-				DEBUG("RPL: no interface found for the parent addres\n");
-				return NULL;
-			}
-			fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
-					sizeof(ng_ipv6_addr_t), AF_INET6,
-					(dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
-		}
+        if ((*parent) == (*parent)->dodag->parents) {
+            ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
+            ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
+            kernel_pid_t if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
+            if (if_id == KERNEL_PID_UNDEF) {
+                DEBUG("RPL: no interface found for the parent addres\n");
+                return NULL;
+            }
+            fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
+                    sizeof(ng_ipv6_addr_t), AF_INET6,
+                    (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+        }
         return true;
     }
 
@@ -274,10 +274,10 @@ ng_rpl_parent_t *ng_rpl_parent_get(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr)
 
 bool ng_rpl_parent_remove(ng_rpl_parent_t *parent)
 {
-	if (parent == parent->dodag->parents) {
-		ng_ipv6_addr_t def = { .u64 = {{0}, {0}} };
-		fib_remove_entry(def.u8, sizeof(ng_ipv6_addr_t));
-	}
+    if (parent == parent->dodag->parents) {
+        ng_ipv6_addr_t def = { .u64 = {{0}, {0}} };
+        fib_remove_entry(def.u8, sizeof(ng_ipv6_addr_t));
+    }
     ng_rpl_dodag_t *dodag = parent->dodag;
     LL_DELETE(dodag->parents, parent);
     memset(parent, 0, sizeof(ng_rpl_parent_t));
@@ -308,18 +308,18 @@ void ng_rpl_local_repair(ng_rpl_dodag_t *dodag)
 void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
 {
     uint16_t old_rank = dodag->my_rank;
-	timex_t now;
-	vtimer_now(&now);
-	ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
+    timex_t now;
+    vtimer_now(&now);
+    ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
 
     /* update Parent lifetime */
     if (parent != NULL) {
         parent->lifetime.seconds = now.seconds + (dodag->default_lifetime * dodag->lifetime_unit);
-		if (parent == dodag->parents) {
-			fib_update_entry(def.u8, sizeof(ng_ipv6_addr_t), dodag->parents->addr.u8,
-				sizeof(ng_ipv6_addr_t), AF_INET6,
-					(dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
-		}
+        if (parent == dodag->parents) {
+            fib_update_entry(def.u8, sizeof(ng_ipv6_addr_t), dodag->parents->addr.u8,
+                sizeof(ng_ipv6_addr_t), AF_INET6,
+                    (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+        }
 
     }
 
@@ -340,7 +340,7 @@ int _compare_parents(ng_rpl_parent_t *p1, ng_rpl_parent_t *p2)
 
 ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
 {
-	ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
+    ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
     ng_rpl_parent_t *old_best = dodag->parents;
 
     LL_SORT(dodag->parents, _compare_parents);
@@ -360,19 +360,19 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
         }
         trickle_reset_timer(&dodag->trickle);
 
-		fib_remove_entry(def.u8, sizeof(ng_ipv6_addr_t));
-		ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
+        fib_remove_entry(def.u8, sizeof(ng_ipv6_addr_t));
+        ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
 
-		kernel_pid_t if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
+        kernel_pid_t if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
 
-		if (if_id == KERNEL_PID_UNDEF) {
-			DEBUG("RPL: no interface found for the parent addres\n");
-			return NULL;
-		}
+        if (if_id == KERNEL_PID_UNDEF) {
+            DEBUG("RPL: no interface found for the parent addres\n");
+            return NULL;
+        }
 
-		fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
-				sizeof(ng_ipv6_addr_t), AF_INET6,
-				(dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+        fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
+                sizeof(ng_ipv6_addr_t), AF_INET6,
+                (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
     }
 
     dodag->my_rank = dodag->instance->of->calc_rank(dodag->parents, 0);
