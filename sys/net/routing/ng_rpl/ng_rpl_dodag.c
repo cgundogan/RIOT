@@ -204,7 +204,7 @@ ng_rpl_dodag_t *ng_rpl_dodag_get(ng_rpl_instance_t *instance, ng_ipv6_addr_t *do
 
 bool ng_rpl_parent_add_by_addr(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr, ng_rpl_parent_t **parent)
 {
-    if ((dodag == NULL) || dodag->state == 0) {
+    if ((dodag == NULL) || (dodag->state == 0)) {
         DEBUG("DODAG is NULL or unused\n");
         return false;
     }
@@ -258,7 +258,7 @@ bool ng_rpl_parent_add_by_addr(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr, ng_r
 
 ng_rpl_parent_t *ng_rpl_parent_get(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr)
 {
-    if ((dodag == NULL) || dodag->state == 0) {
+    if ((dodag == NULL) || (dodag->state == 0)) {
         DEBUG("DODAG is NULL or unused\n");
         return NULL;
     }
