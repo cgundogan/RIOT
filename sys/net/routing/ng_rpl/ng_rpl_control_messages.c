@@ -24,7 +24,6 @@ static char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 
 #define NG_RPL_GROUNDED_SHIFT           7
 #define NG_RPL_MOP_SHIFT                3
-#define NG_RPL_OPT_DODAG_CONF           4
 #define NG_RPL_OPT_DODAG_CONF_LEN       14
 #define NG_RPL_SHIFTED_MOP_MASK         0x7
 #define NG_RPL_PRF_MASK                 0x7
