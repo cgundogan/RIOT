@@ -43,9 +43,6 @@
 extern "C" {
 #endif
 
-#undef CC1100_RADIO_MODE
-#define CC1100_RADIO_MODE CC1100_MODE_WOR
-
 /**
  * @brief   Default stack size to use for the IPv6 thread
  */
