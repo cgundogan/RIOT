@@ -315,5 +315,6 @@ ifneq (,$(filter ng_rpl,$(USEMODULE)))
   USEMODULE += vtimer
   USEMODULE += ng_ipv6_router_default
   USEMODULE += trickle
+  USEMODULE += net_help
   USEMODULE += fib
 endif
