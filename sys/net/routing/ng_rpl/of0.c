@@ -70,7 +70,7 @@ uint16_t calc_rank(ng_rpl_parent_t *parent, uint16_t base_rank)
         add = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
     }
 
-    if (base_rank + add < base_rank) {
+    if ((base_rank + add) < base_rank) {
         return NG_RPL_INFINITE_RANK;
     }
 

@@ -105,7 +105,7 @@ extern "C" {
  *          RFC 6550, section 17
  *      </a>
  */
-#define NG_RPL_INFINITE_RANK 0xFFFF
+#define NG_RPL_INFINITE_RANK (0xFFFF)
 
 /**
  * @brief   Default minimum hop rank increase
@@ -113,31 +113,31 @@ extern "C" {
  *          RFC 6550, section 17
  *      </a>
  */
-#define NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE 256
+#define NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE (256)
 
 /**
  * @brief   Maximum rank increase
  */
-#define NG_RPL_DEFAULT_MAX_RANK_INCREASE 0
+#define NG_RPL_DEFAULT_MAX_RANK_INCREASE (0)
 
 /**
  * @brief   Number of implemented Objective Functions
  */
-#define NG_RPL_IMPLEMENTED_OFS_NUMOF 1
+#define NG_RPL_IMPLEMENTED_OFS_NUMOF (1)
 
 /**
  * @brief   Default Objective Code Point (OF0)
  */
-#define NG_RPL_DEFAULT_OCP 0
+#define NG_RPL_DEFAULT_OCP (0)
 
 /**
  * @name RPL Mode of Operations
  * @{
  */
-#define NG_RPL_MOP_NO_DOWNWARD_ROUTES  0x00
-#define NG_RPL_MOP_NON_STORING_MODE    0x01
-#define NG_RPL_MOP_STORING_MODE_NO_MC  0x02
-#define NG_RPL_MOP_STORING_MODE_MC     0x03
+#define NG_RPL_MOP_NO_DOWNWARD_ROUTES  (0x00)
+#define NG_RPL_MOP_NON_STORING_MODE    (0x01)
+#define NG_RPL_MOP_STORING_MODE_NO_MC  (0x02)
+#define NG_RPL_MOP_STORING_MODE_MC     (0x03)
 /** default MOP set on compile time */
 #ifndef NG_RPL_DEFAULT_MOP
 #   define NG_RPL_DEFAULT_MOP NG_RPL_MOP_STORING_MODE_NO_MC
@@ -151,9 +151,9 @@ extern "C" {
  *      </a>
  * @{
  */
-#define NG_RPL_COUNTER_MAX                 255
-#define NG_RPL_COUNTER_LOWER_REGION        127
-#define NG_RPL_COUNTER_SEQ_WINDOW          16
+#define NG_RPL_COUNTER_MAX                 (255)
+#define NG_RPL_COUNTER_LOWER_REGION        (127)
+#define NG_RPL_COUNTER_SEQ_WINDOW          (16)
 #define NG_RPL_COUNTER_INIT                (NG_RPL_COUNTER_MAX - NG_RPL_COUNTER_SEQ_WINDOW + 1)
 
 static inline uint8_t NG_RPL_COUNTER_INCREMENT(uint8_t counter)
@@ -189,9 +189,9 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *      </a>
  * @{
  */
-#define NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS 20
-#define NG_RPL_DEFAULT_DIO_INTERVAL_MIN 3
-#define NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT 10
+#define NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS (20)
+#define NG_RPL_DEFAULT_DIO_INTERVAL_MIN (3)
+#define NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT (10)
 /** @} */
 
 /**
@@ -199,14 +199,14 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  * default lifetime will be multiplied by the lifetime unit to obtain the resulting lifetime
  * @{
  */
-#define NG_RPL_DEFAULT_LIFETIME 60
-#define NG_RPL_LIFETIME_UNIT 2
+#define NG_RPL_DEFAULT_LIFETIME (60)
+#define NG_RPL_LIFETIME_UNIT (2)
 /** @} */
 
 /**
  * @brief Interval of the void _update_lifetime() function
  */
-#define NG_RPL_LIFETIME_STEP 2
+#define NG_RPL_LIFETIME_STEP (2)
 
 /**
  * @brief A DODAG can be grounded or floating
@@ -214,30 +214,30 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          Grounded and Floating DODAGs
  *      </a>
  */
-#define NG_RPL_GROUNDED 1
+#define NG_RPL_GROUNDED (1)
 
 /**
  * @name Parameters used for DAO handling
  * @{
  */
-#define NG_RPL_DAO_SEND_RETRIES 4
-#define NG_RPL_DEFAULT_WAIT_FOR_DAO_ACK 3
-#define NG_RPL_REGULAR_DAO_INTERVAL 60
-#define NG_RPL_DEFAULT_DAO_DELAY 5
+#define NG_RPL_DAO_SEND_RETRIES (4)
+#define NG_RPL_DEFAULT_WAIT_FOR_DAO_ACK (3)
+#define NG_RPL_REGULAR_DAO_INTERVAL (60)
+#define NG_RPL_DEFAULT_DAO_DELAY (5)
 /** @} */
 
 /**
  * @brief Cleanup timeout in seconds
  */
-#define NG_RPL_CLEANUP_TIME 30
+#define NG_RPL_CLEANUP_TIME (30)
 
 /**
  * @name Node Status
  * @{
  */
-#define NG_RPL_NORMAL_NODE  0
-#define NG_RPL_ROOT_NODE 1
-#define NG_RPL_LEAF_NODE 2
+#define NG_RPL_NORMAL_NODE  (0)
+#define NG_RPL_ROOT_NODE (1)
+#define NG_RPL_LEAF_NODE (2)
 /** @} */
 
 
@@ -248,22 +248,22 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *      </a>
  * @{
  */
-#define NG_RPL_OPT_PAD1                 0
-#define NG_RPL_OPT_PADN                 1
-#define NGR_PL_OPT_DAG_METRIC_CONTAINER 2
-#define NG_RPL_OPT_ROUTE_INFO           3
-#define NG_RPL_OPT_DODAG_CONF           4
-#define NG_RPL_OPT_TARGET               5
-#define NG_RPL_OPT_TRANSIT              6
-#define NG_RPL_OPT_SOLICITED_INFO       7
-#define NG_RPL_OPT_PREFIX_INFO          8
-#define NG_RPL_OPT_TARGET_DESC          9
+#define NG_RPL_OPT_PAD1                 (0)
+#define NG_RPL_OPT_PADN                 (1)
+#define NGR_PL_OPT_DAG_METRIC_CONTAINER (2)
+#define NG_RPL_OPT_ROUTE_INFO           (3)
+#define NG_RPL_OPT_DODAG_CONF           (4)
+#define NG_RPL_OPT_TARGET               (5)
+#define NG_RPL_OPT_TRANSIT              (6)
+#define NG_RPL_OPT_SOLICITED_INFO       (7)
+#define NG_RPL_OPT_PREFIX_INFO          (8)
+#define NG_RPL_OPT_TARGET_DESC          (9)
 /** @} */
 
 /**
  * @brief Rank of the ROOT node
  */
-#define NG_RPL_ROOT_RANK 256
+#define NG_RPL_ROOT_RANK (256)
 
 /**
  *  @brief  DIS ICMPv6 code
@@ -271,7 +271,7 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          RFC 6550, section 6
  *      </a>
  */
-#define NG_RPL_ICMPV6_CODE_DIS 0x00
+#define NG_RPL_ICMPV6_CODE_DIS (0x00)
 
 /**
  *  @brief  DIO ICMPv6 code
@@ -279,7 +279,7 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          RFC 6550, section 6
  *      </a>
  */
-#define NG_RPL_ICMPV6_CODE_DIO 0x01
+#define NG_RPL_ICMPV6_CODE_DIO (0x01)
 
 /**
  *  @brief  DAO ICMPv6 code
@@ -287,7 +287,7 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          RFC 6550, section 6
  *      </a>
  */
-#define NG_RPL_ICMPV6_CODE_DAO 0x02
+#define NG_RPL_ICMPV6_CODE_DAO (0x02)
 
 /**
  *  @brief  DAO ACK ICMPv6 code
@@ -295,12 +295,12 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          RFC 6550, section 6
  *      </a>
  */
-#define NG_RPL_ICMPV6_CODE_DAO_ACK 0x03
+#define NG_RPL_ICMPV6_CODE_DAO_ACK (0x03)
 
 /**
  * @brief Update interval of the lifetime update function
  */
-#define NG_RPL_LIFETIME_UPDATE_STEP 2
+#define NG_RPL_LIFETIME_UPDATE_STEP (2)
 
 /**
  * @brief PID of the RPL thread.
