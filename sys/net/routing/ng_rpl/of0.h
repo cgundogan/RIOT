@@ -9,7 +9,7 @@
 /**
  * @ingroup     net_ng_rpl
  * @{
- * @file        of0.h
+ * @file
  * @brief       Objective Function Zero.
  *
  * Header-file, which defines all functions for the implementation of Objective Function Zero.

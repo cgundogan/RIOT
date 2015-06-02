@@ -11,7 +11,7 @@
  * @ingroup net_ng_rpl
  * @{
  *
- * @file        ng_rpl_structs.h
+ * @file
  * @brief       RPL data structs
  *
  * Header file, which defines all structs used by RPL.
