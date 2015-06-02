@@ -12,7 +12,7 @@
  * @ingroup     net
  * @{
  *
- * @file        rpl.h
+ * @file
  * @brief       RPL header. Declaration of global variables and functions needed for
  *              core functionality of RPL.
  *
