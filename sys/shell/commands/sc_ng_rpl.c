@@ -323,7 +323,7 @@ int _ng_rpl_dodag_show(void)
             timex_normalize(&tc);
             timex_normalize(&ti);
             timex_normalize(&cleanup);
-            printf("\tdodag [%s | R: %d | CL: %ds | \
+            printf("\tdodag [%s | R: %d | CL: %" PRIu32 "s | \
 TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
                     ng_ipv6_addr_to_str(addr_str, &dodag->dodag_id, sizeof(addr_str)),
                     dodag->my_rank, ((int32_t) cleanup.seconds) > 0 ? cleanup.seconds : 0,
@@ -333,7 +333,7 @@ TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
                     ((int32_t) ti.seconds) > 0 ? ti.seconds : 0);
             ng_rpl_parent_t *parent;
             LL_FOREACH(dodag->parents, parent) {
-                printf("\t\tparent [addr: %s | rank: %d | lifetime: %ds]\n",
+                printf("\t\tparent [addr: %s | rank: %d | lifetime: %" PRIu32 "s]\n",
                         ng_ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)),
                         parent->rank, (parent->lifetime.seconds - now.seconds));
             }
