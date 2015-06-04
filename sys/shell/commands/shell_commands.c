@@ -178,6 +178,10 @@ extern int _ipv6_nc_routers(int argc, char **argv);
 extern int _ng_rpl(int argc, char **argv);
 #endif
 
+#ifdef MODULE_NG_ETX_BEACONING
+extern int _etx(int argc, char **argv);
+#endif
+
 const shell_command_t _shell_command_list[] = {
     {"reboot", "Reboot the node", _reboot_handler},
 #ifdef MODULE_CONFIG
@@ -293,6 +297,9 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_NG_RPL
     {"rpl", "rpl configuration tool [help|init|rm|root|show]", _ng_rpl },
+#endif
+#ifdef MODULE_NG_ETX_BEACONING
+    {"etx", "show ETX information of all neighbors", _etx },
 #endif
     {NULL, NULL, NULL}
 };
