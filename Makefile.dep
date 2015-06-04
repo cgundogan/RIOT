@@ -313,4 +313,9 @@ ifneq (,$(filter ng_rpl,$(USEMODULE)))
   USEMODULE += trickle
   USEMODULE += net_help
   USEMODULE += fib
+
+ifneq (,$(filter ng_etx_beaconing,$(USEMODULE)))
+  USEMODULE += timex
+  USEMODULE += vtimer
+  USEMODULE += ng_netbase
 endif

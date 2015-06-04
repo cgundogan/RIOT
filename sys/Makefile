@@ -170,6 +170,9 @@ endif
 ifneq (,$(filter ng_netdev_eth,$(USEMODULE)))
     DIRS += net/link_layer/ng_netdev_eth
 endif
+ifneq (,$(filter ng_etx_beaconing,$(USEMODULE)))
+    DIRS += net/crosslayer/ng_etx_beaconing
+endif
 
 DIRS += $(dir $(wildcard $(addsuffix /Makefile, ${USEMODULE})))
 
