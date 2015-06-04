@@ -305,3 +305,9 @@ ifneq (,$(filter cpp11-compat,$(USEMODULE)))
   USEMODULE += timex
   FEATURES_REQUIRED += cpp
 endif
+
+ifneq (,$(filter ng_etx_beaconing,$(USEMODULE)))
+  USEMODULE += timex
+  USEMODULE += vtimer
+  USEMODULE += ng_netbase
+endif
