@@ -26,7 +26,7 @@
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
-// !!! TODO: port etx/mrhof to the new network stack
+/* !!! TODO: port etx/mrhof to the new network stack */
 
 static ng_rpl_of_t *objective_functions[NG_RPL_IMPLEMENTED_OFS_NUMOF];
 
