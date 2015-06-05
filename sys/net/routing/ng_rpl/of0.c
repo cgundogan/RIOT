@@ -23,7 +23,6 @@
 #include "net/ng_rpl.h"
 #include "net/ng_rpl/structs.h"
 
-//Function Prototypes
 static uint16_t calc_rank(ng_rpl_parent_t *, uint16_t);
 static ng_rpl_parent_t *which_parent(ng_rpl_parent_t *, ng_rpl_parent_t *);
 static ng_rpl_dodag_t *which_dodag(ng_rpl_dodag_t *, ng_rpl_dodag_t *);
