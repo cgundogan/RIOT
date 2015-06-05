@@ -128,8 +128,8 @@ typedef struct __attribute__((packed)) {
     uint8_t type;               /**< option type */
     uint8_t length;             /**< option length without the first two bytes */
     uint8_t flags;              /**< unused */
-    uint8_t prefix_length;      /**< number of valid leading bits in the IPv& prefix */
-    ng_ipv6_addr_t target;      /**< IPv& prefix, address or multicast group */
+    uint8_t prefix_length;      /**< number of valid leading bits in the IPv6 prefix */
+    ng_ipv6_addr_t target;      /**< IPv6 prefix, address or multicast group */
 } ng_rpl_opt_target_t;
 
 /**
