@@ -393,7 +393,7 @@ void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t
             return;
         }
 
-        destination = &dodag->parents->addr;
+        destination = &(dodag->parents->addr);
     }
 
     ng_pktsnip_t *pkt;
