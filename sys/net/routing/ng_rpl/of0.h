@@ -15,7 +15,6 @@
  * Header-file, which defines all functions for the implementation of Objective Function Zero.
  *
  * @author      Eric Engel <eric.engel@fu-berlin.de>
- * @}
  */
 
 #ifndef OF0_H
@@ -27,6 +26,11 @@
 extern "C" {
 #endif
 
+/**
+ * @brief   Return the address to the of0 objective function
+ *
+ * @return  Address of the of0 objective function
+ */
 ng_rpl_of_t *ng_rpl_get_of0(void);
 
 #ifdef __cplusplus
@@ -34,3 +38,6 @@ ng_rpl_of_t *ng_rpl_get_of0(void);
 #endif
 
 #endif /* OF0_H */
+/**
+ * @}
+ */
