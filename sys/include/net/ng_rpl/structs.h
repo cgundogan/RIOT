@@ -68,11 +68,11 @@ typedef struct __attribute__((packed)) {
     uint8_t type;                       /**< Option Type: 0x04 */
     uint8_t length;                     /**< length of option, not including first two bytes */
     uint8_t flags_a_pcs;                /**< flags */
-    uint8_t DIOIntDoubl;                /**< trickle Imax parameter */
-    uint8_t DIOIntMin;                  /**< trickle Imin parameter */
-    uint8_t DIORedun;                   /**< trickle k parameter */
-    network_uint16_t MaxRankIncrease;   /**< allowable increase in rank */
-    network_uint16_t MinHopRankIncrease;/**< DAGRank(rank) = floor(rank/MinHopRankIncrease) */
+    uint8_t dio_int_doubl;              /**< trickle Imax parameter */
+    uint8_t dio_int_min;                /**< trickle Imin parameter */
+    uint8_t dio_redun;                  /**< trickle k parameter */
+    network_uint16_t max_rank_inc;      /**< allowable increase in rank */
+    network_uint16_t min_hop_rank_inc;  /**< DAGRank(rank) = floor(rank/MinHopRankIncrease) */
     network_uint16_t ocp;               /**< Objective Code Point */
     uint8_t reserved;                   /**< reserved */
     uint8_t default_lifetime;           /**< lifetime of RPL routes (lifetime * lifetime_unit) */
@@ -189,8 +189,8 @@ typedef struct {
     ng_rpl_dodag_t *dodags;         /**< pointer to the DODAG list of this instance */
     uint8_t mop;                    /**< configured Mode of Operation */
     ng_rpl_of_t *of;                /**< configured Objective Function */
-    uint16_t minhoprankincrease;    /**< minimum hop rank increase */
-    uint16_t maxrankincrease;       /**< max increase in the rank */
+    uint16_t min_hop_rank_inc;      /**< minimum hop rank increase */
+    uint16_t max_rank_inc;          /**< max increase in the rank */
 } ng_rpl_instance_t;
 
 /**
@@ -204,9 +204,9 @@ struct ng_rpl_dodag {
     uint8_t state;                  /**< 0 for unused, 1 for used */
     uint8_t dtsn;                   /**< DAO Trigger Sequence Number */
     uint8_t prf;                    /**< preferred flag */
-    uint8_t dio_interval_doubling;  /**< trickle Imax parameter */
+    uint8_t dio_interval_doubl;     /**< trickle Imax parameter */
     uint8_t dio_min;                /**< trickle Imin parameter */
-    uint8_t dio_redundancy;         /**< trickle k parameter */
+    uint8_t dio_redun;              /**< trickle k parameter */
     uint8_t default_lifetime;       /**< lifetime of routes (lifetime * unit) */
     uint16_t lifetime_unit;         /**< unit in seconds of the lifetime */
     uint8_t version;                /**< version of this DODAG */
