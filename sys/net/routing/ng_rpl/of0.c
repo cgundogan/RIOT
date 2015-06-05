@@ -64,7 +64,7 @@ uint16_t calc_rank(ng_rpl_parent_t *parent, uint16_t base_rank)
     uint16_t add;
 
     if (parent != NULL) {
-        add = parent->dodag->instance->minhoprankincrease;
+        add = parent->dodag->instance->min_hop_rank_inc;
     }
     else {
         add = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;

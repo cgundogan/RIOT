@@ -57,8 +57,8 @@ bool ng_rpl_instance_add(uint8_t instance_id, ng_rpl_instance_t **inst)
     if (*inst != NULL) {
         (*inst)->id = instance_id;
         (*inst)->state = 1;
-        (*inst)->maxrankincrease = NG_RPL_DEFAULT_MAX_RANK_INCREASE;
-        (*inst)->minhoprankincrease = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
+        (*inst)->max_rank_inc = NG_RPL_DEFAULT_MAX_RANK_INCREASE;
+        (*inst)->min_hop_rank_inc = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
         (*inst)->dodags = NULL;
         return true;
     }
@@ -138,9 +138,9 @@ bool ng_rpl_dodag_add(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id, ng_
         (*dodag)->my_rank = NG_RPL_INFINITE_RANK;
         (*dodag)->trickle.callback.func = &rpl_trickle_send_dio;
         (*dodag)->trickle.callback.args = *dodag;
-        (*dodag)->dio_interval_doubling = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
+        (*dodag)->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
         (*dodag)->dio_min = 0;
-        (*dodag)->dio_redundancy = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
+        (*dodag)->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
         (*dodag)->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
         (*dodag)->lifetime_unit = NG_RPL_LIFETIME_UNIT;
         (*dodag)->node_status = NG_RPL_NORMAL_NODE;
