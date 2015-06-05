@@ -116,11 +116,11 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         dodag_conf->type = NG_RPL_OPT_DODAG_CONF;
         dodag_conf->length = NG_RPL_OPT_DODAG_CONF_LEN;
         dodag_conf->flags_a_pcs = 0;
-        dodag_conf->DIOIntDoubl = dodag->dio_interval_doubling;
-        dodag_conf->DIOIntMin = dodag->dio_min;
-        dodag_conf->DIORedun = dodag->dio_redundancy;
-        dodag_conf->MaxRankIncrease = byteorder_htons(dodag->instance->maxrankincrease);
-        dodag_conf->MinHopRankIncrease = byteorder_htons(dodag->instance->minhoprankincrease);
+        dodag_conf->dio_int_doubl = dodag->dio_interval_doubl;
+        dodag_conf->dio_int_min = dodag->dio_min;
+        dodag_conf->dio_redun = dodag->dio_redun;
+        dodag_conf->max_rank_inc = byteorder_htons(dodag->instance->max_rank_inc);
+        dodag_conf->min_hop_rank_inc = byteorder_htons(dodag->instance->min_hop_rank_inc);
         dodag_conf->ocp = byteorder_htons(dodag->instance->of->ocp);
         dodag_conf->reserved = 0;
         dodag_conf->default_lifetime = dodag->default_lifetime;
@@ -199,19 +199,19 @@ void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_i
             case (NG_RPL_OPT_DODAG_CONF): {
                 DEBUG("RPL: DODAG CONF DIO option parsed\n");
                 ng_rpl_opt_dodag_conf_t *dc = (ng_rpl_opt_dodag_conf_t *) opt;
-                dodag->dio_interval_doubling = dc->DIOIntDoubl;
-                dodag->dio_min = dc->DIOIntMin;
-                dodag->dio_redundancy = dc->DIORedun;
-                dodag->instance->maxrankincrease = byteorder_ntohs(dc->MaxRankIncrease);
-                dodag->instance->minhoprankincrease = byteorder_ntohs(dc->MinHopRankIncrease);
+                dodag->dio_interval_doubl = dc->dio_int_doubl;
+                dodag->dio_min = dc->dio_int_min;
+                dodag->dio_redun = dc->dio_redun;
+                dodag->instance->max_rank_inc = byteorder_ntohs(dc->max_rank_inc);
+                dodag->instance->min_hop_rank_inc = byteorder_ntohs(dc->min_hop_rank_inc);
                 dodag->default_lifetime = dc->default_lifetime;
                 dodag->lifetime_unit = byteorder_ntohs(dc->lifetime_unit);
                 dodag->instance->of =
                     (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(byteorder_ntohs(dc->ocp));
 
                 dodag->trickle.Imin = (1 << dodag->dio_min);
-                dodag->trickle.Imax = dodag->dio_interval_doubling;
-                dodag->trickle.k = dodag->dio_redundancy;
+                dodag->trickle.Imax = dodag->dio_interval_doubl;
+                dodag->trickle.k = dodag->dio_redun;
 
                 l += opt->length + sizeof(ng_rpl_opt_t);
                 opt = (ng_rpl_opt_t *) (((uint8_t *) (opt + 1)) + opt->length);
@@ -290,7 +290,7 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
                 ng_ipv6_addr_to_str(addr_str, &dio->dodag_id, sizeof(addr_str)));
         trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
                       NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
-                      dodag->dio_interval_doubling, dodag->dio_redundancy);
+                      dodag->dio_interval_doubl, dodag->dio_redun);
         dodag->version = dio->version_number;
         ng_rpl_delay_dao(dodag);
     }

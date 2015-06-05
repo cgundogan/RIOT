@@ -94,8 +94,8 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
     if (ng_rpl_instance_add(instance_id, &inst)) {
         inst->of = (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
         inst->mop = NG_RPL_DEFAULT_MOP;
-        inst->minhoprankincrease = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
-        inst->maxrankincrease = 0;
+        inst->min_hop_rank_inc = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
+        inst->max_rank_inc = 0;
     }
     else if (inst == NULL) {
         DEBUG("RPL: could not allocate memory for a new instance with id %d", instance_id);
@@ -110,9 +110,9 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
 
     dodag->dtsn = 1;
     dodag->prf = 0;
-    dodag->dio_interval_doubling = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
+    dodag->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
     dodag->dio_min = NG_RPL_DEFAULT_DIO_INTERVAL_MIN;
-    dodag->dio_redundancy = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
+    dodag->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
     dodag->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
     dodag->lifetime_unit = NG_RPL_LIFETIME_UNIT;
     dodag->version = NG_RPL_COUNTER_INIT;
@@ -122,7 +122,7 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
 
     trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
                   NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
-                  dodag->dio_interval_doubling, dodag->dio_redundancy);
+                  dodag->dio_interval_doubl, dodag->dio_redun);
 
     return dodag;
 }

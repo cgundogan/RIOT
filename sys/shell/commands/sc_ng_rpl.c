@@ -239,7 +239,7 @@ int _ng_rpl_trickle_start(char *arg1, char *arg2)
 
     trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
                   NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
-                  dodag->dio_interval_doubling, dodag->dio_redundancy);
+                  dodag->dio_interval_doubl, dodag->dio_redun);
 
     printf("success: started trickle timer of DODAG (%s) from instance (%d)\n",
             ng_ipv6_addr_to_str(addr_str, &dodag_id, sizeof(addr_str)),
@@ -315,7 +315,7 @@ int _ng_rpl_dodag_show(void)
         }
         printf("instance [%d | mop: %d | ocp: %d | mhri: %d | mri %d]\n", ng_rpl_instances[i].id,
                 ng_rpl_instances[i].mop, ng_rpl_instances[i].of->ocp,
-                ng_rpl_instances[i].minhoprankincrease, ng_rpl_instances[i].maxrankincrease);
+                ng_rpl_instances[i].min_hop_rank_inc, ng_rpl_instances[i].max_rank_inc);
         LL_FOREACH(ng_rpl_instances[i].dodags, dodag) {
             tc = timex_sub(dodag->trickle.msg_callback_timer.absolute, now);
             ti = timex_sub(dodag->trickle.msg_interval_timer.absolute, now);
@@ -327,7 +327,7 @@ int _ng_rpl_dodag_show(void)
 TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
                     ng_ipv6_addr_to_str(addr_str, &dodag->dodag_id, sizeof(addr_str)),
                     dodag->my_rank, ((int32_t) cleanup.seconds) > 0 ? cleanup.seconds : 0,
-                    (1 << dodag->dio_min), dodag->dio_interval_doubling,
+                    (1 << dodag->dio_min), dodag->dio_interval_doubl,
                     dodag->trickle.k, dodag->trickle.c,
                     ((int32_t) tc.seconds) > 0 ? tc.seconds : 0,
                     ((int32_t) ti.seconds) > 0 ? ti.seconds : 0);
