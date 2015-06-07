@@ -171,12 +171,8 @@ struct ng_rpl_parent {
 typedef struct {
     uint16_t ocp;   /**< objective code point */
     uint16_t (*calc_rank)(ng_rpl_parent_t *parent, uint16_t base_rank); /**< calculate the rank */
-    ng_rpl_parent_t *(*which_parent)(ng_rpl_parent_t *, ng_rpl_parent_t *); /**< compare for parents */
     ng_rpl_dodag_t *(*which_dodag)(ng_rpl_dodag_t *, ng_rpl_dodag_t *); /**< compare for dodags */
-    void (*reset)(ng_rpl_dodag_t *);    /**< resets the OF */
-    void (*parent_state_callback)(ng_rpl_parent_t *, int, int); /**< retrieves the state of a parent*/
-    void (*init)(void);  /**< OF specific init function */
-    void (*process_dio)(void);  /**< DIO processing callback (acc. to OF0 spec, chpt 5) */
+    bool (*update_pref_parent)(ng_rpl_dodag_t *); /**< choose a pref. parent */
 } ng_rpl_of_t;
 
 

@@ -24,30 +24,19 @@
 #include "net/ng_rpl/structs.h"
 
 static uint16_t calc_rank(ng_rpl_parent_t *, uint16_t);
-static ng_rpl_parent_t *which_parent(ng_rpl_parent_t *, ng_rpl_parent_t *);
 static ng_rpl_dodag_t *which_dodag(ng_rpl_dodag_t *, ng_rpl_dodag_t *);
-static void reset(ng_rpl_dodag_t *);
+static bool update_pref_parent(ng_rpl_dodag_t *dodag);
 
 static ng_rpl_of_t ng_rpl_of0 = {
     0x0,
     calc_rank,
-    which_parent,
     which_dodag,
-    reset,
-    NULL,
-    NULL,
-    NULL
+    update_pref_parent,
 };
 
 ng_rpl_of_t *ng_rpl_get_of0(void)
 {
     return &ng_rpl_of0;
-}
-
-void reset(ng_rpl_dodag_t *dodag)
-{
-    /* Nothing to do in OF0 */
-    (void) dodag;
 }
 
 uint16_t calc_rank(ng_rpl_parent_t *parent, uint16_t base_rank)
@@ -76,14 +65,33 @@ uint16_t calc_rank(ng_rpl_parent_t *parent, uint16_t base_rank)
     return base_rank + add;
 }
 
-/* We simply return the Parent with lower rank */
-ng_rpl_parent_t *which_parent(ng_rpl_parent_t *p1, ng_rpl_parent_t *p2)
+bool update_pref_parent(ng_rpl_dodag_t *dodag)
 {
-    if (p1->rank < p2->rank) {
-        return p1;
+    if (!dodag->parents) {
+        return false;
     }
 
-    return p2;
+    uint16_t cur_min_path_cost = dodag->parents->rank;
+
+    ng_rpl_parent_t *parent, *best;
+    LL_FOREACH(dodag->parents, parent) {
+        if (parent->rank < cur_min_path_cost) {
+            if (best) {
+                best = (parent->rank < best->rank) ? parent : best;
+            }
+            else {
+                best = parent;
+            }
+        }
+    }
+
+    if (best && (best != dodag->parents)) {
+        LL_DELETE(dodag->parents, best);
+        LL_PREPEND(dodag->parents, best);
+        return true;
+    }
+
+    return false;
 }
 
 /* Not used yet, as the implementation only makes use of one dodag for now. */

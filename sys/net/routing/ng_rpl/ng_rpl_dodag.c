@@ -333,27 +333,23 @@ void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
     return;
 }
 
-int _compare_parents(ng_rpl_parent_t *p1, ng_rpl_parent_t *p2)
-{
-    return p1->dodag->instance->of->which_parent(p1, p2) == p1 ? -1 : 1;
-}
-
 ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
 {
     ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
     ng_rpl_parent_t *old_best = dodag->parents;
 
-    LL_SORT(dodag->parents, _compare_parents);
-
     if (dodag->parents == NULL) {
         return NULL;
     }
-    else if (dodag->parents->rank >= dodag->my_rank) {
+
+    bool new_parent = dodag->instance->of->update_pref_parent(dodag);
+
+    if (dodag->parents->rank >= dodag->my_rank) {
         ng_rpl_parent_remove(dodag->parents);
         return NULL;
     }
 
-    if (old_best != dodag->parents) {
+    if (new_parent) {
         if (dodag->instance->mop != NG_RPL_MOP_NO_DOWNWARD_ROUTES) {
             ng_rpl_send_DAO(dodag, &old_best->addr, 0);
             ng_rpl_delay_dao(dodag);
