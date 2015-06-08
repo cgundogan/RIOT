@@ -40,10 +40,10 @@ int _ng_rpl_init(char *arg)
     return 0;
 }
 
-int _ng_rpl_dodag_root(char *arg1, char *arg2)
+int _ng_rpl_dodag_root(bool p2p, char *arg1, char *arg2, char *arg3)
 {
     uint8_t instance_id = 0;
-    ng_ipv6_addr_t dodag_id;
+    ng_ipv6_addr_t dodag_id, target;
     char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 
     instance_id = (uint8_t) atoi(arg1);
@@ -58,7 +58,17 @@ int _ng_rpl_dodag_root(char *arg1, char *arg2)
     }
 
     ng_rpl_dodag_t *dodag = NULL;
-    dodag = ng_rpl_root_init(instance_id, &dodag_id);
+    if (!p2p) {
+        dodag = ng_rpl_root_init(instance_id, &dodag_id);
+    }
+    else {
+        if (ng_ipv6_addr_from_str(&target, arg3) == NULL) {
+            puts("<target> must be a valid IPv6 address");
+            return 1;
+        }
+        dodag = ng_rpl_root_init_p2p(instance_id, &dodag_id, &target);
+    }
+
     if (dodag == NULL) {
         printf("error: could not add DODAG (%s) to instance (%d)\n",
                 ng_ipv6_addr_to_str(addr_str, &dodag_id, sizeof(addr_str)), instance_id);
@@ -292,6 +302,24 @@ int _ng_rpl_dodag_show(void)
         }
     }
 
+#ifdef MODULE_NG_RPL_P2P
+    printf("P2P extension table:\t");
+    for (uint8_t i = 0; i < NG_RPL_P2P_EXTS_NUMOF; ++i) {
+        if (ng_rpl_p2p_exts[i].state == 0) {
+            printf("[ ]");
+        }
+        else {
+            printf("[X]");
+        }
+        if (i < (NG_RPL_P2P_EXTS_NUMOF - 1)) {
+            putchar('\t');
+        }
+        else {
+            printf("\n");
+        }
+    }
+#endif
+
     printf("parent table:\t");
     for (uint8_t i = 0; i < NG_RPL_PARENTS_NUMOF; ++i) {
         if (ng_rpl_parents[i].state == 0) {
@@ -353,7 +381,10 @@ int _ng_rpl(int argc, char **argv)
         return _ng_rpl_init(argv[2]);
     }
     else if ((argc == 4) && strcmp(argv[1], "root") == 0) {
-        return _ng_rpl_dodag_root(argv[2], argv[3]);
+        return _ng_rpl_dodag_root(false, argv[2], argv[3], NULL);
+    }
+    else if ((argc == 5) && strcmp(argv[1], "find") == 0) {
+        return _ng_rpl_dodag_root(true, argv[2], argv[3], argv[4]);
     }
     else if (strcmp(argv[1], "rm") == 0) {
         if (argc == 4) {
@@ -381,6 +412,7 @@ int _ng_rpl(int argc, char **argv)
     }
 
     printf("usage: %s [help|init|rm|root|show]\n", argv[0]);
+    puts("\t* find <instance_id> <dodag_id> <target>\t\t- use P2P mode to find a path to <target>");
     puts("\t* help\t\t\t\t\t\t- show usage");
     puts("\t* init <if_id>\t\t\t\t\t- initialize RPL on the given interface");
     puts("\t* trickle reset <instance_id> <dodag_id>\t- reset the trickle timer");

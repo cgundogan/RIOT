@@ -30,6 +30,11 @@ static ng_netreg_entry_t _me_reg;
 ng_rpl_instance_t ng_rpl_instances[NG_RPL_INSTANCES_NUMOF];
 ng_rpl_dodag_t ng_rpl_dodags[NG_RPL_DODAGS_NUMOF];
 ng_rpl_parent_t ng_rpl_parents[NG_RPL_PARENTS_NUMOF];
+const uint8_t ng_rpl_p2p_lifetime_lookup[4] = { 1, 4, 16, 64 };
+
+#ifdef MODULE_NG_RPL_P2P
+ng_rpl_p2p_extension_t ng_rpl_p2p_exts[NG_RPL_P2P_EXTS_NUMOF];
+#endif
 
 static void _update_lifetime(void);
 static void _dao_handle_send(ng_rpl_dodag_t *dodag);
@@ -95,6 +100,57 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
                   dodag->dio_interval_doubl, dodag->dio_redun);
 
     return dodag;
+}
+
+ng_rpl_dodag_t *ng_rpl_root_init_p2p(uint8_t instance_id, ng_ipv6_addr_t *dodag_id,
+        ng_ipv6_addr_t *target)
+{
+#ifndef MODULE_NG_RPL_P2P
+    (void) instance_id;
+    (void) dodag_id;
+    (void) target;
+    DEBUG("RPL: P2P RPL module not compiled\n");
+    return NULL;
+#else
+    if (ng_rpl_instance_get(instance_id)) {
+        DEBUG("RPL: Instance exists already - choose another instance id\n");
+        return NULL;
+    }
+
+    ng_rpl_dodag_t *dodag = _root_dodag_init(instance_id, dodag_id, NG_RPL_MOP_P2P_MODE);
+
+    if (!dodag) {
+        return NULL;
+    }
+
+    dodag->instance->max_rank_inc = 0;
+    dodag->version = 0;
+    dodag->grounded = 1;
+    dodag->dtsn = 0;
+    dodag->prf = 0;
+    dodag->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
+    dodag->dio_min = NG_RPL_DEFAULT_DIO_INTERVAL_MIN;
+    dodag->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
+    dodag->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
+    dodag->lifetime_unit = NG_RPL_LIFETIME_UNIT;
+    dodag->node_status = NG_RPL_ROOT_NODE;
+    dodag->my_rank = NG_RPL_ROOT_RANK;
+
+    dodag->p2p_ext->target = *target;
+    dodag->p2p_ext->compr = 0;
+    dodag->p2p_ext->no_of_routes = 0;
+    dodag->p2p_ext->hop_by_hop = 1;
+    dodag->p2p_ext->reply = 1;
+    dodag->p2p_ext->lifetime = 0x02;
+    dodag->p2p_ext->lifetime_sec = ng_rpl_p2p_lifetime_lookup[dodag->p2p_ext->lifetime];
+    dodag->p2p_ext->maxrank = 0;
+
+    trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
+                  NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
+                  dodag->dio_interval_doubl, dodag->dio_redun);
+
+    return dodag;
+#endif
 }
 
 static ng_rpl_dodag_t *_root_dodag_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id, uint8_t mop)
@@ -174,6 +230,12 @@ static void _receive(ng_pktsnip_t *icmpv6)
             DEBUG("RPL: DAO-ACK received\n");
             ng_rpl_recv_DAO_ACK((ng_rpl_dao_ack_t *)(icmpv6_hdr + 1));
             break;
+#ifdef MODULE_NG_RPL_P2P
+        case NG_RPL_ICMPV6_CODE_DRO:
+            DEBUG("RPL: DRO received\n");
+            ng_rpl_recv_send_DRO(NULL, (ng_rpl_p2p_dro_t *)(icmpv6_hdr + 1));
+            break;
+#endif
         default:
             DEBUG("RPL: Unknown ICMPV6 code received\n");
             break;
@@ -231,6 +293,12 @@ static void *_event_loop(void *args)
                 DEBUG("RPL: NG_RPL_MSG_TYPE_DAO_HANDLE received\n");
                 dodag = (ng_rpl_dodag_t *) msg.content.ptr;
                 if (dodag && (dodag->state != 0)) {
+#ifdef MODULE_NG_RPL_P2P
+                    if (dodag->p2p_ext) {
+                        DEBUG("RPL: Ignoring NG_RPL_MSG_TYPE_DAO_HANDLE for P2P RPL DODAG\n");
+                        break;
+                    }
+#endif
                     _dao_handle_send(dodag);
                 }
                 break;
@@ -266,6 +334,20 @@ void _update_lifetime(void)
     timex_t now;
     vtimer_now(&now);
     ng_rpl_parent_t *parent;
+
+#ifdef MODULE_NG_RPL_P2P
+    ng_rpl_dodag_t *dodag;
+    for (uint8_t i = 0; i < NG_RPL_DODAGS_NUMOF; ++i) {
+        dodag = &ng_rpl_dodags[i];
+        if ((dodag->state != 0) && dodag->p2p_ext && (dodag->p2p_ext->lifetime_sec >= 0)) {
+            dodag->p2p_ext->lifetime_sec -= NG_RPL_LIFETIME_UPDATE_STEP;
+            if (dodag->p2p_ext->lifetime_sec < 0) {
+                ng_rpl_dodag_remove_all_parents(dodag);
+            }
+        }
+    }
+#endif
+
     for (uint8_t i = 0; i < NG_RPL_PARENTS_NUMOF; ++i) {
         parent = &ng_rpl_parents[i];
         if (parent->state != 0) {

@@ -131,6 +131,14 @@ bool ng_rpl_dodag_add(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id, ng_
     }
 
     if (*dodag != NULL) {
+#ifdef MODULE_NG_RPL_P2P
+        if ((instance->mop == NG_RPL_MOP_P2P_MODE) &&
+                ((*dodag)->p2p_ext = ng_rpl_p2p_extension_new()) == NULL) {
+            DEBUG("RPL: Could not allocate a new RPL P2P DODAG\n");
+            *dodag = NULL;
+            return false;
+        }
+#endif
         (*dodag)->instance = instance;
         LL_APPEND(instance->dodags, *dodag);
         (*dodag)->state = 1;
@@ -167,6 +175,9 @@ bool ng_rpl_dodag_remove(ng_rpl_dodag_t *dodag)
     trickle_stop(&dodag->trickle);
     vtimer_remove(&dodag->dao_timer);
     vtimer_remove(&dodag->cleanup_timer);
+#ifdef MODULE_NG_RPL_P2P
+    memset(dodag->p2p_ext, 0, sizeof(ng_rpl_p2p_extension_t));
+#endif
     memset(dodag, 0, sizeof(ng_rpl_dodag_t));
     if (inst->dodags == NULL) {
         ng_rpl_instance_remove(inst);
@@ -366,6 +377,12 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
         }
     }
 
+#ifdef MODULE_NG_RPL_P2P
+    if (dodag->p2p_ext) {
+        return dodag->parents;
+    }
+#endif
+
     if (old_best != dodag->parents) {
         if (dodag->instance->mop != NG_RPL_MOP_NO_DOWNWARD_ROUTES) {
             ng_rpl_send_DAO(dodag, &old_best->addr, 0);
@@ -390,6 +407,19 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
 
     return dodag->parents;
 }
+
+#ifdef MODULE_NG_RPL_P2P
+ng_rpl_p2p_extension_t *ng_rpl_p2p_extension_new(void)
+{
+    for (uint8_t i = 0; i < NG_RPL_P2P_EXTS_NUMOF; i++) {
+        if (ng_rpl_p2p_exts[i].state == 0) {
+            ng_rpl_p2p_exts[i].state = 1;
+            return &ng_rpl_p2p_exts[i];
+        }
+    }
+    return NULL;
+}
+#endif
 
 /**
  * @}

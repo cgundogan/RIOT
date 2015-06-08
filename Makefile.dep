@@ -318,3 +318,9 @@ ifneq (,$(filter ng_rpl,$(USEMODULE)))
   USEMODULE += net_help
   USEMODULE += fib
 endif
+
+ifneq (,$(filter ng_rpl_p2p,$(USEMODULE)))
+  USEMODULE += trickle
+  USEMODULE += fib
+  USEMODULE += ng_rpl
+endif

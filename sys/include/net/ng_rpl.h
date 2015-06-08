@@ -138,6 +138,9 @@ extern "C" {
 #define NG_RPL_MOP_NON_STORING_MODE    (0x01)
 #define NG_RPL_MOP_STORING_MODE_NO_MC  (0x02)
 #define NG_RPL_MOP_STORING_MODE_MC     (0x03)
+#ifdef MODULE_NG_RPL_P2P
+#define NG_RPL_MOP_P2P_MODE             (0x04)
+#endif
 /** default MOP set on compile time */
 #ifndef NG_RPL_DEFAULT_MOP
 #   define NG_RPL_DEFAULT_MOP NG_RPL_MOP_STORING_MODE_NO_MC
@@ -192,6 +195,10 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS (20)
 #define NG_RPL_DEFAULT_DIO_INTERVAL_MIN (3)
 #define NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT (10)
+#ifdef MODULE_NG_RPL_P2P
+#define NG_RPL_P2P_DEFAULT_DIO_INTERVAL_MIN (6)
+#define NG_RPL_P2P_DEFAULT_DIO_REDUNDANCY_CONSTANT (1)
+#endif
 /** @} */
 
 /**
@@ -201,6 +208,10 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  */
 #define NG_RPL_DEFAULT_LIFETIME (60)
 #define NG_RPL_LIFETIME_UNIT (2)
+#ifdef MODULE_NG_RPL_P2P
+#define NG_RPL_P2P_DEFAULT_LIFETIME (0xFF)
+#define NG_RPL_P2P_LIFETIME_UNIT (0xFFFF)
+#endif
 /** @} */
 
 /**
@@ -258,6 +269,9 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define NG_RPL_OPT_SOLICITED_INFO       (7)
 #define NG_RPL_OPT_PREFIX_INFO          (8)
 #define NG_RPL_OPT_TARGET_DESC          (9)
+#ifdef MODULE_NG_RPL_P2P
+#define NG_RPL_OPT_P2P_RDO              (10)
+#endif
 /** @} */
 
 /**
@@ -297,6 +311,16 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  */
 #define NG_RPL_ICMPV6_CODE_DAO_ACK (0x03)
 
+#ifdef MODULE_NG_RPL_P2P
+/**
+ *  @brief  The P2P Discovery Reply Object (P2P-DRO)
+ *  @see <a href="https://tools.ietf.org/html/rfc6997#section-8">
+ *          RFC 6997, section 8
+ *      </a>
+ */
+#define NG_RPL_ICMPV6_CODE_DRO (0x04)
+#endif
+
 /**
  * @brief Update interval of the lifetime update function
  */
@@ -327,6 +351,20 @@ kernel_pid_t ng_rpl_init(kernel_pid_t if_pid);
  * @return  NULL, otherwise.
  */
 ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id);
+
+/**
+ * @brief   Initialization of a P2P RPL temporary DODAG as root node.
+ *          Creates a new instance if necessary.
+ *
+ * @param[in] instance_id       Id of the instance
+ * @param[in] dodag_id          Id of the DODAG
+ * @param[in] target            The target address of the temporary DODAG
+ *
+ * @return  Pointer to the new P2P RPL DODAG, on success.
+ * @return  NULL, otherwise.
+ */
+ng_rpl_dodag_t *ng_rpl_root_init_p2p(uint8_t instance_id, ng_ipv6_addr_t *dodag_id,
+        ng_ipv6_addr_t *target);
 
 /**
  * @brief   Send a DIO of the @p dodag to the @p destination.
@@ -396,6 +434,16 @@ void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len);
  * @param[in] dao_ack   Pointer to the DAO-ACK message.
  */
 void ng_rpl_recv_DAO_ACK(ng_rpl_dao_ack_t *dao_ack);
+
+#ifdef MODULE_NG_RPL_P2P
+/**
+ * @brief   Parse and forward a P2P DRO.
+ *
+ * @param[in] dodag     Pointer to the DODAG.
+ * @param[in] dro       Pointer to the incoming DRO.
+ */
+void ng_rpl_recv_send_DRO(ng_rpl_dodag_t *dodag, ng_rpl_p2p_dro_t *dro);
+#endif
 
 /**
  * @brief   Delay the DAO sending interval

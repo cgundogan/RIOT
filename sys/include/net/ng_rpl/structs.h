@@ -193,6 +193,63 @@ typedef struct {
     uint16_t max_rank_inc;          /**< max increase in the rank */
 } ng_rpl_instance_t;
 
+#ifdef MODULE_NG_RPL_P2P
+
+/**
+ * @brief   Number of max addresses along the found path to the destination node
+ */
+#ifndef NG_RPL_P2P_RDO_MAX_ADDRESSES
+#define NG_RPL_P2P_RDO_MAX_ADDRESSES (8)
+#endif
+
+/**
+ * @brief P2P Route Discovery Option (P2P-RDO)
+ * @see <a href="https://tools.ietf.org/html/rfc6997#section-7">
+ *          P2P Route Discovery Option (P2P-RDO)
+#ifndef NG_RPL_MSG_QUEUE_SIZE
+ *      </a>
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t length;
+    uint8_t compr_flags;
+    uint8_t lifetime_maxrank_nexthop;
+    ng_ipv6_addr_t target;
+} ng_rpl_p2p_opt_rdo_t;
+
+/**
+ * @brief P2P Discovery Reply Object (P2P-DRO)
+ * @see <a href="https://tools.ietf.org/html/rfc6997#section-8">
+ *          The P2P Discovery Reply Object (P2P-DRO)
+ *      </a>
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t instance_id;
+    uint8_t version;
+    network_uint16_t flags_reserved;
+    ng_ipv6_addr_t dodag_id;
+} ng_rpl_p2p_dro_t;
+
+/**
+ * @brief Internal representation of p2p rpl relevant informtion
+ */
+typedef struct {
+    uint8_t state;
+    uint8_t compr;
+    uint8_t no_of_routes;
+    bool hop_by_hop;
+    bool reply;
+    uint8_t lifetime;
+    int8_t lifetime_sec;
+    uint8_t maxrank;
+    uint8_t dro_seq;
+    ng_ipv6_addr_t target;
+    bool for_me;
+    uint8_t no_of_addresses;
+    ng_ipv6_addr_t addresses[NG_RPL_P2P_RDO_MAX_ADDRESSES];
+} ng_rpl_p2p_extension_t;
+#endif
+
 /**
  * @brief DODAG representation
  */
@@ -222,6 +279,9 @@ struct ng_rpl_dodag {
     timex_t cleanup_time;           /**< time to schedula a DODAG cleanup */
     vtimer_t cleanup_timer;         /**< timer to schedula a DODAG cleanup */
     trickle_t trickle;              /**< trickle representation */
+#ifdef MODULE_NG_RPL_P2P
+    ng_rpl_p2p_extension_t *p2p_ext; /**< p2p rpl information */
+#endif
 };
 
 #ifdef __cplusplus

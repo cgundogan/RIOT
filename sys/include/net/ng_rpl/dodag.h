@@ -68,6 +68,21 @@ extern ng_rpl_dodag_t ng_rpl_dodags[NG_RPL_DODAGS_NUMOF];
  */
 extern ng_rpl_parent_t ng_rpl_parents[NG_RPL_PARENTS_NUMOF];
 
+#ifdef MODULE_NG_RPL_P2P
+/**
+ * @brief Lifetime lookup table in seconds
+ * @see <a href="https://tools.ietf.org/html/rfc6997#section-7">
+ *          P2P Route Discovery Option (P2P-RDO)
+ *      </a>
+ */
+extern const uint8_t ng_rpl_p2p_lifetime_lookup[4];
+
+/**
+ * @brief   Return lifetime of the temporary P2P RPL DODAG in seconds
+ */
+#define NG_RPL_P2P_LIFETIME_LOOKUP(L) (ng_rpl_p2p_lifetime_lookup[L])
+#endif
+
 /**
  * @brief   Add a new RPL instance with the id @p instance_id.
  *
@@ -208,6 +223,29 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag);
 void ng_rpl_local_repair(ng_rpl_dodag_t *dodag);
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef MODULE_NG_RPL_P2P
+
+/**
+ * @brief   Number of P2P RPL extensions
+ */
+#ifndef NG_RPL_P2P_EXTS_NUMOF
+#define NG_RPL_P2P_EXTS_NUMOF (3)
+#endif
+
+/**
+ * @brief   RPL P2P extensions
+ */
+extern ng_rpl_p2p_extension_t ng_rpl_p2p_exts[NG_RPL_P2P_EXTS_NUMOF];
+
+/**
+ * @brief   Return a pointer to a free rpl p2p extension
+ *
+ * @return  Pointer to a free rpl p2p extension.
+ * @return  NULL, otherwise.
+ */
+ng_rpl_p2p_extension_t *ng_rpl_p2p_extension_new(void);
 #endif
 
 #endif /* NG_RPL_DODAG_H_ */

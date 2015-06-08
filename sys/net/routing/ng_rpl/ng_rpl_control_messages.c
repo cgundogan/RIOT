@@ -22,6 +22,7 @@
 static char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 #endif
 
+#define NG_RPL_OPT_LEN                  2
 #define NG_RPL_GROUNDED_SHIFT           7
 #define NG_RPL_MOP_SHIFT                3
 #define NG_RPL_OPT_DODAG_CONF_LEN       14
@@ -84,6 +85,13 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         return;
     }
 
+#ifdef MODULE_NG_RPL_P2P
+    if (dodag->p2p_ext && (dodag->p2p_ext->for_me || (dodag->p2p_ext->lifetime_sec < 0))) {
+        trickle_stop(&dodag->trickle);
+        return;
+    }
+#endif
+
     ng_pktsnip_t *pkt;
     ng_icmpv6_hdr_t *icmp;
     ng_rpl_dio_t *dio;
@@ -94,6 +102,15 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     if ((dodag->dodag_conf_counter % 3) == 0) {
         size += sizeof(ng_rpl_opt_dodag_conf_t);
     }
+
+#ifdef MODULE_NG_RPL_P2P
+    uint8_t p2p_addresses_len = 0;
+    if (dodag->p2p_ext && !dodag->p2p_ext->for_me) {
+        p2p_addresses_len = dodag->p2p_ext->no_of_addresses *
+            (sizeof(ng_ipv6_addr_t) - dodag->p2p_ext->compr);
+        size += sizeof(ng_rpl_p2p_opt_rdo_t) + p2p_addresses_len;
+    }
+#endif
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIO, size)) == NULL) {
         DEBUG("RPL: no space left in packet buffer\n");
@@ -133,12 +150,40 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     }
 
     dodag->dodag_conf_counter++;
+
+#ifdef MODULE_NG_RPL_P2P
+    ng_rpl_p2p_opt_rdo_t *rdo;
+    if (dodag->p2p_ext && !dodag->p2p_ext->for_me) {
+        rdo = (ng_rpl_p2p_opt_rdo_t *) pos;
+        rdo->type = NG_RPL_OPT_P2P_RDO;
+        rdo->length = sizeof(*rdo) - NG_RPL_OPT_LEN + p2p_addresses_len;
+        rdo->compr_flags = (dodag->p2p_ext->reply << 7) | (dodag->p2p_ext->hop_by_hop << 6) |
+            ((dodag->p2p_ext->no_of_routes & 0x3) << 4) | (dodag->p2p_ext->compr & 0xF);
+        rdo->lifetime_maxrank_nexthop = ((dodag->p2p_ext->lifetime & 0x3) << 6) |
+            (dodag->p2p_ext->maxrank & 0x3F);
+        rdo->target = dodag->p2p_ext->target;
+
+        uint8_t *addr = (uint8_t *) (rdo + 1);
+        for (uint8_t i = 0, addr_len = (sizeof(ng_ipv6_addr_t) - dodag->p2p_ext->compr);
+                i < dodag->p2p_ext->no_of_addresses; i++, addr += addr_len) {
+            memcpy(addr, &dodag->p2p_ext->addresses[i], addr_len);
+        }
+        pos += sizeof(ng_rpl_p2p_opt_rdo_t) + p2p_addresses_len;
+    }
+#endif
+
     _ng_rpl_send(pkt, NULL, destination);
 }
 
 void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
 {
     (void) dodag;
+#ifdef MODULE_NG_RPL_P2P
+    if (dodag && dodag->p2p_ext) {
+        DEBUG("RPL: Not sending DIS for P2P RPL DODAG\n");
+        return;
+    }
+#endif
     ng_pktsnip_t *pkt;
     ng_icmpv6_hdr_t *icmp;
     ng_rpl_dis_t *dis;
@@ -174,6 +219,12 @@ void ng_rpl_recv_DIS(ng_rpl_dis_t *dis, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst
     else {
         for (uint8_t i = 0; i < NG_RPL_DODAGS_NUMOF; ++i) {
             if (ng_rpl_dodags[i].state != 0) {
+#ifdef MODULE_NG_RPL_P2P
+                if (ng_rpl_dodags[i].p2p_ext) {
+                    DEBUG("RPL: Not responding to DIS for P2P RPL DODAG\n");
+                    continue;
+                }
+#endif
                 ng_rpl_dodags[i].dodag_conf_counter = 0;
                 ng_rpl_send_DIO(&ng_rpl_dodags[i], src);
             }
@@ -256,6 +307,62 @@ a preceding RPL TARGET DAO option\n");
                 first_target = NULL;
                 break;
             }
+#if MODULE_NG_RPL_P2P
+            case (NG_RPL_OPT_P2P_RDO): {
+                DEBUG("RPL: P2P RDO option parsed\n");
+                ng_rpl_p2p_opt_rdo_t *rdo = (ng_rpl_p2p_opt_rdo_t *) opt;
+
+                uint8_t addr_num = (rdo->length - sizeof(*rdo) + NG_RPL_OPT_LEN) /
+                    (sizeof(ng_ipv6_addr_t) - dodag->p2p_ext->compr);
+
+                dodag->p2p_ext->for_me = ng_ipv6_netif_find_by_addr(NULL, &rdo->target) ==
+                    KERNEL_PID_UNDEF ? 0 : 1;
+
+                if (addr_num >= NG_RPL_P2P_RDO_MAX_ADDRESSES) {
+                    DEBUG("RPL: cannot parse RDO - too many hops\n");
+                    break;
+                }
+
+                dodag->p2p_ext->reply = (rdo->compr_flags & (1 << 7)) >> 7;
+                dodag->p2p_ext->hop_by_hop = (rdo->compr_flags & (1 << 6)) >> 6;
+                dodag->p2p_ext->no_of_routes = (rdo->compr_flags & (0x3 << 4)) >> 4;
+                dodag->p2p_ext->compr = rdo->compr_flags & 0xF;
+                dodag->p2p_ext->lifetime = (rdo->lifetime_maxrank_nexthop & (0x3 << 6)) >> 6;
+                dodag->p2p_ext->maxrank = rdo->lifetime_maxrank_nexthop & 0x3F;
+                dodag->p2p_ext->target = rdo->target;
+
+                memset(&dodag->p2p_ext->addresses, 0,
+                        sizeof(ng_ipv6_addr_t) * NG_RPL_P2P_RDO_MAX_ADDRESSES);
+                dodag->p2p_ext->no_of_addresses = 0;
+                uint8_t *tmp = (uint8_t *) (rdo + 1);
+                uint8_t *addr = NULL;
+                uint8_t addr_len = sizeof(ng_ipv6_addr_t) - dodag->p2p_ext->compr;
+                uint8_t i = 0;
+                for (i = 0; i < addr_num; i++) {
+                    addr = ((uint8_t *) &dodag->p2p_ext->addresses[i]) + dodag->p2p_ext->compr;
+                    memcpy(addr, tmp, addr_len);
+                    tmp += addr_len;
+                    dodag->p2p_ext->no_of_addresses++;
+                }
+
+                if (!dodag->p2p_ext->for_me) {
+                    ng_ipv6_addr_t *me = NULL;
+                    ng_ipv6_netif_find_by_prefix(&me, &dodag->dodag_id);
+                    if (me == NULL) {
+                        DEBUG("RPL: no address configured\n");
+                        break;
+                    }
+                    addr = ((uint8_t *) &dodag->p2p_ext->addresses[i]) + dodag->p2p_ext->compr;
+                    memcpy(addr, ((uint8_t *) me) + dodag->p2p_ext->compr, addr_len);
+                    dodag->p2p_ext->no_of_addresses++;
+                }
+                else {
+                    ng_rpl_recv_send_DRO(dodag, NULL);
+                }
+
+                break;
+            }
+#endif
         }
         l += opt->length + sizeof(ng_rpl_opt_t);
         opt = (ng_rpl_opt_t *) (((uint8_t *) (opt + 1)) + opt->length);
@@ -306,6 +413,11 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         ng_rpl_delay_dao(dodag);
         parent->rank = byteorder_ntohs(dio->rank);
         ng_rpl_parent_update(dodag, parent);
+#ifdef MODULE_NG_RPL_P2P
+        if (dodag->p2p_ext) {
+            dodag->p2p_ext->lifetime_sec = ng_rpl_p2p_lifetime_lookup[dodag->p2p_ext->lifetime];
+        }
+#endif
         return;
     }
     else if (dodag == NULL) {
@@ -315,6 +427,12 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         }
         return;
     }
+
+#ifdef MODULE_NG_RPL_P2P
+        if (dodag->p2p_ext && (dodag->p2p_ext->lifetime_sec < 0)) {
+            return;
+        }
+#endif
 
     if (dodag->instance->mop !=
             ((dio->g_mop_prf >> NG_RPL_MOP_SHIFT) & NG_RPL_SHIFTED_MOP_MASK)) {
@@ -520,6 +638,122 @@ void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uin
     _ng_rpl_send(pkt, NULL, destination);
     return;
 }
+
+#ifdef MODULE_NG_RPL_P2P
+void ng_rpl_recv_send_DRO(ng_rpl_dodag_t *dodag, ng_rpl_p2p_dro_t *dro)
+{
+    if ((dodag == NULL) && (dro != NULL)) {
+        ng_rpl_instance_t *inst;
+        if ((inst = ng_rpl_instance_get(dro->instance_id)) == NULL) {
+            DEBUG("RPL: Error - Instance (%d) does not exist\n", dro->instance_id);
+            return;
+        }
+        if ((dodag = ng_rpl_dodag_get(inst, &dro->dodag_id)) == NULL) {
+            DEBUG("RPL: Error - DODAG (%s) does not exist\n",
+                    ng_ipv6_addr_to_str(addr_str, &dro->dodag_id, sizeof(addr_str)));
+            return;
+        }
+    }
+
+    ng_pktsnip_t *pkt;
+    ng_icmpv6_hdr_t *icmp;
+    ng_rpl_p2p_opt_rdo_t *rdo = NULL;
+    uint8_t addr_size = 0;
+    uint8_t addr_len = sizeof(ng_ipv6_addr_t) - dodag->p2p_ext->compr;
+
+    int size = sizeof(ng_icmpv6_hdr_t) + sizeof(ng_rpl_p2p_dro_t);
+    if (dodag->p2p_ext->for_me) {
+        addr_size = dodag->p2p_ext->no_of_addresses * addr_len;
+        size += sizeof(ng_rpl_p2p_opt_rdo_t) + addr_size;
+    }
+    else if (dro) {
+        rdo = (ng_rpl_p2p_opt_rdo_t *) (dro + 1);
+        size += rdo->length + NG_RPL_OPT_LEN;
+    }
+    else {
+        DEBUG("RPL: Error - no DRO found\n");
+        return;
+    }
+
+    if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DRO, size)) == NULL) {
+        DEBUG("RPL: no space left in packet buffer\n");
+        return;
+    }
+
+    icmp = (ng_icmpv6_hdr_t *) pkt->data;
+
+    if (dodag->p2p_ext->for_me) {
+
+        if (dro != NULL) {
+            DEBUG("RPL: ignore received DROs, because the target should not process them\n");
+            ng_pktbuf_release(pkt);
+            return;
+        }
+
+        dro = (ng_rpl_p2p_dro_t *) (icmp + 1);
+        dro->instance_id = dodag->instance->id;
+        dro->version = 0;
+        dro->flags_reserved = byteorder_htons((0x3 << 14) | ((dodag->p2p_ext->dro_seq & 0x3) << 12));
+        dro->dodag_id = dodag->dodag_id;
+
+        rdo = (ng_rpl_p2p_opt_rdo_t *) (dro + 1);
+        rdo->type = NG_RPL_OPT_P2P_RDO;
+        rdo->length = sizeof(*rdo) - NG_RPL_OPT_LEN + addr_size;
+        rdo->compr_flags = (dodag->p2p_ext->hop_by_hop << 6) | (dodag->p2p_ext->compr & 0xF);
+        rdo->lifetime_maxrank_nexthop = (((rdo->length - 2 - sizeof(ng_ipv6_addr_t))
+                    / addr_len) & 0x3F);
+        rdo->target = dodag->p2p_ext->target;
+
+        uint8_t *addr = (uint8_t *) (rdo + 1);
+        for (uint8_t i = 0; i < dodag->p2p_ext->no_of_addresses; i++, addr += addr_len) {
+            memcpy(addr, &dodag->p2p_ext->addresses[i], addr_len);
+        }
+
+        _ng_rpl_send(pkt, NULL, NULL);
+    }
+    else {
+        ng_rpl_p2p_dro_t *copy_dro = (ng_rpl_p2p_dro_t *) (icmp + 1);
+        memcpy(copy_dro, dro, (size - sizeof(ng_icmpv6_hdr_t)));
+        ng_rpl_p2p_opt_rdo_t *copy_rdo = (ng_rpl_p2p_opt_rdo_t *) (copy_dro + 1);
+
+        ng_ipv6_addr_t addr;
+        if (copy_rdo->lifetime_maxrank_nexthop > 0) {
+            memcpy((((uint8_t *) &addr) + dodag->p2p_ext->compr),
+                    ((uint8_t *) (copy_rdo + 1)) + addr_len * (--copy_rdo->lifetime_maxrank_nexthop),
+                    addr_len);
+        }
+
+        ng_ipv6_addr_t *me = NULL, next_hop;
+        kernel_pid_t if_id = KERNEL_PID_UNDEF;
+
+        if(((rdo->lifetime_maxrank_nexthop > 0) &&
+                    ((if_id = ng_ipv6_netif_find_by_addr(&me, &addr)) != KERNEL_PID_UNDEF)) ||
+                (dodag->node_status == NG_RPL_ROOT_NODE)) {
+            /* if true, the current node received this DRO directly from target => use target */
+            if ((addr_len * (rdo->lifetime_maxrank_nexthop)) ==
+                    (copy_rdo->length - 2 - sizeof(ng_ipv6_addr_t))) {
+                next_hop = copy_rdo->target;
+            }
+            /* if false, the current node is somewhere on the path => use addresses[NH + 1] */
+            else {
+                memcpy((((uint8_t *) &next_hop) + dodag->p2p_ext->compr),
+                        ((uint8_t *) (copy_rdo + 1)) + addr_len * (rdo->lifetime_maxrank_nexthop),
+                        addr_len);
+            }
+
+            fib_add_entry(if_id, dodag->p2p_ext->target.u8, sizeof(ng_ipv6_addr_t), AF_INET6,
+                    next_hop.u8, sizeof(ng_ipv6_addr_t), AF_INET6,
+                    dodag->default_lifetime * dodag->lifetime_unit * SEC_IN_MS);
+
+            if (dodag->node_status != NG_RPL_ROOT_NODE) {
+                _ng_rpl_send(pkt, NULL, NULL);
+            }
+        }
+    }
+
+    return;
+}
+#endif
 
 void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len)
 {
