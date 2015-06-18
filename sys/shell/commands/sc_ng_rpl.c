@@ -57,7 +57,9 @@ int _ng_rpl_dodag_root(char *arg1, char *arg2)
         return 1;
     }
 
-    if (ng_rpl_root_init(instance_id, &dodag_id) == NULL) {
+    ng_rpl_dodag_t *dodag = NULL;
+    dodag = ng_rpl_root_init(instance_id, &dodag_id);
+    if (dodag == NULL) {
         printf("error: could not add DODAG (%s) to instance (%d)\n",
                 ng_ipv6_addr_to_str(addr_str, &dodag_id, sizeof(addr_str)), instance_id);
         return 1;

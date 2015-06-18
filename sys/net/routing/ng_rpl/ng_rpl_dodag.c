@@ -292,6 +292,8 @@ void ng_rpl_local_repair(ng_rpl_dodag_t *dodag)
 
     if (dodag->parents) {
         ng_rpl_dodag_remove_all_parents(dodag);
+        ng_ipv6_addr_t def = NG_IPV6_ADDR_UNSPECIFIED;
+        fib_remove_entry(def.u8, sizeof(ng_ipv6_addr_t));
     }
 
     if (dodag->my_rank != NG_RPL_INFINITE_RANK) {
@@ -316,11 +318,14 @@ void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
     if (parent != NULL) {
         parent->lifetime.seconds = now.seconds + (dodag->default_lifetime * dodag->lifetime_unit);
         if (parent == dodag->parents) {
-            fib_update_entry(def.u8, sizeof(ng_ipv6_addr_t), dodag->parents->addr.u8,
-                sizeof(ng_ipv6_addr_t), AF_INET6,
-                    (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+            ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
+            kernel_pid_t if_id;
+            if ((if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes)) != KERNEL_PID_UNDEF) {
+                fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6,
+                        dodag->parents->addr.u8, sizeof(ng_ipv6_addr_t), AF_INET6,
+                        (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+            }
         }
-
     }
 
     if (ng_rpl_find_preferred_parent(dodag) == NULL) {
@@ -353,6 +358,14 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
         return NULL;
     }
 
+    dodag->my_rank = dodag->instance->of->calc_rank(dodag->parents, 0);
+    ng_rpl_parent_t *elt, *tmp;
+    LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
+        if (dodag->parents->rank < elt->rank) {
+            ng_rpl_parent_remove(elt);
+        }
+    }
+
     if (old_best != dodag->parents) {
         if (dodag->instance->mop != NG_RPL_MOP_NO_DOWNWARD_ROUTES) {
             ng_rpl_send_DAO(dodag, &old_best->addr, 0);
@@ -375,7 +388,6 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag)
                 (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
     }
 
-    dodag->my_rank = dodag->instance->of->calc_rank(dodag->parents, 0);
     return dodag->parents;
 }
 
