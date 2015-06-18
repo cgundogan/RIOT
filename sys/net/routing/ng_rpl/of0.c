@@ -79,7 +79,7 @@ uint16_t calc_rank(ng_rpl_parent_t *parent, uint16_t base_rank)
 /* We simply return the Parent with lower rank */
 ng_rpl_parent_t *which_parent(ng_rpl_parent_t *p1, ng_rpl_parent_t *p2)
 {
-    if (p1->rank < p2->rank) {
+    if (p1->rank <= p2->rank) {
         return p1;
     }
 

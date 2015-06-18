@@ -35,6 +35,7 @@ static void _update_lifetime(void);
 static void _dao_handle_send(ng_rpl_dodag_t *dodag);
 static void _receive(ng_pktsnip_t *pkt);
 static void *_event_loop(void *args);
+static ng_rpl_dodag_t *_root_dodag_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id, uint8_t mop);
 
 kernel_pid_t ng_rpl_init(kernel_pid_t if_pid)
 {
@@ -71,6 +72,33 @@ kernel_pid_t ng_rpl_init(kernel_pid_t if_pid)
 
 ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
 {
+    ng_rpl_dodag_t *dodag = _root_dodag_init(instance_id, dodag_id, NG_RPL_DEFAULT_MOP);
+
+    if (!dodag) {
+        return NULL;
+    }
+
+    dodag->dtsn = 1;
+    dodag->prf = 0;
+    dodag->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
+    dodag->dio_min = NG_RPL_DEFAULT_DIO_INTERVAL_MIN;
+    dodag->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
+    dodag->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
+    dodag->lifetime_unit = NG_RPL_LIFETIME_UNIT;
+    dodag->version = NG_RPL_COUNTER_INIT;
+    dodag->grounded = NG_RPL_GROUNDED;
+    dodag->node_status = NG_RPL_ROOT_NODE;
+    dodag->my_rank = NG_RPL_ROOT_RANK;
+
+    trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
+                  NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
+                  dodag->dio_interval_doubl, dodag->dio_redun);
+
+    return dodag;
+}
+
+static ng_rpl_dodag_t *_root_dodag_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id, uint8_t mop)
+{
     if (ng_rpl_pid == KERNEL_PID_UNDEF) {
         DEBUG("RPL: RPL thread not started\n");
         return NULL;
@@ -93,12 +121,16 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
 
     if (ng_rpl_instance_add(instance_id, &inst)) {
         inst->of = (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
-        inst->mop = NG_RPL_DEFAULT_MOP;
+        inst->mop = mop;
         inst->min_hop_rank_inc = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
         inst->max_rank_inc = 0;
     }
     else if (inst == NULL) {
         DEBUG("RPL: could not allocate memory for a new instance with id %d", instance_id);
+        return NULL;
+    }
+    else if (inst->mop != mop) {
+        DEBUG("RPL: instance (%d) exists with another MOP", instance_id);
         return NULL;
     }
 
@@ -107,22 +139,6 @@ ng_rpl_dodag_t *ng_rpl_root_init(uint8_t instance_id, ng_ipv6_addr_t *dodag_id)
                 ng_ipv6_addr_to_str(addr_str, dodag_id, sizeof(addr_str)));
         return NULL;
     }
-
-    dodag->dtsn = 1;
-    dodag->prf = 0;
-    dodag->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
-    dodag->dio_min = NG_RPL_DEFAULT_DIO_INTERVAL_MIN;
-    dodag->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
-    dodag->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
-    dodag->lifetime_unit = NG_RPL_LIFETIME_UNIT;
-    dodag->version = NG_RPL_COUNTER_INIT;
-    dodag->grounded = NG_RPL_GROUNDED;
-    dodag->node_status = NG_RPL_ROOT_NODE;
-    dodag->my_rank = NG_RPL_ROOT_RANK;
-
-    trickle_start(ng_rpl_pid, &dodag->trickle, NG_RPL_MSG_TYPE_TRICKLE_INTERVAL,
-                  NG_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
-                  dodag->dio_interval_doubl, dodag->dio_redun);
 
     return dodag;
 }
@@ -165,11 +181,12 @@ static void _receive(ng_pktsnip_t *icmpv6)
 
     receiver_num = ng_netreg_num(icmpv6->type, NG_ICMPV6_RPL_CTRL);
 
+    ng_pktbuf_hold(icmpv6, receiver_num - 1);
+
     if (receiver_num == 0) {
         ng_pktbuf_release(icmpv6);
         return;
     }
-    ng_pktbuf_hold(icmpv6, receiver_num - 1);
 
     return;
 }
