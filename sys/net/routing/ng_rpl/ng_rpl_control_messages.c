@@ -31,7 +31,6 @@ static char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
 {
     ng_pktsnip_t *hdr;
-    ng_netreg_entry_t *sendto = NULL;
     ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
     kernel_pid_t iface = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
     if (iface == KERNEL_PID_UNDEF) {
@@ -59,22 +58,16 @@ void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
             (uint8_t *)dst, sizeof(ng_ipv6_addr_t));
 
     if (hdr == NULL) {
-        DEBUG("RPL: no space left in packet buffer\n");
+        DEBUG("RPL: Send - no space left in packet buffer\n");
         ng_pktbuf_release(pkt);
         return;
     }
 
-    pkt = hdr;
-
-    sendto = ng_netreg_lookup(NG_NETTYPE_IPV6, NG_NETREG_DEMUX_CTX_ALL);
-
-    if (sendto == NULL) {
-        DEBUG("RPL: no receivers for IPv6 packets\n");
-        ng_pktbuf_release(pkt);
-        return;
+    if (!ng_netapi_dispatch_send(NG_NETTYPE_IPV6, NG_NETREG_DEMUX_CTX_ALL,hdr)) {
+        DEBUG("RPL: cannot send packet: no subscribers found.\n");
+        ng_pktbuf_release(hdr);
     }
 
-    ng_netapi_send(sendto->pid, pkt);
 }
 
 void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
@@ -96,7 +89,7 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     }
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIO, size)) == NULL) {
-        DEBUG("RPL: no space left in packet buffer\n");
+        DEBUG("RPL: Send DIO - no space left in packet buffer\n");
         return;
     }
 
@@ -145,7 +138,7 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     int size = sizeof(ng_icmpv6_hdr_t) + sizeof(ng_rpl_dis_t) + 4;
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIS, size)) == NULL) {
-        DEBUG("RPL: no space left in packet buffer\n");
+        DEBUG("RPL: Send DIS - no space left in packet buffer\n");
         return;
     }
 
@@ -451,7 +444,7 @@ void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t
         (sizeof(ng_rpl_opt_target_t) * (dst_size + 1)) + sizeof(ng_rpl_opt_transit_t);
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DAO, size)) == NULL) {
-        DEBUG("RPL: no space left in packet buffer\n");
+        DEBUG("RPL: Send DAO - no space left in packet buffer\n");
         return;
     }
 
@@ -504,7 +497,7 @@ void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uin
     int size = sizeof(ng_icmpv6_hdr_t) + sizeof(ng_rpl_dao_ack_t);
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DAO_ACK, size)) == NULL) {
-        DEBUG("RPL: no space left in packet buffer\n");
+        DEBUG("RPL: Send DAOACK - no space left in packet buffer\n");
         return;
     }
 

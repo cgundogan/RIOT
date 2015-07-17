@@ -148,7 +148,6 @@ static void _receive(ng_pktsnip_t *icmpv6)
     ng_pktsnip_t *ipv6 = NULL;
     ng_ipv6_hdr_t *ipv6_hdr = NULL;
     ng_icmpv6_hdr_t *icmpv6_hdr = NULL;
-    int receiver_num = 0;
 
     LL_SEARCH_SCALAR(icmpv6, ipv6, type, NG_NETTYPE_IPV6);
     ipv6_hdr = (ng_ipv6_hdr_t *)ipv6->data;
@@ -179,15 +178,7 @@ static void _receive(ng_pktsnip_t *icmpv6)
             break;
     }
 
-    receiver_num = ng_netreg_num(icmpv6->type, NG_ICMPV6_RPL_CTRL);
-
-    ng_pktbuf_hold(icmpv6, receiver_num - 1);
-
-    if (receiver_num == 0) {
-        ng_pktbuf_release(icmpv6);
-        return;
-    }
-
+    ng_pktbuf_release(icmpv6);
     return;
 }
 
