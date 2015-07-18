@@ -54,3 +54,7 @@ void dncp_dispatch(dncp_tlv_t *tlv)
             break;
     }
 }
+
+bool dncp_should_handle_tlv(dncp_tlv_t *tlv) {
+    return byteorder_ntohs(tlv->type) <= DNCP_TLV_TYPE_TRUST_VERDICT;
+}

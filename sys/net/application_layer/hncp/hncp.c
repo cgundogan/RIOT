@@ -40,8 +40,7 @@ dncp_profile_t dncp_profile;
 /* TODO: need src address and src port */
 static void dispatch(dncp_tlv_t *tlv)
 {
-    /* DNCP type? */
-    if (byteorder_ntohs(tlv->type) > 0 && byteorder_ntohs(tlv->type) <= DNCP_TLV_TYPE_TRUST_VERDICT) {
+    if (dncp_should_handle_tlv(tlv)) {
         dncp_dispatch(tlv);
     }
 }

@@ -77,6 +77,16 @@ void dncp_init(dncp_profile_t *profile);
  */
 void dncp_dispatch(dncp_tlv_t *tlv);
 
+
+/**
+ * @param[in] tlv
+ * @return  Whether or not the given TLV is a DNCP control message that
+ *          needs to be handled by DNCP
+ */
+bool dncp_should_handle_tlv(dncp_tlv_t *tlv);
+
+
+
 #ifdef __cplusplus
 }
 #endif
