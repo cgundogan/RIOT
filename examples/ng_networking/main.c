@@ -24,6 +24,13 @@
 #include "board_uart0.h"
 #include "posix_io.h"
 
+#include <net/hncp.h>
+#include <net/dncp.h>
+
+#include "net/ng_nettype.h"
+
+static char _stack[HNCP_STACKSIZE_DEFAULT];
+
 extern int udp_cmd(int argc, char **argv);
 
 static const shell_command_t shell_commands[] = {
@@ -36,6 +43,8 @@ int main(void)
     shell_t shell;
 
     puts("RIOT network stack example application");
+
+    hncp_init(NG_NETTYPE_UDP, 1337, _stack, sizeof(_stack), HNCP_PRIO_DEFAULT);
 
     /* start shell */
     puts("All up, running the shell now");
