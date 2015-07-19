@@ -183,22 +183,16 @@ void _write_tlv_to_buffer(uint8_t *buf, dncp_tlv_t *tlv, uint8_t *value)
     return ;
 }
 
-int hncp_req_node(uint8_t *node_identifier)
+int hncp_req_node(network_uint32_t node_identifier)
 {
-    size_t len = sizeof(uint16_t) * 2 + dncp_profile.node_id_len;
+    size_t len = sizeof(uint16_t) * 2 + sizeof(uint32_t);
     uint8_t buf[len];
     dncp_tlv_t tlv = {
         .type = byteorder_htons(DNCP_TLV_TYPE_REQ_NODE_STATE),
         .length = byteorder_htons(dncp_profile.node_id_len),
     };
 
-    uint8_t val[dncp_profile.node_id_len];
-    memset(val, 0, dncp_profile.node_id_len);
-
-    memcpy(val + dncp_profile.node_id_len - strlen((char *) node_identifier),
-            node_identifier, dncp_profile.node_id_len);
-
-    _write_tlv_to_buffer(buf, &tlv, val);
+    _write_tlv_to_buffer(buf, &tlv, (uint8_t *) &node_identifier);
 
 	hncp_send(&dncp_profile.mcast, dncp_profile.port, buf, len);
     return 0;

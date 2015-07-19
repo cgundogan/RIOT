@@ -47,7 +47,7 @@ extern "C" {
 
 void hncp_init(ng_nettype_t transport, uint16_t port, char *stack, int stacksize, char prio);
 int hncp_send(ng_ipv6_addr_t *addr, uint16_t port, uint8_t *data, size_t len);
-int hncp_req_node(uint8_t *node_identifier);
+int hncp_req_node(network_uint32_t node_identifier);
 void hncp_hash(uint8_t *hash, const uint8_t *data, size_t len);
 
 #ifdef __cplusplus

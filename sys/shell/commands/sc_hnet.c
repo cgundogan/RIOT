@@ -49,7 +49,7 @@ extern int _hncp_req_node(int argc, char **argv)
     (void)argv;
 
     if (argc == 2) {
-        hncp_req_node((uint8_t *) argv[1]);
+        hncp_req_node(byteorder_htonl(atoi(argv[1])));
     }
     else {
         return -1;
