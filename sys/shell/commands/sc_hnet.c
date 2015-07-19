@@ -22,13 +22,16 @@
 #include <net/hncp.h>
 #include <net/dncp.h>
 
+#include "net/ng_nettype.h"
 
+static char _stack[HNCP_STACKSIZE_DEFAULT];
 
 extern int _hncp_init(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
 
+	hncp_init(NG_NETTYPE_UDP, 1337, _stack, sizeof(_stack), HNCP_PRIO_DEFAULT);
     return 0;
 }
 
@@ -45,10 +48,17 @@ extern int _hncp_req_node(int argc, char **argv)
     (void)argc;
     (void)argv;
 
+    if (argc == 2) {
+        hncp_req_node((uint8_t *) argv[1]);
+    }
+    else {
+        return -1;
+    }
+
     return 0;
 }
 
-extern int _hncp_req_net(int argv, char **argv)
+extern int _hncp_req_net(int argc, char **argv)
 {
     (void)argc;
     (void)argv;

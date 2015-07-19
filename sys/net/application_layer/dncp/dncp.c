@@ -21,15 +21,15 @@
 #include "net/dncp.h"
 #include "net/dncp/tlvs.h"
 
-void dcnp_init(dncp_profile_t *profile)
+void dncp_init(dncp_profile_t *profile)
 {
-
+	(void) profile;
 }
 
 
 void dncp_dispatch(dncp_tlv_t *tlv)
 {
-    switch (tlv->type) {
+    switch (byteorder_ntohs(tlv->type)) {
         case DNCP_TLV_TYPE_REQ_NET_STATE:
 
 
