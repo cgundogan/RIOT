@@ -32,33 +32,84 @@
 #include "net/ng_nettype.h"
 #include "byteorder.h"
 
-#define ENABLE_DEBUG    (0)
+#include "net/ng_pktdump.h"
+
+#define ENABLE_DEBUG    (1)
 #include "debug.h"
 
+static ng_netreg_entry_t server = {NULL, NG_NETREG_DEMUX_CTX_ALL,
+                                   KERNEL_PID_UNDEF};
+
 dncp_profile_t dncp_profile;
+
+
+
+static void _start_udp_server(uint16_t port)
+{
+    if (server.pid != KERNEL_PID_UNDEF) {
+        printf("Error: server already running on port %" PRIu32 "\n",
+                server.demux_ctx);
+        return;
+    }
+
+    //server.pid = thread_getpid();
+    server.pid = ng_pktdump_getpid();
+    server.demux_ctx = (uint32_t)port;
+    ng_netreg_register(NG_NETTYPE_UDP, &server);
+    DEBUG("Success: started UDP server on port %" PRIu16 "\n", port);
+}
+
 
 /* TODO: need src address and src port */
 static void dispatch(dncp_tlv_t *tlv)
 {
+    DEBUG("Dispatching TLV with type = %d and length = %d\n",
+        byteorder_ntohs(tlv->type),
+        byteorder_ntohs(tlv->length));
+
     if (dncp_should_handle_tlv(tlv)) {
         dncp_dispatch(tlv);
     }
 }
 
-static void parse_packet(ng_pktsnip_t *snip)
+static void _handle_packet(ng_pktsnip_t *pkt)
 {
-    size_t len = snip->size;
+    if(pkt->type != NG_NETTYPE_UDP) {
+        DEBUG("[hncp] _handle_packet only supports UDP packets. Type was %d\n", pkt->type);
+        return;
+    }
+
+    ng_udp_hdr_t *hdr = (ng_udp_hdr_t *) pkt;
+
+
+    printf("   src-port: %5" PRIu16 "  dst-port: %5" PRIu16 "\n",
+           byteorder_ntohs(hdr->src_port), byteorder_ntohs(hdr->dst_port));
+    printf("   length: %" PRIu16 "  cksum: 0x4%" PRIx16 "\n",
+           byteorder_ntohs(hdr->length), byteorder_ntohs(hdr->checksum));
+
+
+
+
+
+
+    return;
+    size_t len = pkt->size;
+
     do {
         /* read TLVs from incoming packet, TODO: adjust for other transports */
-        dncp_tlv_t *tlv = (dncp_tlv_t *)snip->data;
+        dncp_tlv_t *tlv = (dncp_tlv_t *)pkt->data;
         len -= sizeof(tlv->type) + sizeof(tlv->length) + byteorder_ntohs(tlv->length);
         dispatch(tlv);
     } while (len);
 }
 
+
+
+
 static void *event_loop(void *arg)
 {
     (void) arg;
+    _start_udp_server(8808);
 
     msg_t msg, reply;
     msg_t msg_queue[HNCP_MESSAGE_QUEUE_SIZE];
@@ -74,10 +125,11 @@ static void *event_loop(void *arg)
     while (1) {
         msg_receive(&msg);
 
+
         switch (msg.type) {
             case NG_NETAPI_MSG_TYPE_RCV:
-                snip = (ng_pktsnip_t *)msg.content.value;
-                parse_packet(snip);
+                snip = (ng_pktsnip_t *)msg.content.ptr;
+                _handle_packet(snip);
                 ng_pktbuf_release(snip);
                 break;
             case NG_NETAPI_MSG_TYPE_SET:

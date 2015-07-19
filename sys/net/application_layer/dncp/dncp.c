@@ -30,6 +30,10 @@ void dncp_init(dncp_profile_t *profile)
 void dncp_dispatch(dncp_tlv_t *tlv)
 {
     switch (byteorder_ntohs(tlv->type)) {
+        case DNCP_TLV_TYPE_RESERVED:
+            // TODO: Display error
+            break;
+
         case DNCP_TLV_TYPE_REQ_NET_STATE:
 
 
