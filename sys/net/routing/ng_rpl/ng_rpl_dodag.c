@@ -188,7 +188,7 @@ void ng_rpl_dodag_remove_all_parents(ng_rpl_dodag_t *dodag)
 
 ng_rpl_dodag_t *ng_rpl_dodag_get(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id)
 {
-    if ((instance == NULL) || instance->state == 0) {
+    if ((instance == NULL) || (instance->state == 0)) {
         DEBUG("Instance is NULL or unused\n");
         return NULL;
     }
