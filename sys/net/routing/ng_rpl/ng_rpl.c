@@ -50,8 +50,6 @@ kernel_pid_t ng_rpl_init(kernel_pid_t if_pid)
             return KERNEL_PID_UNDEF;
         }
 
-        fib_init();
-
         _me_reg.demux_ctx = NG_ICMPV6_RPL_CTRL;
         _me_reg.pid = ng_rpl_pid;
         /* register interest in all ICMPv6 packets */
