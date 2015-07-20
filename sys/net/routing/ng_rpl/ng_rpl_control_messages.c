@@ -505,6 +505,7 @@ void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uin
     dao_ack = (ng_rpl_dao_ack_t *)(icmp + 1);
 
     dao_ack->instance_id = dodag->instance->id;
+    /* set the D flag to indicate that a DODAG id is present */
     dao_ack->d_reserved = (1 << 7);
     dao_ack->dao_sequence = seq;
     dao_ack->status = 0;
