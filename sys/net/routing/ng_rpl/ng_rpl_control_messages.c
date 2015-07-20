@@ -193,6 +193,14 @@ void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_i
             case (NG_RPL_OPT_DODAG_CONF): {
                 DEBUG("RPL: DODAG CONF DIO option parsed\n");
                 ng_rpl_opt_dodag_conf_t *dc = (ng_rpl_opt_dodag_conf_t *) opt;
+                ng_rpl_of_t *of = ng_rpl_get_of_for_ocp(byteorder_ntohs(dc->ocp));
+                if (of != NULL) {
+                    dodag->instance->of = of;
+                }
+                else {
+                    DEBUG("RPL: Unsupported OCP 0x%02x\n", dc->ocp);
+                    dodag->instance->of = ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
+                }
                 dodag->dio_interval_doubl = dc->dio_int_doubl;
                 dodag->dio_min = dc->dio_int_min;
                 dodag->dio_redun = dc->dio_redun;
@@ -200,9 +208,6 @@ void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_i
                 dodag->instance->min_hop_rank_inc = byteorder_ntohs(dc->min_hop_rank_inc);
                 dodag->default_lifetime = dc->default_lifetime;
                 dodag->lifetime_unit = byteorder_ntohs(dc->lifetime_unit);
-                dodag->instance->of =
-                    (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(byteorder_ntohs(dc->ocp));
-
                 dodag->trickle.Imin = (1 << dodag->dio_min);
                 dodag->trickle.Imax = dodag->dio_interval_doubl;
                 dodag->trickle.k = dodag->dio_redun;
@@ -262,7 +267,7 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
 
     if (ng_rpl_instance_add(dio->instance_id, &inst)) {
         inst->mop = (dio->g_mop_prf >> NG_RPL_MOP_SHIFT) & NG_RPL_SHIFTED_MOP_MASK;
-        inst->of = (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
+        inst->of = ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
     }
     else if (inst == NULL) {
         DEBUG("RPL: Could not allocate a new instance.\n");
