@@ -261,6 +261,8 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
     ng_rpl_instance_t *inst = NULL;
     ng_rpl_dodag_t *dodag = NULL;
 
+    len -= (sizeof(ng_rpl_dio_t) + sizeof(ng_icmpv6_hdr_t));
+
     if (ng_rpl_instance_add(dio->instance_id, &inst)) {
         inst->mop = (dio->g_mop_prf >> NG_RPL_MOP_SHIFT) & NG_RPL_SHIFTED_MOP_MASK;
         inst->of = (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
@@ -281,8 +283,7 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         DEBUG("RPL: Joined DODAG (%s).\n",
                 ng_ipv6_addr_to_str(addr_str, &dio->dodag_id, sizeof(addr_str)));
 
-        uint8_t tmp_len = len - (sizeof(ng_rpl_dio_t) + sizeof(ng_icmpv6_hdr_t));
-        _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), tmp_len, NULL);
+        _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL);
 
         ng_rpl_parent_t *parent = NULL;
 
@@ -363,7 +364,6 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         }
         parent->dtsn = dio->dtsn;
 
-        len -= (sizeof(ng_rpl_dio_t) + sizeof(ng_icmpv6_hdr_t));
         _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL);
     }
 
