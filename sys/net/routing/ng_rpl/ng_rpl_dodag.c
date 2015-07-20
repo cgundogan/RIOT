@@ -317,6 +317,7 @@ void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
     /* update Parent lifetime */
     if (parent != NULL) {
         parent->lifetime.seconds = now.seconds + (dodag->default_lifetime * dodag->lifetime_unit);
+        parent->lifetime.microseconds = 0;
         if (parent == dodag->parents) {
             ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
             kernel_pid_t if_id;
