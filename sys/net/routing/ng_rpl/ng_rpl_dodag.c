@@ -139,7 +139,7 @@ bool ng_rpl_dodag_add(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id, ng_
         (*dodag)->trickle.callback.func = &rpl_trickle_send_dio;
         (*dodag)->trickle.callback.args = *dodag;
         (*dodag)->dio_interval_doubl = NG_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
-        (*dodag)->dio_min = 0;
+        (*dodag)->dio_min = NG_RPL_DEFAULT_DIO_INTERVAL_MIN;
         (*dodag)->dio_redun = NG_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
         (*dodag)->default_lifetime = NG_RPL_DEFAULT_LIFETIME;
         (*dodag)->lifetime_unit = NG_RPL_LIFETIME_UNIT;
