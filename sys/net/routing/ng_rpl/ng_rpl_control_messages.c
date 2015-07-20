@@ -22,11 +22,11 @@
 static char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 #endif
 
-#define NG_RPL_GROUNDED_SHIFT           7
-#define NG_RPL_MOP_SHIFT                3
-#define NG_RPL_OPT_DODAG_CONF_LEN       14
-#define NG_RPL_SHIFTED_MOP_MASK         0x7
-#define NG_RPL_PRF_MASK                 0x7
+#define NG_RPL_GROUNDED_SHIFT           (7)
+#define NG_RPL_MOP_SHIFT                (3)
+#define NG_RPL_OPT_DODAG_CONF_LEN       (14)
+#define NG_RPL_SHIFTED_MOP_MASK         (0x7)
+#define NG_RPL_PRF_MASK                 (0x7)
 
 void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
 {
@@ -54,7 +54,7 @@ void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
         dst = &all_RPL_nodes;
     }
 
-    hdr = ng_ipv6_hdr_build(pkt, (uint8_t *)src, src ? sizeof(ng_ipv6_addr_t) : 0,
+    hdr = ng_ipv6_hdr_build(pkt, (uint8_t *)src, (src ? sizeof(ng_ipv6_addr_t) : 0),
             (uint8_t *)dst, sizeof(ng_ipv6_addr_t));
 
     if (hdr == NULL) {
