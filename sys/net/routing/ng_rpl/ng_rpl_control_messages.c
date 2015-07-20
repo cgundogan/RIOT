@@ -144,7 +144,7 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
 
     icmp = (ng_icmpv6_hdr_t *)pkt->data;
     dis = (ng_rpl_dis_t *)(icmp + 1);
-    dis->flags = 0;;
+    dis->flags = 0;
     dis->reserved = 0;;
     memset((dis + 1), 0, 4);
 
