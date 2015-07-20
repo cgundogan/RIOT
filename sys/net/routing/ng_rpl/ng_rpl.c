@@ -121,7 +121,7 @@ static ng_rpl_dodag_t *_root_dodag_init(uint8_t instance_id, ng_ipv6_addr_t *dod
         inst->of = (ng_rpl_of_t *) ng_rpl_get_of_for_ocp(NG_RPL_DEFAULT_OCP);
         inst->mop = mop;
         inst->min_hop_rank_inc = NG_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
-        inst->max_rank_inc = 0;
+        inst->max_rank_inc = NG_RPL_DEFAULT_MAX_RANK_INCREASE;
     }
     else if (inst == NULL) {
         DEBUG("RPL: could not allocate memory for a new instance with id %d", instance_id);
