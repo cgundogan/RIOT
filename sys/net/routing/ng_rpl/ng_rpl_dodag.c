@@ -241,7 +241,7 @@ bool ng_rpl_parent_add_by_addr(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr, ng_r
             kernel_pid_t if_id = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
             if (if_id == KERNEL_PID_UNDEF) {
                 DEBUG("RPL: no interface found for the parent addres\n");
-                return NULL;
+                return false;
             }
             fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
                     sizeof(ng_ipv6_addr_t), AF_INET6,
