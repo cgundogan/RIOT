@@ -183,7 +183,6 @@ void ng_rpl_dodag_remove_all_parents(ng_rpl_dodag_t *dodag)
     vtimer_remove(&dodag->cleanup_timer);
     vtimer_set_msg(&dodag->cleanup_timer, dodag->cleanup_time, ng_rpl_pid,
             NG_RPL_MSG_TYPE_CLEANUP_HANDLE, dodag);
-    return;
 }
 
 ng_rpl_dodag_t *ng_rpl_dodag_get(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id)
@@ -304,7 +303,6 @@ void ng_rpl_local_repair(ng_rpl_dodag_t *dodag)
     }
 
     dodag->my_rank = NG_RPL_INFINITE_RANK;
-    return;
 }
 
 void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
@@ -336,7 +334,6 @@ void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent)
     if (dodag->parents && (old_rank != dodag->my_rank)) {
         trickle_reset_timer(&dodag->trickle);
     }
-    return;
 }
 
 int _compare_parents(ng_rpl_parent_t *p1, ng_rpl_parent_t *p2)

@@ -177,7 +177,6 @@ static void _receive(ng_pktsnip_t *icmpv6)
     }
 
     ng_pktbuf_release(icmpv6);
-    return;
 }
 
 static void *_event_loop(void *args)
