@@ -125,6 +125,12 @@ endif
 ifneq (,$(filter ng_rpl_srh,$(USEMODULE)))
     DIRS += net/routing/ng_rpl/srh
 endif
+ifneq (,$(filter ng_rpl_bloom,$(USEMODULE)))
+    DIRS += net/routing/ng_rpl/bloom
+endif
+ifneq (,$(filter ng_rpl_bloom_ondodag,$(USEMODULE)))
+    DIRS += net/routing/ng_rpl/bloom
+endif
 ifneq (,$(filter ng_sixlowpan,$(USEMODULE)))
     DIRS += net/network_layer/ng_sixlowpan
 endif

@@ -29,6 +29,9 @@ extern "C" {
 
 #include "net/ng_ipv6.h"
 #include "trickle.h"
+#ifdef MODULE_NG_RPL_BLOOM
+#include "net/ng_rpl/ng_rpl_bloom.h"
+#endif
 
 /**
  * @brief RPL-Option Generic Format
@@ -163,6 +166,12 @@ struct ng_rpl_parent {
     timex_t lifetime;               /**< lifetime of this parent */
     double  link_metric;            /**< metric of the link */
     uint8_t link_metric_type;       /**< type of the metric */
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
+    bloom_t *nhood_ondodag;
+#endif
+#ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
+    bloom_t *nhood_offdodag;
+#endif
 };
 
 /**
@@ -222,6 +231,12 @@ struct ng_rpl_dodag {
     timex_t cleanup_time;           /**< time to schedula a DODAG cleanup */
     vtimer_t cleanup_timer;         /**< timer to schedula a DODAG cleanup */
     trickle_t trickle;              /**< trickle representation */
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
+    bloom_t *nhood_ondodag;
+#endif
+#ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
+    bloom_t *nhood_offdodag;
+#endif
 };
 
 #ifdef __cplusplus

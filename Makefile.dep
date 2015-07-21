@@ -346,6 +346,19 @@ ifneq (,$(filter hih6130,$(USEMODULE)))
   USEMODULE += vtimer
 endif
 
+ifneq (,$(filter ng_rpl_bloom_ondodag,$(USEMODULE)))
+  USEMODULE += ng_rpl_bloom
+endif
+
+ifneq (,$(filter ng_rpl_bloom_offdodag,$(USEMODULE)))
+  USEMODULE += ng_rpl_bloom
+endif
+
+ifneq (,$(filter ng_rpl_bloom,$(USEMODULE)))
+  USEMODULE += bloom
+  USEMODULE += ng_rpl
+endif
+
 ifneq (,$(filter ng_rpl,$(USEMODULE)))
   USEMODULE += timex
   USEMODULE += vtimer

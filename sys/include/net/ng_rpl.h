@@ -258,6 +258,7 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define NG_RPL_OPT_SOLICITED_INFO       (7)
 #define NG_RPL_OPT_PREFIX_INFO          (8)
 #define NG_RPL_OPT_TARGET_DESC          (9)
+
 /** @} */
 
 /**
