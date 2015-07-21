@@ -242,9 +242,13 @@ bool ng_rpl_parent_add_by_addr(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *addr, ng_r
                 DEBUG("RPL: no interface found for the parent addres\n");
                 return false;
             }
-            fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
+            if (fib_add_entry(if_id, def.u8, sizeof(ng_ipv6_addr_t), AF_INET6, dodag->parents->addr.u8,
                     sizeof(ng_ipv6_addr_t), AF_INET6,
-                    (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+                    (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS) != 0) {
+                DEBUG("RPL: error adding parent to FIB\n");
+                ng_rpl_parent_remove(*parent);
+                return false;
+            }
         }
         return true;
     }
