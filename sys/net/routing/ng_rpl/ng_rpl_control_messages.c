@@ -172,8 +172,6 @@ void ng_rpl_recv_DIS(ng_rpl_dis_t *dis, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst
             }
         }
     }
-
-    return;
 }
 
 void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_ipv6_addr_t *src)
@@ -253,7 +251,6 @@ a preceding RPL TARGET DAO option\n");
         l += opt->length + sizeof(ng_rpl_opt_t);
         opt = (ng_rpl_opt_t *) (((uint8_t *) (opt + 1)) + opt->length);
     }
-    return;
 }
 
 void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
@@ -366,8 +363,6 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
 
         _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL);
     }
-
-    return;
 }
 
 void _dao_fill_target(ng_rpl_opt_target_t *target, ng_ipv6_addr_t *addr)
@@ -377,7 +372,6 @@ void _dao_fill_target(ng_rpl_opt_target_t *target, ng_ipv6_addr_t *addr)
     target->flags = 0;
     target->prefix_length = 128;
     target->target = *addr;
-    return;
 }
 
 void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t lifetime)
@@ -480,8 +474,6 @@ void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t
     _ng_rpl_send(pkt, NULL, destination);
 
     NG_RPL_COUNTER_INCREMENT(dodag->dao_seq);
-
-    return;
 }
 
 void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t seq)
@@ -512,7 +504,6 @@ void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uin
     dao_ack->dodag_id = dodag->dodag_id;
 
     _ng_rpl_send(pkt, NULL, destination);
-    return;
 }
 
 void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len)
@@ -545,7 +536,6 @@ void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len)
     }
 
     ng_rpl_delay_dao(dodag);
-    return;
 }
 
 void ng_rpl_recv_DAO_ACK(ng_rpl_dao_ack_t *dao_ack)
@@ -575,7 +565,6 @@ void ng_rpl_recv_DAO_ACK(ng_rpl_dao_ack_t *dao_ack)
 
     dodag->dao_ack_received = true;
     ng_rpl_long_delay_dao(dodag);
-    return;
 }
 
 /**
