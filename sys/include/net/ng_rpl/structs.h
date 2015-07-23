@@ -119,7 +119,7 @@ typedef struct __attribute__((packed)) {
 } ng_rpl_dao_ack_t;
 
 /**
- * @brief DODAG Information Solicitation
+ * @brief Target Option
  * @see <a href="https://tools.ietf.org/html/rfc6550#section-6.7.7">
  *          RPL Target
  *      </a>
@@ -133,7 +133,7 @@ typedef struct __attribute__((packed)) {
 } ng_rpl_opt_target_t;
 
 /**
- * @brief DODAG Information Solicitation
+ * @brief Transit Option
  * @see <a href="https://tools.ietf.org/html/rfc6550#section-6.7.8">
  *          Transit Information
  *      </a>
