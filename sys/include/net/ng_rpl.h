@@ -261,7 +261,7 @@ static inline bool NG_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 /** @} */
 
 /**
- * @brief Rank of the ROOT node
+ * @brief Rank of the root node
  */
 #define NG_RPL_ROOT_RANK (256)
 
