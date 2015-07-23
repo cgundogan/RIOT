@@ -158,9 +158,9 @@ extern "C" {
 
 static inline uint8_t NG_RPL_COUNTER_INCREMENT(uint8_t counter)
 {
-    return (counter > NG_RPL_COUNTER_LOWER_REGION ?
-            (counter == NG_RPL_COUNTER_MAX ? counter = 0 : ++counter) :
-            (counter == NG_RPL_COUNTER_LOWER_REGION ? counter = 0 : ++counter));
+    return ((counter > NG_RPL_COUNTER_LOWER_REGION) ?
+            ((counter == NG_RPL_COUNTER_MAX) ? counter = 0 : ++counter) :
+            ((counter == NG_RPL_COUNTER_LOWER_REGION) ? counter = 0 : ++counter));
 }
 
 static inline bool NG_RPL_COUNTER_IS_INIT(uint8_t counter)
