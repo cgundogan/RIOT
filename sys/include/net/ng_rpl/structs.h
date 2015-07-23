@@ -48,7 +48,7 @@ typedef struct __attribute__((packed)) {
  *      </a>
  */
 typedef struct __attribute__((packed)) {
-    uint8_t instance_id;        /**< id of the isntance */
+    uint8_t instance_id;        /**< id of the instance */
     uint8_t version_number;     /**< version number of the DODAG */
     network_uint16_t rank;      /**< rank of the parent emitting the DIO */
     uint8_t g_mop_prf;          /**< grounded, MOP, preferred flags */

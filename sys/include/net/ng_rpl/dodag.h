@@ -193,7 +193,7 @@ void ng_rpl_parent_update(ng_rpl_dodag_t *dodag, ng_rpl_parent_t *parent);
 /**
  * @brief   Find the parent with the lowest rank and update the DODAG's preferred parent
  *
- * @param[in] dodag     Pointer to the DODAD
+ * @param[in] dodag     Pointer to the DODAG
  *
  * @return  Pointer to the preferred parent, on success.
  * @return  NULL, otherwise.
@@ -203,7 +203,7 @@ ng_rpl_parent_t *ng_rpl_find_preferred_parent(ng_rpl_dodag_t *dodag);
 /**
  * @brief   Start a local repair.
  *
- * @param[in] dodag     Pointer to the DODAD
+ * @param[in] dodag     Pointer to the DODAG
  */
 void ng_rpl_local_repair(ng_rpl_dodag_t *dodag);
 #ifdef __cplusplus
