@@ -11,6 +11,8 @@
  * @{
  *
  * @file
+ *
+ * @author  Cenk Gündoğan <cnkgndgn@gmail.com>
  */
 #include "net/ng_rpl.h"
 #include "inet_ntop.h"

@@ -16,8 +16,8 @@
  * @author  Fabian Brandt <fabianbr@zedat.fu-berlin.de>
  */
 
-#ifndef __RPL_OFM_H
-#define __RPL_OFM_H
+#ifndef RPL_OFM_H
+#define RPL_OFM_H
 
 #include "structs.h"
 #include "net/ng_ipv6.h"
@@ -42,5 +42,5 @@ ng_rpl_of_t *ng_rpl_get_of_for_ocp(uint16_t ocp);
 }
 #endif
 
-#endif /* __RPL_OFM_H */
+#endif /* RPL_OFM_H */
 /** @} */

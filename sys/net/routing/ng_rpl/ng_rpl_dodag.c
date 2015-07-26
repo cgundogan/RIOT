@@ -10,7 +10,7 @@
 /**
  * @{
  *
- * @file        ng_rpl_dodag.c
+ * @file
  * @author      Eric Engel <eric.engel@fu-berlin.de>
  * @author      Cenk Gündoğan <cnkgndgn@gmail.com>
  */
