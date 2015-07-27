@@ -381,16 +381,16 @@ int _ng_rpl(int argc, char **argv)
     }
 
     printf("usage: %s [help|init|rm|root|show]\n", argv[0]);
-    puts("\t* help\t\t\t\t\t\t- show usage");
-    puts("\t* init <if_id>\t\t\t\t\t- initialize RPL on the given interface");
-    puts("\t* trickle reset <instance_id> <dodag_id>\t- reset the trickle timer");
-    puts("\t* trickle start <instance_id> <dodag_id>\t- start the trickle timer");
-    puts("\t* trickle stop <instance_id> <dodag_id>\t- stop the trickle timer");
-    puts("\t* rm <instance_id>\t\t\t\t- delete the given instance and all related dodags");
-    puts("\t* rm <instance_id> <dodag_id>\t\t\t- delete the dodag in the given instance");
-    puts("\t* root <instance_id> <dodag_id>\t\t\t- add a dodag to a new or existing instance");
-    puts("\t* send dis\t\t\t\t\t- send a multicast DIS");
-    puts("\t* show\t\t\t\t\t\t- show instance and dodag tables");
+    puts("* help\t\t\t\t\t\t- show usage");
+    puts("* init <if_id>\t\t\t\t\t- initialize RPL on the given interface");
+    puts("* trickle reset <instance_id> <dodag_id>\t- reset the trickle timer");
+    puts("* trickle start <instance_id> <dodag_id>\t- start the trickle timer");
+    puts("* trickle stop <instance_id> <dodag_id>\t\t- stop the trickle timer");
+    puts("* rm <instance_id>\t\t\t\t- delete the given instance and all related dodags");
+    puts("* rm <instance_id> <dodag_id>\t\t\t- delete the dodag in the given instance");
+    puts("* root <instance_id> <dodag_id>\t\t\t- add a dodag to a new or existing instance");
+    puts("* send dis\t\t\t\t\t- send a multicast DIS");
+    puts("* show\t\t\t\t\t\t- show instance and dodag tables");
     return 0;
 }
 /**
