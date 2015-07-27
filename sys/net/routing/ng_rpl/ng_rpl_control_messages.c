@@ -31,10 +31,11 @@ static char addr_str[NG_IPV6_ADDR_MAX_STR_LEN];
 #define NG_RPL_SHIFTED_MOP_MASK         (0x7)
 #define NG_RPL_PRF_MASK                 (0x7)
 
-void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
+void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst,
+        ng_ipv6_addr_t *dodag_id)
 {
     ng_pktsnip_t *hdr;
-    ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES;
+    ng_ipv6_addr_t all_RPL_nodes = NG_IPV6_ADDR_ALL_RPL_NODES, ll_addr, *tmp = NULL;
     kernel_pid_t iface = ng_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
     if (iface == KERNEL_PID_UNDEF) {
         DEBUG("RPL: no suitable interface found for this destination address\n");
@@ -43,14 +44,22 @@ void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
     }
 
     if (src == NULL) {
-        ng_ipv6_addr_t ll_addr;
-        ng_ipv6_addr_set_link_local_prefix(&ll_addr);
-        src = ng_ipv6_netif_match_prefix(iface, &ll_addr);
-        if (src == NULL) {
-            DEBUG("RPL: no suitable src address found for this destination address\n");
+        if (dodag_id != NULL) {
+            tmp = ng_ipv6_netif_match_prefix(iface, dodag_id);
+        }
+        else if (dodag_id == NULL) {
+            tmp = ng_ipv6_netif_find_best_src_addr(iface, &all_RPL_nodes);
+        }
+
+        if (tmp == NULL) {
+            DEBUG("RPL: no suitable src address found\n");
             ng_pktbuf_release(pkt);
             return;
         }
+
+        memcpy(&ll_addr, tmp, sizeof(ll_addr));
+        ng_ipv6_addr_set_link_local_prefix(&ll_addr);
+        src = &ll_addr;
     }
 
     if (dst == NULL) {
@@ -129,7 +138,7 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     }
 
     dodag->dodag_conf_counter++;
-    _ng_rpl_send(pkt, NULL, destination);
+    _ng_rpl_send(pkt, NULL, destination, &dodag->dodag_id);
 }
 
 void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
@@ -151,7 +160,7 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     dis->reserved = 0;
     memset((dis + 1), 0, 4);
 
-    _ng_rpl_send(pkt, NULL, destination);
+    _ng_rpl_send(pkt, NULL, destination, (dodag ? &dodag->dodag_id : NULL));
 }
 
 void ng_rpl_recv_DIS(ng_rpl_dis_t *dis, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst, uint16_t len)
@@ -492,7 +501,7 @@ void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t
     transit->path_sequence = 0;
     transit->path_lifetime = lifetime;
 
-    _ng_rpl_send(pkt, NULL, destination);
+    _ng_rpl_send(pkt, NULL, destination, &dodag->dodag_id);
 
     NG_RPL_COUNTER_INCREMENT(dodag->dao_seq);
 }
@@ -524,7 +533,7 @@ void ng_rpl_send_DAO_ACK(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uin
     dao_ack->status = 0;
     dao_ack->dodag_id = dodag->dodag_id;
 
-    _ng_rpl_send(pkt, NULL, destination);
+    _ng_rpl_send(pkt, NULL, destination, &dodag->dodag_id);
 }
 
 void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len)
