@@ -449,19 +449,8 @@ void ng_rpl_send_DAO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination, uint8_t
     }
 
     /* find prefix for my address */
-    ng_ipv6_addr_t prefix = *me;
-    uint8_t pref_len = me_netif->prefix_len;
-
-    uint8_t i = sizeof(prefix.u8) - 1;
-    while (8 < pref_len) {
-        prefix.u8[i] = 0;
-        pref_len -= 8;
-        i--;
-    }
-    if (pref_len != 0) {
-        prefix.u8[i] = (prefix.u8[i] & (0xFF << (8 - pref_len)));
-    }
-
+    ng_ipv6_addr_t prefix;
+    ng_ipv6_addr_init_prefix(&prefix, me, me_netif->prefix_len);
     fib_get_destination_set(prefix.u8, sizeof(ng_ipv6_addr_t), fib_dest_set, &dst_size);
 
     int size = sizeof(ng_icmpv6_hdr_t) + sizeof(ng_rpl_dao_t) +
