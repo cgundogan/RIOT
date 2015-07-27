@@ -182,6 +182,12 @@ bool _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_i
     uint16_t l = 0;
     ng_rpl_opt_target_t *first_target = NULL;
     while(l < len) {
+        if ((opt->type != NG_RPL_OPT_PAD1) && (len < opt->length + sizeof(ng_rpl_opt_t) + l)) {
+            /* return false to delete the dodag,
+             * because former options may also contain errors */
+            return false;
+        }
+
         switch(opt->type) {
             case (NG_RPL_OPT_PAD1): {
                 DEBUG("RPL: PAD1 option parsed\n");
