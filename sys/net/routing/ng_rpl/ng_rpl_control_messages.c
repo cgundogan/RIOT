@@ -14,6 +14,7 @@
  *
  * @author  Cenk Gündoğan <cnkgndgn@gmail.com>
  */
+
 #include "net/ng_rpl.h"
 #include "inet_ntop.h"
 
@@ -56,8 +57,8 @@ void _ng_rpl_send(ng_pktsnip_t *pkt, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst)
         dst = &all_RPL_nodes;
     }
 
-    hdr = ng_ipv6_hdr_build(pkt, (uint8_t *)src, (src ? sizeof(ng_ipv6_addr_t) : 0),
-            (uint8_t *)dst, sizeof(ng_ipv6_addr_t));
+    hdr = ng_ipv6_hdr_build(pkt, (uint8_t *)src, sizeof(ng_ipv6_addr_t), (uint8_t *)dst,
+                            sizeof(ng_ipv6_addr_t));
 
     if (hdr == NULL) {
         DEBUG("RPL: Send - no space left in packet buffer\n");
@@ -147,7 +148,7 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     icmp = (ng_icmpv6_hdr_t *)pkt->data;
     dis = (ng_rpl_dis_t *)(icmp + 1);
     dis->flags = 0;
-    dis->reserved = 0;;
+    dis->reserved = 0;
     memset((dis + 1), 0, 4);
 
     _ng_rpl_send(pkt, NULL, destination);
@@ -176,7 +177,7 @@ void ng_rpl_recv_DIS(ng_rpl_dis_t *dis, ng_ipv6_addr_t *src, ng_ipv6_addr_t *dst
     }
 }
 
-void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_ipv6_addr_t *src)
+bool _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_ipv6_addr_t *src)
 {
     uint16_t l = 0;
     ng_rpl_opt_target_t *first_target = NULL;
@@ -217,15 +218,15 @@ void _parse_options(ng_rpl_dodag_t *dodag, ng_rpl_opt_t *opt, uint16_t len, ng_i
             }
             case (NG_RPL_OPT_TARGET): {
                 DEBUG("RPL: RPL TARGET DAO option parsed\n");
-                ng_rpl_opt_target_t *target = (ng_rpl_opt_target_t *) opt;
-                if (first_target == NULL) {
-                    first_target = target;
-                }
-
                 kernel_pid_t if_id = ng_ipv6_netif_find_by_prefix(NULL, &dodag->dodag_id);
                 if (if_id == KERNEL_PID_UNDEF) {
                     DEBUG("RPL: no interface found for the configured DODAG id\n");
-                    break;
+                    return false;
+                }
+
+                ng_rpl_opt_target_t *target = (ng_rpl_opt_target_t *) opt;
+                if (first_target == NULL) {
+                    first_target = target;
                 }
 
                 fib_add_entry(if_id, target->target.u8, sizeof(ng_ipv6_addr_t), AF_INET6, src->u8,
@@ -258,6 +259,7 @@ a preceding RPL TARGET DAO option\n");
         l += opt->length + sizeof(ng_rpl_opt_t);
         opt = (ng_rpl_opt_t *) (((uint8_t *) (opt + 1)) + opt->length);
     }
+    return true;
 }
 
 void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
@@ -287,7 +289,10 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         DEBUG("RPL: Joined DODAG (%s).\n",
                 ng_ipv6_addr_to_str(addr_str, &dio->dodag_id, sizeof(addr_str)));
 
-        _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL);
+        if(!_parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL)) {
+            ng_rpl_dodag_remove(dodag);
+            return;
+        }
 
         ng_rpl_parent_t *parent = NULL;
 
@@ -368,7 +373,10 @@ void ng_rpl_recv_DIO(ng_rpl_dio_t *dio, ng_ipv6_addr_t *src, uint16_t len)
         }
         parent->dtsn = dio->dtsn;
 
-        _parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL);
+        if(!_parse_options(dodag, (ng_rpl_opt_t *)(dio + 1), len, NULL)) {
+            ng_rpl_dodag_remove(dodag);
+            return;
+        }
     }
 }
 
@@ -535,7 +543,10 @@ void ng_rpl_recv_DAO(ng_rpl_dao_t *dao, ng_ipv6_addr_t *src, uint16_t len)
     }
 
     len -= (sizeof(ng_rpl_dao_t) + sizeof(ng_icmpv6_hdr_t));
-    _parse_options(dodag, (ng_rpl_opt_t *) (dao + 1), len, src);
+    if(!_parse_options(dodag, (ng_rpl_opt_t *) (dao + 1), len, src)) {
+        ng_rpl_dodag_remove(dodag);
+        return;
+    }
 
     /* send a DAO-ACK if K flag is set */
     if (dao->k_d_flags & (1 << 7)) {
