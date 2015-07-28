@@ -147,6 +147,9 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     ng_pktsnip_t *pkt;
     ng_icmpv6_hdr_t *icmp;
     ng_rpl_dis_t *dis;
+    /* TODO: Currently the DIS is too small so that wireshark complains about an incorrect
+     * ethernet frame check sequence. In order to prevent this, 4 PAD1 options are added.
+     * This will be addressed in follow-up PRs */
     int size = sizeof(ng_icmpv6_hdr_t) + sizeof(ng_rpl_dis_t) + 4;
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIS, size)) == NULL) {
@@ -158,6 +161,7 @@ void ng_rpl_send_DIS(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     dis = (ng_rpl_dis_t *)(icmp + 1);
     dis->flags = 0;
     dis->reserved = 0;
+    /* TODO: see above TODO */
     memset((dis + 1), 0, 4);
 
     _ng_rpl_send(pkt, NULL, destination, (dodag ? &dodag->dodag_id : NULL));
