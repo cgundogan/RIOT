@@ -106,7 +106,7 @@ typedef struct __attribute__((packed)) {
  * @return true, if the announced parent address matches any of the configured addresses
  * @return false, otherwise
  */
-bool ng_rpl_bloom_add_neighbor(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *src,
+bool ng_rpl_bloom_add_neighbor_ondodag(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *src,
                                 ng_rpl_opt_parent_announcement_t *pa);
 
 /**
@@ -114,7 +114,7 @@ bool ng_rpl_bloom_add_neighbor(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *src,
  *
  * @param[in] dodag             Pointer to the DODAG
  */
-bloom_t *ng_rpl_bloom_neighborhood_init(ng_rpl_dodag_t *dodag);
+void ng_rpl_bloom_neighborhood_init(ng_rpl_dodag_t *dodag);
 
 #ifdef __cplusplus
 }

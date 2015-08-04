@@ -100,14 +100,8 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         size += sizeof(ng_rpl_opt_dodag_conf_t);
     }
 
-#ifdef MODULE_NG_RPL_BLOOM
-    ng_rpl_parent_t *parent = NULL;
-    LL_FOREACH(dodag->parents, parent) {
-        size += sizeof(ng_rpl_opt_parent_announcement_t);
-#ifndef MODULE_NG_RPL_BLOOM_OFFDODAG
-        break;
-#endif
-    }
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
+    size += sizeof(ng_rpl_opt_parent_announcement_t);
 #endif
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIO, size)) == NULL) {
@@ -147,18 +141,13 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         pos += sizeof(*dodag_conf);
     }
 
-#ifdef MODULE_NG_RPL_BLOOM
-    LL_FOREACH(dodag->parents, parent) {
-        ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) pos;
-        pa->type = NG_RPL_OPT_PARENT_ANNOUNCEMENT;
-        pa->length = NG_RPL_OPT_PARENT_ANNOUNCEMENT_LEN;
-        pa->prefix_length = 128;
-        pa->parent = parent->addr;
-        pos += sizeof(*pa);
-#ifndef MODULE_NG_RPL_BLOOM_OFFDODAG
-        break;
-#endif
-    }
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
+    ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) pos;
+    pa->type = NG_RPL_OPT_PARENT_ANNOUNCEMENT;
+    pa->length = NG_RPL_OPT_PARENT_ANNOUNCEMENT_LEN;
+    pa->prefix_length = 128;
+    pa->parent = dodag->parents->addr;
+    pos += sizeof(*pa);
 #endif
 
     dodag->dodag_conf_counter++;
@@ -298,14 +287,12 @@ a preceding RPL TARGET DAO option\n");
                 first_target = NULL;
                 break;
             }
-#ifdef MODULE_NG_RPL_BLOOM
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
             case (NG_RPL_OPT_PARENT_ANNOUNCEMENT): {
                 DEBUG("RPL: RPL BLOOM PARENT ANNOUNCEMENT DIO option parsed\n");
                 ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) opt;
-                /* TODO: save src addr in dodag->neighborhood (bloom),
-                 * iff my address in parent_announcement*/
-                ng_rpl_bloom_add_neighbor(dodag, src, pa);
-           }
+                ng_rpl_bloom_add_neighbor_ondodag(dodag, src, pa);
+            }
 #endif
         }
         l += opt->length + sizeof(ng_rpl_opt_t);
