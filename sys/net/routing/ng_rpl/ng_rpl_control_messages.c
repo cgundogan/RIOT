@@ -100,12 +100,24 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         size += sizeof(ng_rpl_opt_dodag_conf_t);
     }
 
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
-    size += sizeof(ng_rpl_opt_parent_announcement_t);
-#endif
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+    ng_rpl_parent_t *tmp_parent;
+    ng_ipv6_addr_t *me;
+    vtimer_t now;
 
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
-    size += sizeof(ng_rpl_opt_nhood_ondodag_announcement_t);
+    vtimer_now(&now);
+    ng_ipv6_netif_find_by_prefix(me, dodag->dodag_id);
+
+    LL_FOREACH(dodag->parents, tmp_parent) {
+        if ((tmp_parent->checks_requested < 3) && (me != NULL) &&
+                ((now.seconds - tmp_parent->blacklisted_at.seconds) >= 120) &&
+                !bloom_check(tmp_parent->nhood_linksym, (uint8_t *)me, sizeof(*me))) {
+            size += sizeof(ng_rpl_opt_parent_announcement_t);
+        }
+    }
+    if (dodag->linksym_check_requested) {
+        size += sizeof(ng_rpl_opt_nhood_ondodag_announcement_t);
+    }
 #endif
 
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIO, size)) == NULL) {
@@ -146,31 +158,19 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     }
     dodag->dodag_conf_counter++;
 
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
-    ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) pos;
-    pa->type = NG_RPL_OPT_PARENT_ANNOUNCEMENT;
-    pa->length = NG_RPL_OPT_PARENT_ANNOUNCEMENT_LEN;
-    pa->prefix_length = 128;
-    pa->parent = dodag->parents->addr;
-    pos += sizeof(*pa);
-#endif
-
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
-    ng_rpl_parent_t *tmp;
-    ng_ipv6_addr_t *me;
-    vtimer_t now;
-
-    vtimer_now(&now);
-    ng_ipv6_netif_find_by_prefix(me, dodag->dodag_id);
-
-    LL_FOREACH(dodag->parents, tmp) {
-        if (tmp->checks_requested >= 3) {
-            vtimer_now(&tmp->blacklisted_at);
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+    LL_FOREACH(dodag->parents, tmp_parent) {
+        if (tmp_parent->checks_requested >= 3) {
+            vtimer_now(&tmp_parent->blacklisted_at);
         }
-        else if ((me != NULL) && ((now.seconds - parent->blacklisted_at.seconds) >= 120) &&
-                !bloom_check(tmp->nhood_ondodag, (uint8_t *)me, sizeof(*me))) {
-           tmp->checks_requested++;
-           /* TODO: move parent announcement here */
+        else if ((me != NULL) && ((now.seconds - tmp_parent->blacklisted_at.seconds) >= 120) &&
+                !bloom_check(tmp_parent->nhood_linksym, (uint8_t *)me, sizeof(*me))) {
+            tmp_parent->checks_requested++;
+            ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) pos;
+            pa->type = NG_RPL_OPT_PARENT_ANNOUNCEMENT;
+            pa->length = NG_RPL_OPT_PARENT_ANNOUNCEMENT_LEN;
+            pa->parent = tmp_parent->addr;
+            pos += sizeof(*pa);
         }
     }
 
@@ -320,14 +320,12 @@ a preceding RPL TARGET DAO option\n");
                 first_target = NULL;
                 break;
             }
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
             case (NG_RPL_OPT_PARENT_ANNOUNCEMENT): {
                 DEBUG("RPL: RPL BLOOM PARENT ANNOUNCEMENT DIO option parsed\n");
-                ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) opt;
-                ng_rpl_bloom_add_neighbor_ondodag(dodag, src, pa);
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
-                dodag->linksym_check_requested = true;
-#endif
+                ng_rpl_bloom_linksym_add_neighbor(dodag, src,
+                        (ng_rpl_opt_parent_announcement_t *) opt);
+                break;
             }
 #endif
         }

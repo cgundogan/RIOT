@@ -29,7 +29,7 @@ extern "C" {
 
 #include "net/ng_ipv6.h"
 #include "trickle.h"
-#ifdef MODULE_NG_RPL_BLOOM
+#if defined(MODULE_NG_RPL_BLOOM_LINKSYM)
 #include "net/ng_rpl/ng_rpl_bloom.h"
 #endif
 
@@ -166,15 +166,10 @@ struct ng_rpl_parent {
     timex_t lifetime;               /**< lifetime of this parent */
     double  link_metric;            /**< metric of the link */
     uint8_t link_metric_type;       /**< type of the metric */
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
-    bloom_t *nhood_ondodag;
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+    bloom_t *nhood_linksym;
     uint8_t checks_requested;
     timex_t blacklisted_at;
-#endif
-#endif
-#ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
-    bloom_t *nhood_offdodag;
 #endif
 };
 
@@ -235,14 +230,9 @@ struct ng_rpl_dodag {
     timex_t cleanup_time;           /**< time to schedula a DODAG cleanup */
     vtimer_t cleanup_timer;         /**< timer to schedula a DODAG cleanup */
     trickle_t trickle;              /**< trickle representation */
-#ifdef MODULE_NG_RPL_BLOOM_ONDODAG
-    bloom_t *nhood_ondodag;
 #ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+    bloom_t *nhood_linksym;
     bool linksym_check_requested;
-#endif
-#endif
-#ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
-    bloom_t *nhood_offdodag;
 #endif
 };
 

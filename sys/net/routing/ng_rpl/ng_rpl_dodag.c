@@ -150,8 +150,8 @@ bool ng_rpl_dodag_add(ng_rpl_instance_t *instance, ng_ipv6_addr_t *dodag_id, ng_
         (*dodag)->dao_counter = 0;
         (*dodag)->parents = NULL;
         (*dodag)->cleanup_time = timex_set(NG_RPL_CLEANUP_TIME, 0);
-#ifdef MODULE_NG_RPL_BLOOM
-        ng_rpl_bloom_neighborhood_init(*dodag);
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+        ng_rpl_bloom_linksym_neighborhood_init(*dodag);
 #endif
         return true;
     }

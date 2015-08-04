@@ -31,19 +31,11 @@ extern "C" {
 #include "bloom.h"
 
 /**
- * @name ON-DODAG RPL Bloom Filter configuration
+ * @name Link Symmetry RPL Bloom Filter configuration
  * @{
  */
-#define NG_RPL_BLOOM_ONDODAG_SIZE               (64)
-#define NG_RPL_BLOOM_ONDODAG_HASHES_NUMOF       (8)
-/** @} */
-
-/**
- * @name OFF-DODAG RPL Bloom Filter configuration
- * @{
- */
-#define NG_RPL_BLOOM_OFFDODAG_SIZE              (64)
-#define NG_RPL_BLOOM_OFFDODAG_HASHES_NUMOF      (8)
+#define NG_RPL_BLOOM_LINKSYM_SIZE               (64)
+#define NG_RPL_BLOOM_LINKSYM_HASHES_NUMOF       (8)
 /** @} */
 
 /**
@@ -51,8 +43,7 @@ extern "C" {
  * @{
  */
 #define NG_RPL_OPT_PARENT_ANNOUNCEMENT          (11)
-#define NG_RPL_OPT_NHOOD_ONDODAG_ANNOUNCEMENT   (12)
-#define NG_RPL_OPT_NHOOD_OFFDODAG_ANNOUNCEMENT  (13)
+#define NG_RPL_OPT_NHOOD_ANNOUNCEMENT           (12)
 /** @} */
 
 /**
@@ -61,19 +52,17 @@ extern "C" {
  */
 #define NG_RPL_OPT_PARENT_ANNOUNCEMENT_LEN                  \
             (sizeof(ng_rpl_opt_parent_announcement_t) - sizeof(ng_rpl_opt_t))
-#define NG_RPL_OPT_NHOOD_ONDODAG_ANNOUNCEMENT_LEN           \
-            (sizeof(ng_rpl_opt_nhood_ondodag_announcement_t) - sizeof(ng_rpl_opt_t))
-#define NG_RPL_OPT_NHOOD_OFFDODAG_ANNOUNCEMENT_LEN          \
-            (sizeof(ng_rpl_opt_nhood_offdodag_announcement_t) - sizeof(ng_rpl_opt_t))
+#define NG_RPL_OPT_NHOOD_ANNOUNCEMENT_LEN                   \
+            (sizeof(ng_rpl_opt_nhood_announcement_t) - sizeof(ng_rpl_opt_t))
 /** @} */
 
 /**
  * @name Link directionality
  * @{
  */
-#define NG_RPL_BLOOM_ONDODAG_LINKSYM_UNKNOWN    (0)
-#define NG_RPL_BLOOM_ONDODAG_LINKSYM_UNIDIR     (1)
-#define NG_RPL_BLOOM_ONDODAG_LINKSYM_BIDIR      (2)
+#define NG_RPL_BLOOM_LINKSYM_UNKNOWN    (0)
+#define NG_RPL_BLOOM_LINKSYM_UNIDIR     (1)
+#define NG_RPL_BLOOM_LINKSYM_BIDIR      (2)
 /** @} */
 
 /**
@@ -82,7 +71,6 @@ extern "C" {
 typedef struct __attribute__((packed)) {
     uint8_t type;               /**< option type */
     uint8_t length;             /**< option length without the first two bytes */
-    uint8_t prefix_length;      /**< number of valid leading bits */
     ng_ipv6_addr_t parent;      /**< address of the parent */
 } ng_rpl_opt_parent_announcement_t;
 
@@ -92,17 +80,8 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
     uint8_t type;                               /**< option type */
     uint8_t length;                             /**< option length without the first two bytes */
-    uint8_t bloom[NG_RPL_BLOOM_ONDODAG_SIZE];   /**< neighborhood bloom filer */
-} ng_rpl_opt_nhood_ondodag_announcement_t;
-
-/**
- * @brief OFF-DODAG Neighborhood Announcement
- */
-typedef struct __attribute__((packed)) {
-    uint8_t type;                               /**< option type */
-    uint8_t length;                             /**< option length without the first two bytes */
-    uint8_t bloom[NG_RPL_BLOOM_OFFDODAG_SIZE];  /**< neighborhood bloom filer */
-} ng_rpl_opt_nhood_offdodag_announcement_t;
+    uint8_t bloom[NG_RPL_BLOOM_LINKSYM_SIZE];   /**< neighborhood bloom filer */
+} ng_rpl_opt_nhood_announcement_t;
 
 /**
  * @brief   Add the @p src address to the neighborhood bloom filter of the @p dodag
@@ -115,15 +94,15 @@ typedef struct __attribute__((packed)) {
  * @return true, if the announced parent address matches any of the configured addresses
  * @return false, otherwise
  */
-bool ng_rpl_bloom_add_neighbor_ondodag(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *src,
+bool ng_rpl_bloom_linksym_add_neighbor(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *src,
                                 ng_rpl_opt_parent_announcement_t *pa);
 
 /**
- * @brief   Initialize the neighborhood bloom filters of the @p dodag
+ * @brief   Initialize the neighborhood bloom filter of the @p dodag
  *
  * @param[in] dodag             Pointer to the DODAG
  */
-void ng_rpl_bloom_neighborhood_init(ng_rpl_dodag_t *dodag);
+void ng_rpl_bloom_linksym_nhood_init(ng_rpl_dodag_t *dodag);
 
 #ifdef __cplusplus
 }
