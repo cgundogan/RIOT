@@ -104,6 +104,10 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     size += sizeof(ng_rpl_opt_parent_announcement_t);
 #endif
 
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
+    size += sizeof(ng_rpl_opt_nhood_ondodag_announcement_t);
+#endif
+
     if ((pkt = ng_icmpv6_build(NULL, NG_ICMPV6_RPL_CTRL, NG_RPL_ICMPV6_CODE_DIO, size)) == NULL) {
         DEBUG("RPL: Send DIO - no space left in packet buffer\n");
         return;
@@ -140,6 +144,7 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
         dodag_conf->lifetime_unit = byteorder_htons(dodag->lifetime_unit);
         pos += sizeof(*dodag_conf);
     }
+    dodag->dodag_conf_counter++;
 
 #ifdef MODULE_NG_RPL_BLOOM_ONDODAG
     ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) pos;
@@ -150,7 +155,35 @@ void ng_rpl_send_DIO(ng_rpl_dodag_t *dodag, ng_ipv6_addr_t *destination)
     pos += sizeof(*pa);
 #endif
 
-    dodag->dodag_conf_counter++;
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
+    ng_rpl_parent_t *tmp;
+    ng_ipv6_addr_t *me;
+    vtimer_t now;
+
+    vtimer_now(&now);
+    ng_ipv6_netif_find_by_prefix(me, dodag->dodag_id);
+
+    LL_FOREACH(dodag->parents, tmp) {
+        if (tmp->checks_requested >= 3) {
+            vtimer_now(&tmp->blacklisted_at);
+        }
+        else if ((me != NULL) && ((now.seconds - parent->blacklisted_at.seconds) >= 120) &&
+                !bloom_check(tmp->nhood_ondodag, (uint8_t *)me, sizeof(*me))) {
+           tmp->checks_requested++;
+           /* TODO: move parent announcement here */
+        }
+    }
+
+    if (dodag->linksym_check_requested) {
+        dodag->linksym_check_requested = false;
+        ng_rpl_opt_nhood_ondodag_announcement_t *nha =
+            (ng_rpl_opt_nhood_ondodag_announcement_t *) pos;
+        nha->type = NG_RPL_OPT_NHOOD_ONDODAG_ANNOUNCEMENT;
+        nha->length = NG_RPL_OPT_NHOOD_ONDODAG_ANNOUNCEMENT_LEN;
+        memcpy(nha->bloom, dodag->nhood_ondodag->a, NG_RPL_BLOOM_ONDODAG_SIZE/CHAR_BIT);
+        pos += sizeof(*nha);
+    }
+#endif
     _ng_rpl_send(pkt, NULL, destination, &dodag->dodag_id);
 }
 
@@ -292,6 +325,9 @@ a preceding RPL TARGET DAO option\n");
                 DEBUG("RPL: RPL BLOOM PARENT ANNOUNCEMENT DIO option parsed\n");
                 ng_rpl_opt_parent_announcement_t *pa = (ng_rpl_opt_parent_announcement_t *) opt;
                 ng_rpl_bloom_add_neighbor_ondodag(dodag, src, pa);
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
+                dodag->linksym_check_requested = true;
+#endif
             }
 #endif
         }

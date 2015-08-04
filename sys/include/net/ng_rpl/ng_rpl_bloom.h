@@ -68,6 +68,15 @@ extern "C" {
 /** @} */
 
 /**
+ * @name Link directionality
+ * @{
+ */
+#define NG_RPL_BLOOM_ONDODAG_LINKSYM_UNKNOWN    (0)
+#define NG_RPL_BLOOM_ONDODAG_LINKSYM_UNIDIR     (1)
+#define NG_RPL_BLOOM_ONDODAG_LINKSYM_BIDIR      (2)
+/** @} */
+
+/**
  * @brief DODAG Parent Announcement
  */
 typedef struct __attribute__((packed)) {

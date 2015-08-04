@@ -168,6 +168,10 @@ struct ng_rpl_parent {
     uint8_t link_metric_type;       /**< type of the metric */
 #ifdef MODULE_NG_RPL_BLOOM_ONDODAG
     bloom_t *nhood_ondodag;
+#ifdef MODULE_NG_RPL_BLOOM_ONDODAG_LINKSYM
+    uint8_t checks_requested;
+    timex_t blacklisted_at;
+#endif
 #endif
 #ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
     bloom_t *nhood_offdodag;
@@ -233,6 +237,9 @@ struct ng_rpl_dodag {
     trickle_t trickle;              /**< trickle representation */
 #ifdef MODULE_NG_RPL_BLOOM_ONDODAG
     bloom_t *nhood_ondodag;
+#ifdef MODULE_NG_RPL_BLOOM_LINKSYM
+    bool linksym_check_requested;
+#endif
 #endif
 #ifdef MODULE_NG_RPL_BLOOM_OFFDODAG
     bloom_t *nhood_offdodag;
