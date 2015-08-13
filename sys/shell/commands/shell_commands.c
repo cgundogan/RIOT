@@ -116,6 +116,11 @@ extern int _zep_init(int argc, char **argv);
 #endif
 #endif
 
+#ifdef MODULE_RIOTTV
+extern int _riottv_fib(int argc, char **argv);
+extern int _riottv_ifconfig(int argc, char **argv);
+#endif
+
 const shell_command_t _shell_command_list[] = {
     {"reboot", "Reboot the node", _reboot_handler},
 #ifdef MODULE_CONFIG
@@ -190,6 +195,10 @@ const shell_command_t _shell_command_list[] = {
 #ifdef MODULE_IPV6_ADDR
     {"zep_init", "initializes ZEP (Zigbee Encapsulation Protocol)", _zep_init },
 #endif
+#endif
+#ifdef MODULE_RIOTTV
+    {"RTV_fib", "RIOT-TV command to request fib entries", _riottv_fib },
+    {"RTV_ifconfig", "RIOT-TV command to request configured ipv6 addresses", _riottv_ifconfig },
 #endif
     {NULL, NULL, NULL}
 };

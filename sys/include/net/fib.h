@@ -193,6 +193,8 @@ void fib_print_fib_table(void);
  */
 void fib_print_routes(void);
 
+void riottv_fib(void);
+
 #if FIB_DEVEL_HELPER
 /**
  * @brief get the point in time at which the entry for destination dst expires.

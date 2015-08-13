@@ -711,6 +711,46 @@ void fib_print_routes(void)
     mutex_unlock(&mtx_access);
 }
 
+#ifdef MODULE_RIOTTV
+void riottv_fib(void)
+{
+    if (fib_get_num_used_entries() == 0) {
+        return;
+    }
+
+    mutex_lock(&mtx_access);
+
+    timex_t now;
+    vtimer_now(&now);
+
+    for (size_t i = 0; i < FIB_MAX_FIB_TABLE_ENTRIES; ++i) {
+        printf("RTV|FIB|");
+        fib_print_address(fib_table[i].global);
+        printf("|");
+        fib_print_address(fib_table[i].next_hop);
+        printf("|");
+
+        if ((fib_table[i].lifetime.seconds == FIB_LIFETIME_NO_EXPIRE)
+                && (fib_table[i].lifetime.microseconds == FIB_LIFETIME_NO_EXPIRE)) {
+            printf("%d", FIB_LIFETIME_NO_EXPIRE);
+        }
+        else {
+            timex_t tm = timex_sub(fib_table[i].lifetime, now);
+            if ((int32_t)tm.seconds < 0
+                || (tm.seconds == 0 && (int32_t)tm.microseconds < 0)) {
+                printf("%d", 0);
+            }
+            else {
+                printf("%"PRIu32, tm.seconds);
+            }
+        }
+        puts("");
+    }
+
+    mutex_unlock(&mtx_access);
+}
+#endif
+
 #if FIB_DEVEL_HELPER
 int fib_devel_get_lifetime(timex_t *lifetime, uint8_t *dst, size_t dst_size)
 {
