@@ -83,6 +83,12 @@ static ipv6_addr_t *_add_addr_to_entry(ng_ipv6_netif_t *entry, const ipv6_addr_t
     DEBUG("ipv6 netif: Added %s/%" PRIu8 " to interface %" PRIkernel_pid "\n",
           ipv6_addr_to_str(addr_str, addr, sizeof(addr_str)),
           prefix_len, entry->pid);
+#ifdef MODULE_RIOTTV
+    char ipv6_addr[IPV6_ADDR_MAX_STR_LEN];
+    ipv6_addr_to_str(ipv6_addr, addr, IPV6_ADDR_MAX_STR_LEN);
+    printf("RTV|IFCONFIG_ADDR_ADD|%" PRIkernel_pid "|%s/%d\n", entry->pid, ipv6_addr, prefix_len);
+#endif
+
 
     tmp_addr->prefix_len = prefix_len;
     tmp_addr->flags = flags;
@@ -241,6 +247,11 @@ static void _remove_addr_from_entry(ng_ipv6_netif_t *entry, ipv6_addr_t *addr)
         if (ipv6_addr_equal(&(entry->addrs[i].addr), addr)) {
             DEBUG("ipv6 netif: Remove %s to interface %" PRIkernel_pid "\n",
                   ipv6_addr_to_str(addr_str, addr, sizeof(addr_str)), entry->pid);
+#ifdef MODULE_RIOTTV
+            char ipv6_addr[IPV6_ADDR_MAX_STR_LEN];
+            ipv6_addr_to_str(ipv6_addr, addr, IPV6_ADDR_MAX_STR_LEN);
+            printf("RTV|IFCONFIG_ADDR_DEL|%" PRIkernel_pid "|%s\n", entry->pid, ipv6_addr);
+#endif
             ipv6_addr_set_unspecified(&(entry->addrs[i].addr));
             entry->addrs[i].flags = 0;
 

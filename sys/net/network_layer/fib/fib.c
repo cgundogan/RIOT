@@ -284,6 +284,11 @@ static int fib_create_entry(kernel_pid_t iface_id,
  */
 static int fib_remove(fib_entry_t *entry)
 {
+#ifdef MODULE_RIOTTV
+    char ipv6_addr[IPV6_ADDR_MAX_STR_LEN];
+    ipv6_addr_to_str(ipv6_addr, (ipv6_addr_t *)entry->global->address, IPV6_ADDR_MAX_STR_LEN);
+    printf("RTV|FIB_ROUTE_DEL|%s\n", ipv6_addr);
+#endif
     if (entry->global != NULL) {
         universal_address_rem(entry->global);
     }
@@ -374,6 +379,13 @@ int fib_add_entry(kernel_pid_t iface_id, uint8_t *dst, size_t dst_size, uint32_t
     else {
         ret = fib_create_entry(iface_id, dst, dst_size, dst_flags,
                                next_hop, next_hop_size, next_hop_flags, lifetime);
+#ifdef MODULE_RIOTTV
+    char ipv6_addr[IPV6_ADDR_MAX_STR_LEN];
+    ipv6_addr_to_str(ipv6_addr, (ipv6_addr_t *)dst, IPV6_ADDR_MAX_STR_LEN);
+    printf("RTV|FIB_ROUTE_ADD|%s|", ipv6_addr);
+    ipv6_addr_to_str(ipv6_addr, (ipv6_addr_t *)next_hop, IPV6_ADDR_MAX_STR_LEN);
+    printf("%s\n", ipv6_addr);
+#endif
     }
 
     mutex_unlock(&mtx_access);
