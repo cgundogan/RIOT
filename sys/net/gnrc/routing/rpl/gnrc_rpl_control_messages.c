@@ -40,6 +40,8 @@ static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 #define GNRC_RPL_PRF_MASK                 (0x7)
 #define GNRC_RPL_PREFIX_AUTO_ADDRESS_BIT  (1 << 6)
 
+#define GNRC_RPL_TO_BYTES(X)    ((X + 7) >> 3)
+
 void _gnrc_rpl_send(gnrc_pktsnip_t *pkt, ipv6_addr_t *src, ipv6_addr_t *dst,
         ipv6_addr_t *dodag_id)
 {
@@ -465,13 +467,15 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
     }
 }
 
-void _dao_fill_target(gnrc_rpl_opt_target_t *target, ipv6_addr_t *addr)
+void _dao_fill_target(gnrc_rpl_opt_target_t *target, ipv6_addr_t *addr, size_t prefix_len)
 {
     target->type = GNRC_RPL_OPT_TARGET;
-    target->length = sizeof(target->flags) + sizeof(target->prefix_length) + sizeof(target->target);
+    target->length = sizeof(target->flags) + sizeof(target->prefix_length) +
+                     GNRC_RPL_TO_BYTES(prefix_len);
     target->flags = 0;
-    target->prefix_length = 128;
-    target->target = *addr;
+    target->prefix_length = prefix_len;
+    memset((target + 1), 0, GNRC_RPL_TO_BYTES(prefix_len));
+    ipv6_addr_init_prefix((ipv6_addr_t *)(target + 1), addr, prefix_len);
 }
 
 void gnrc_rpl_send_DAO(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *destination, uint8_t lifetime)
@@ -524,7 +528,16 @@ void gnrc_rpl_send_DAO(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *destination, uint8_
     fib_get_destination_set(prefix.u8, sizeof(ipv6_addr_t), fib_dest_set, &dst_size);
 
     int size = sizeof(icmpv6_hdr_t) + sizeof(gnrc_rpl_dao_t) +
-        (sizeof(gnrc_rpl_opt_target_t) * (dst_size + 1)) + sizeof(gnrc_rpl_opt_transit_t);
+        sizeof(gnrc_rpl_opt_target_t) + GNRC_RPL_TO_BYTES(me_netif->prefix_len) +
+        sizeof(gnrc_rpl_opt_transit_t);
+
+    for (size_t i = 0; i < dst_size; ++i) {
+        if (fib_dest_set[i].dest_size == sizeof(ipv6_addr_t)) {
+            gnrc_ipv6_netif_addr_t *addr_netif = gnrc_ipv6_netif_addr_get(
+                                                (ipv6_addr_t *)fib_dest_set[i].dest);
+            size += sizeof(gnrc_rpl_opt_target_t) + GNRC_RPL_TO_BYTES(addr_netif->prefix_len);
+        }
+    }
 
     if ((pkt = gnrc_icmpv6_build(NULL, ICMPV6_RPL_CTRL, GNRC_RPL_ICMPV6_CODE_DAO, size)) == NULL) {
         DEBUG("RPL: Send DAO - no space left in packet buffer\n");
@@ -544,11 +557,16 @@ void gnrc_rpl_send_DAO(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *destination, uint8_
 
     /* add own address */
     target = (gnrc_rpl_opt_target_t *) (dao + 1);
-    _dao_fill_target(target, me);
+    _dao_fill_target(target, me, me_netif->prefix_len);
     /* add children */
     for (size_t i = 0; i < dst_size; ++i) {
-        target = (target + 1);
-        _dao_fill_target(target, ((ipv6_addr_t *) fib_dest_set[i].dest));
+        if (fib_dest_set[i].dest_size == sizeof(ipv6_addr_t)) {
+            gnrc_ipv6_netif_addr_t *addr_netif = gnrc_ipv6_netif_addr_get(
+                                                (ipv6_addr_t *)fib_dest_set[i].dest);
+            target = (gnrc_rpl_opt_target_t *)
+                        (((uint8_t *)(target + 1)) + GNRC_RPL_TO_BYTES(addr_netif->prefix_len));
+            _dao_fill_target(target, (ipv6_addr_t *) fib_dest_set[i].dest, addr_netif->prefix_len);
+        }
     }
 
     transit = (gnrc_rpl_opt_transit_t *) (target + 1);
