@@ -217,7 +217,8 @@ struct gnrc_rpl_dodag {
     uint8_t dao_seq;                /**< dao sequence number */
     uint8_t dao_counter;            /**< amount of retried DAOs */
     bool dao_ack_received;          /**< flag to check for DAO-ACK */
-    uint8_t dodag_conf_counter;     /**< limitation of the sending of DODAG_CONF options */
+    uint8_t dodag_conf_requested;   /**< flag to send DODAG_CONF options */
+    uint8_t prefix_info_requested;  /**< flag to send PREFIX_INFO options */
     timex_t dao_time;               /**< time to schedule the next DAO */
     vtimer_t dao_timer;             /**< timer to schedule the next DAO */
     timex_t cleanup_time;           /**< time to schedula a DODAG cleanup */
