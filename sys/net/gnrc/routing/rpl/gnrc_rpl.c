@@ -94,6 +94,8 @@ gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_
     inst->dodag.grounded = GNRC_RPL_GROUNDED;
     inst->dodag.node_status = GNRC_RPL_ROOT_NODE;
     inst->dodag.my_rank = GNRC_RPL_ROOT_RANK;
+    inst->dodag.dodag_conf_requested = true;
+    inst->dodag.prefix_info_requested = true;
 
     trickle_start(gnrc_rpl_pid, &(inst->dodag.trickle), GNRC_RPL_MSG_TYPE_TRICKLE_INTERVAL,
                   GNRC_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << inst->dodag.dio_min),

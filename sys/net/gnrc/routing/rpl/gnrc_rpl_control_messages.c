@@ -109,8 +109,11 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     uint8_t *pos;
     int size = sizeof(icmpv6_hdr_t) + sizeof(gnrc_rpl_dio_t);
 
-    if ((inst->dodag.dodag_conf_counter % 3) == 0) {
+    if (inst->dodag.dodag_conf_requested) {
         size += sizeof(gnrc_rpl_opt_dodag_conf_t);
+    }
+
+    if (inst->dodag.prefix_info_requested) {
         size += sizeof(gnrc_rpl_opt_prefix_info_t);
     }
 
@@ -134,7 +137,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 
     pos += sizeof(*dio);
 
-    if ((inst->dodag.dodag_conf_counter % 3) == 0) {
+    if (inst->dodag.dodag_conf_requested) {
         gnrc_rpl_opt_dodag_conf_t *dodag_conf;
         dodag_conf = (gnrc_rpl_opt_dodag_conf_t *) pos;
         dodag_conf->type = GNRC_RPL_OPT_DODAG_CONF;
@@ -150,7 +153,10 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
         dodag_conf->default_lifetime = inst->dodag.default_lifetime;
         dodag_conf->lifetime_unit = byteorder_htons(inst->dodag.lifetime_unit);
         pos += sizeof(*dodag_conf);
+        inst->dodag.dodag_conf_requested = false;
+    }
 
+    if (inst->dodag.prefix_info_requested) {
         gnrc_rpl_opt_prefix_info_t *prefix_info;
         prefix_info = (gnrc_rpl_opt_prefix_info_t *) pos;
         prefix_info->type = GNRC_RPL_OPT_PREFIX_INFO;
@@ -165,9 +171,9 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
         memset(&prefix_info->prefix, 0, sizeof(prefix_info->prefix));
         ipv6_addr_init_prefix(&prefix_info->prefix, &(inst->dodag.dodag_id),
                               inst->dodag.prefix_len);
+        inst->dodag.prefix_info_requested = false;
     }
 
-    inst->dodag.dodag_conf_counter++;
     gnrc_rpl_send(pkt, NULL, destination, &(inst->dodag.dodag_id));
 }
 
@@ -229,7 +235,8 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, ipv6_addr_t *src, ipv6_addr_t *dst, 
     else {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
             if (gnrc_rpl_instances[i].state != 0) {
-                gnrc_rpl_instances[i].dodag.dodag_conf_counter = 0;
+                gnrc_rpl_instances[i].dodag.dodag_conf_requested = true;
+                gnrc_rpl_instances[i].dodag.prefix_info_requested = true;
                 gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
             }
         }
@@ -324,12 +331,13 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
 
 /** @todo allow target prefixes in target options to be of variable length */
 bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt, uint16_t len,
-                    ipv6_addr_t *src)
+                    ipv6_addr_t *src, uint32_t *included_opts)
 {
     uint16_t l = 0;
     gnrc_rpl_opt_target_t *first_target = NULL;
     eui64_t iid;
     kernel_pid_t if_id = KERNEL_PID_UNDEF;
+    *included_opts = 0;
 
     if (!_gnrc_rpl_check_options_validity(msg_type, inst, opt, len)) {
         return false;
@@ -339,16 +347,20 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
         switch(opt->type) {
             case (GNRC_RPL_OPT_PAD1):
                 DEBUG("RPL: PAD1 option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PAD1;
                 l += 1;
                 opt = (gnrc_rpl_opt_t *) (((uint8_t *) opt) + 1);
                 continue;
 
             case (GNRC_RPL_OPT_PADN):
                 DEBUG("RPL: PADN option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PADN;
                 break;
 
             case (GNRC_RPL_OPT_DODAG_CONF):
                 DEBUG("RPL: DODAG CONF DIO option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_DODAG_CONF;
+                inst->dodag.dodag_conf_requested = true;
                 gnrc_rpl_opt_dodag_conf_t *dc = (gnrc_rpl_opt_dodag_conf_t *) opt;
                 gnrc_rpl_of_t *of = gnrc_rpl_get_of_for_ocp(byteorder_ntohs(dc->ocp));
                 if (of != NULL) {
@@ -372,6 +384,8 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 
             case (GNRC_RPL_OPT_PREFIX_INFO):
                 DEBUG("RPL: Prefix Information DIO option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PREFIX_INFO;
+                inst->dodag.prefix_info_requested = true;
                 gnrc_rpl_opt_prefix_info_t *pi = (gnrc_rpl_opt_prefix_info_t *) opt;
                 ipv6_addr_t all_RPL_nodes = GNRC_RPL_ALL_NODES_ADDR;
                 if_id = gnrc_ipv6_netif_find_by_addr(NULL, &all_RPL_nodes);
@@ -387,6 +401,7 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 
             case (GNRC_RPL_OPT_TARGET):
                 DEBUG("RPL: RPL TARGET DAO option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_TARGET;
                 if_id = gnrc_ipv6_netif_find_by_prefix(NULL, &(inst->dodag.dodag_id));
                 if (if_id == KERNEL_PID_UNDEF) {
                     DEBUG("RPL: no interface found for the configured DODAG id\n");
@@ -407,6 +422,7 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 
             case (GNRC_RPL_OPT_TRANSIT):
                 DEBUG("RPL: RPL TRANSIT INFO DAO option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_TRANSIT;
                 gnrc_rpl_opt_transit_t *transit = (gnrc_rpl_opt_transit_t *) opt;
                 if (first_target == NULL) {
                     DEBUG("RPL: Encountered a RPL TRANSIT DAO option without \
@@ -472,9 +488,6 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         inst->of = gnrc_rpl_get_of_for_ocp(GNRC_RPL_DEFAULT_OCP);
         gnrc_rpl_dodag_init(inst, &dio->dodag_id);
 
-        DEBUG("RPL: Joined DODAG (%s).\n",
-                ipv6_addr_to_str(addr_str, &dio->dodag_id, sizeof(addr_str)));
-
         gnrc_rpl_parent_t *parent = NULL;
 
         if (!gnrc_rpl_parent_add_by_addr(inst, src, &parent) && (parent == NULL)) {
@@ -489,10 +502,18 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
 
         parent->rank = byteorder_ntohs(dio->rank);
 
-        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
-                           NULL)) {
+        uint32_t included_opts = 0;
+        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len, NULL,
+                           &included_opts)) {
             DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
             gnrc_rpl_instance_remove(inst);
+            return;
+        }
+
+        if (!(included_opts & (((uint32_t) 1) << GNRC_RPL_OPT_DODAG_CONF))) {
+            DEBUG("RPL: DIO without DODAG_CONF option - remove DODAG and request new DIO\n");
+            gnrc_rpl_instance_remove(inst);
+            gnrc_rpl_send_DIS(NULL, src);
             return;
         }
 
@@ -502,6 +523,8 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
                       inst->dodag.dio_interval_doubl, inst->dodag.dio_redun);
 
         gnrc_rpl_parent_update(inst, parent);
+        DEBUG("RPL: Joined DODAG (%s).\n",
+                ipv6_addr_to_str(addr_str, &dio->dodag_id, sizeof(addr_str)));
         return;
     }
     else if (inst == NULL) {
@@ -583,8 +606,9 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         parent->dtsn = dio->dtsn;
         inst->dodag.grounded = dio->g_mop_prf >> GNRC_RPL_GROUNDED_SHIFT;
         inst->dodag.prf = dio->g_mop_prf & GNRC_RPL_PRF_MASK;
-        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
-                           NULL)) {
+        uint32_t included_opts = 0;
+        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len, NULL,
+                           &included_opts)) {
             DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
             gnrc_rpl_instance_remove(inst);
             return;
@@ -794,7 +818,8 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, ipv6_addr_t *src, uint16_t len)
         len -= sizeof(ipv6_addr_t);
     }
 
-    if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DAO, inst, opts, len, src)) {
+    uint32_t included_opts = 0;
+    if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DAO, inst, opts, len, src, &included_opts)) {
         DEBUG("RPL: Error encountered during DAO option parsing - ignore DAO\n");
         return;
     }
