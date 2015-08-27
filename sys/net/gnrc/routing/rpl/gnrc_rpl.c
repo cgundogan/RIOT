@@ -36,11 +36,10 @@ static msg_t _msg_q[GNRC_RPL_MSG_QUEUE_SIZE];
 static gnrc_netreg_entry_t _me_reg;
 
 gnrc_rpl_instance_t gnrc_rpl_instances[GNRC_RPL_INSTANCES_NUMOF];
-gnrc_rpl_dodag_t gnrc_rpl_dodags[GNRC_RPL_DODAGS_NUMOF];
 gnrc_rpl_parent_t gnrc_rpl_parents[GNRC_RPL_PARENTS_NUMOF];
 
 static void _update_lifetime(void);
-static void _dao_handle_send(gnrc_rpl_dodag_t *dodag);
+static void _dao_handle_send(gnrc_rpl_instance_t *dodag);
 static void _receive(gnrc_pktsnip_t *pkt);
 static void *_event_loop(void *args);
 
@@ -75,31 +74,32 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
     return gnrc_rpl_pid;
 }
 
-gnrc_rpl_dodag_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_id)
+gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_id)
 {
-    gnrc_rpl_dodag_t *dodag = gnrc_rpl_root_dodag_init(instance_id, dodag_id, GNRC_RPL_DEFAULT_MOP);
+    gnrc_rpl_instance_t *inst = gnrc_rpl_root_dodag_init(instance_id, dodag_id,
+                                                         GNRC_RPL_DEFAULT_MOP);
 
-    if (!dodag) {
+    if (!inst) {
         return NULL;
     }
 
-    dodag->dtsn = 1;
-    dodag->prf = 0;
-    dodag->dio_interval_doubl = GNRC_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
-    dodag->dio_min = GNRC_RPL_DEFAULT_DIO_INTERVAL_MIN;
-    dodag->dio_redun = GNRC_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
-    dodag->default_lifetime = GNRC_RPL_DEFAULT_LIFETIME;
-    dodag->lifetime_unit = GNRC_RPL_LIFETIME_UNIT;
-    dodag->version = GNRC_RPL_COUNTER_INIT;
-    dodag->grounded = GNRC_RPL_GROUNDED;
-    dodag->node_status = GNRC_RPL_ROOT_NODE;
-    dodag->my_rank = GNRC_RPL_ROOT_RANK;
+    inst->dodag.dtsn = 1;
+    inst->dodag.prf = 0;
+    inst->dodag.dio_interval_doubl = GNRC_RPL_DEFAULT_DIO_INTERVAL_DOUBLINGS;
+    inst->dodag.dio_min = GNRC_RPL_DEFAULT_DIO_INTERVAL_MIN;
+    inst->dodag.dio_redun = GNRC_RPL_DEFAULT_DIO_REDUNDANCY_CONSTANT;
+    inst->dodag.default_lifetime = GNRC_RPL_DEFAULT_LIFETIME;
+    inst->dodag.lifetime_unit = GNRC_RPL_LIFETIME_UNIT;
+    inst->dodag.version = GNRC_RPL_COUNTER_INIT;
+    inst->dodag.grounded = GNRC_RPL_GROUNDED;
+    inst->dodag.node_status = GNRC_RPL_ROOT_NODE;
+    inst->dodag.my_rank = GNRC_RPL_ROOT_RANK;
 
-    trickle_start(gnrc_rpl_pid, &dodag->trickle, GNRC_RPL_MSG_TYPE_TRICKLE_INTERVAL,
-                  GNRC_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
-                  dodag->dio_interval_doubl, dodag->dio_redun);
+    trickle_start(gnrc_rpl_pid, &(inst->dodag.trickle), GNRC_RPL_MSG_TYPE_TRICKLE_INTERVAL,
+                  GNRC_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << inst->dodag.dio_min),
+                  inst->dodag.dio_interval_doubl, inst->dodag.dio_redun);
 
-    return dodag;
+    return inst;
 }
 
 static void _receive(gnrc_pktsnip_t *icmpv6)
@@ -155,7 +155,7 @@ static void *_event_loop(void *args)
     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
 
     trickle_t *trickle;
-    gnrc_rpl_dodag_t *dodag;
+    gnrc_rpl_instance_t *inst;
     /* start event loop */
     while (1) {
         DEBUG("RPL: waiting for incoming message.\n");
@@ -182,18 +182,18 @@ static void *_event_loop(void *args)
                 break;
             case GNRC_RPL_MSG_TYPE_DAO_HANDLE:
                 DEBUG("RPL: GNRC_RPL_MSG_TYPE_DAO_HANDLE received\n");
-                dodag = (gnrc_rpl_dodag_t *) msg.content.ptr;
-                if (dodag && (dodag->state != 0)) {
-                    _dao_handle_send(dodag);
+                inst = (gnrc_rpl_instance_t *) msg.content.ptr;
+                if (inst && (inst->state != 0)) {
+                    _dao_handle_send(inst);
                 }
                 break;
             case GNRC_RPL_MSG_TYPE_CLEANUP_HANDLE:
                 DEBUG("RPL: GNRC_RPL_MSG_TYPE_CLEANUP received\n");
-                dodag = (gnrc_rpl_dodag_t *) msg.content.ptr;
-                if (dodag && (dodag->state != 0) && (dodag->parents == NULL)
-                    && (dodag->my_rank == GNRC_RPL_INFINITE_RANK)) {
-                    /* no parents - delete this DODAG */
-                    gnrc_rpl_dodag_remove(dodag);
+                inst = (gnrc_rpl_instance_t *) msg.content.ptr;
+                if (inst && (inst->state != 0) && (inst->parents == NULL)
+                    && (inst->dodag.my_rank == GNRC_RPL_INFINITE_RANK)) {
+                    /* no parents - delete this instance and DODAG */
+                    gnrc_rpl_instance_remove(inst);
                 }
                 break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
@@ -224,14 +224,14 @@ void _update_lifetime(void)
         parent = &gnrc_rpl_parents[i];
         if (parent->state != 0) {
             if ((signed)(parent->lifetime.seconds - now.seconds) <= GNRC_RPL_LIFETIME_UPDATE_STEP) {
-                gnrc_rpl_dodag_t *dodag = parent->dodag;
+                gnrc_rpl_instance_t *inst = parent->instance;
                 gnrc_rpl_parent_remove(parent);
-                gnrc_rpl_parent_update(dodag, NULL);
+                gnrc_rpl_parent_update(inst, NULL);
                 continue;
             }
             else if (((signed)(parent->lifetime.seconds - now.seconds) <=
                         GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
-                gnrc_rpl_send_DIS(parent->dodag, &parent->addr);
+                gnrc_rpl_send_DIS(parent->instance, &parent->addr);
             }
         }
     }
@@ -239,36 +239,39 @@ void _update_lifetime(void)
     vtimer_set_msg(&_lt_timer, _lt_time, gnrc_rpl_pid, GNRC_RPL_MSG_TYPE_LIFETIME_UPDATE, NULL);
 }
 
-void gnrc_rpl_delay_dao(gnrc_rpl_dodag_t *dodag)
+void gnrc_rpl_delay_dao(gnrc_rpl_instance_t *inst)
 {
-    dodag->dao_time = timex_set(GNRC_RPL_DEFAULT_DAO_DELAY, 0);
-    dodag->dao_counter = 0;
-    dodag->dao_ack_received = false;
-    vtimer_remove(&dodag->dao_timer);
-    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, gnrc_rpl_pid, GNRC_RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    inst->dodag.dao_time = timex_set(GNRC_RPL_DEFAULT_DAO_DELAY, 0);
+    inst->dodag.dao_counter = 0;
+    inst->dodag.dao_ack_received = false;
+    vtimer_remove(&(inst->dodag.dao_timer));
+    vtimer_set_msg(&(inst->dodag.dao_timer), inst->dodag.dao_time, gnrc_rpl_pid,
+                   GNRC_RPL_MSG_TYPE_DAO_HANDLE, inst);
 }
 
-void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
+void gnrc_rpl_long_delay_dao(gnrc_rpl_instance_t *inst)
 {
-    dodag->dao_time = timex_set(GNRC_RPL_REGULAR_DAO_INTERVAL, 0);
-    dodag->dao_counter = 0;
-    dodag->dao_ack_received = false;
-    vtimer_remove(&dodag->dao_timer);
-    vtimer_set_msg(&dodag->dao_timer, dodag->dao_time, gnrc_rpl_pid, GNRC_RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    inst->dodag.dao_time = timex_set(GNRC_RPL_REGULAR_DAO_INTERVAL, 0);
+    inst->dodag.dao_counter = 0;
+    inst->dodag.dao_ack_received = false;
+    vtimer_remove(&(inst->dodag.dao_timer));
+    vtimer_set_msg(&(inst->dodag.dao_timer), inst->dodag.dao_time, gnrc_rpl_pid,
+                   GNRC_RPL_MSG_TYPE_DAO_HANDLE, inst);
 }
 
-void _dao_handle_send(gnrc_rpl_dodag_t *dodag)
+void _dao_handle_send(gnrc_rpl_instance_t *inst)
 {
-    if ((dodag->dao_ack_received == false) && (dodag->dao_counter < GNRC_RPL_DAO_SEND_RETRIES)) {
-        dodag->dao_counter++;
-        gnrc_rpl_send_DAO(dodag, NULL, dodag->default_lifetime);
-        dodag->dao_time = timex_set(GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK, 0);
-        vtimer_remove(&dodag->dao_timer);
-        vtimer_set_msg(&dodag->dao_timer, dodag->dao_time,
-                       gnrc_rpl_pid, GNRC_RPL_MSG_TYPE_DAO_HANDLE, dodag);
+    if ((inst->dodag.dao_ack_received == false)
+         && (inst->dodag.dao_counter < GNRC_RPL_DAO_SEND_RETRIES)) {
+        inst->dodag.dao_counter++;
+        gnrc_rpl_send_DAO(inst, NULL, inst->dodag.default_lifetime);
+        inst->dodag.dao_time = timex_set(GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK, 0);
+        vtimer_remove(&(inst->dodag.dao_timer));
+        vtimer_set_msg(&(inst->dodag.dao_timer), inst->dodag.dao_time,
+                       gnrc_rpl_pid, GNRC_RPL_MSG_TYPE_DAO_HANDLE, inst);
     }
-    else if (dodag->dao_ack_received == false) {
-        gnrc_rpl_long_delay_dao(dodag);
+    else if (inst->dodag.dao_ack_received == false) {
+        gnrc_rpl_long_delay_dao(inst);
     }
 }
 
