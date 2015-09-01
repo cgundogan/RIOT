@@ -77,6 +77,28 @@ void ipv6_addr_init_prefix(ipv6_addr_t *out, const ipv6_addr_t *prefix,
         out->u8[bytes] |= (prefix->u8[bytes] & mask);
     }
 }
+
+void ipv6_addr_init_host(ipv6_addr_t *out, const uint8_t *host, uint8_t bits)
+{
+    uint8_t unalignedBits, bytes, pos;
+
+    if (bits > 128) {
+        bits = 128;
+    }
+
+    unalignedBits = bits % 8;
+    bytes = bits / 8;
+    pos = (IPV6_ADDR_BIT_LEN / 8) - bytes;
+
+    if (unalignedBits) {
+        uint8_t mask = 0xff << unalignedBits;
+        out->u8[pos - 1] &= mask;
+        out->u8[pos - 1] |= *host & ~mask;
+        host++;
+    }
+
+    memcpy(&(out->u8[pos]), host, bytes);
+}
 /**
  * @}
  */

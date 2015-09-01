@@ -64,6 +64,9 @@ endif
 ifneq (,$(filter gnrc_rpl,$(USEMODULE)))
     DIRS += routing/rpl
 endif
+ifneq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+    DIRS += routing/rpl/bloom
+endif
 ifneq (,$(filter gnrc_rpl_srh,$(USEMODULE)))
     DIRS += routing/rpl/srh
 endif

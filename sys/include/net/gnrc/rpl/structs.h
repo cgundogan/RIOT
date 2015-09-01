@@ -29,6 +29,9 @@ extern "C" {
 
 #include "net/ipv6/addr.h"
 #include "trickle.h"
+#ifdef MODULE_GNRC_RPL_BLOOM
+#include "net/gnrc/rpl/rpl_bloom.h"
+#endif
 
 /**
  * @brief RPL-Option Generic Format
@@ -179,6 +182,9 @@ struct gnrc_rpl_parent {
     timex_t lifetime;               /**< lifetime of this parent */
     double  link_metric;            /**< metric of the link */
     uint8_t link_metric_type;       /**< type of the metric */
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_parent_ext_t bloom_ext;    /**< rpl bloom parent extension */
+#endif
 };
 
 /**
@@ -238,6 +244,9 @@ struct gnrc_rpl_instance {
     gnrc_rpl_of_t *of;              /**< configured Objective Function */
     uint16_t min_hop_rank_inc;      /**< minimum hop rank increase */
     uint16_t max_rank_inc;          /**< max increase in the rank */
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_inst_ext_t bloom_ext;  /**< rpl bloom instance extension */
+#endif
 };
 
 #ifdef __cplusplus

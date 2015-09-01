@@ -132,6 +132,10 @@ bool gnrc_rpl_dodag_init(gnrc_rpl_instance_t *instance, ipv6_addr_t *dodag_id)
     instance->dodag.dao_ack_received = false;
     instance->dodag.dao_counter = 0;
     instance->dodag.cleanup_time = timex_set(GNRC_RPL_CLEANUP_TIME, 0);
+#ifdef MODULE_GNRC_RPL_BLOOM
+    instance->bloom_ext.instance = instance;
+    gnrc_rpl_bloom_instance_nhood_init(&instance->bloom_ext);
+#endif
 
     return true;
 }
@@ -200,6 +204,10 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_instance_t *inst, ipv6_addr_t *addr,
                 return false;
             }
         }
+#ifdef MODULE_GNRC_RPL_BLOOM
+        (*parent)->bloom_ext.parent = *parent;
+        gnrc_rpl_bloom_parent_nhood_init(&((*parent)->bloom_ext));
+#endif
         return true;
     }
 

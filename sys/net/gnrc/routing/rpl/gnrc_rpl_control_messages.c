@@ -122,6 +122,39 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
         return;
     }
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_parent_t *tmp_parent;
+    ipv6_addr_t *me;
+    uint8_t suffix = IPV6_ADDR_BIT_LEN - inst->dodag.prefix_len;
+    ipv6_addr_t me_suffix = IPV6_ADDR_UNSPECIFIED;
+    timex_t now;
+    size_t pa_size = 0;
+
+    vtimer_now(&now);
+    gnrc_ipv6_netif_find_by_prefix(&me, &(inst->dodag.dodag_id));
+
+    if (me) {
+        ipv6_addr_init_host(&me_suffix, &(me->u8[inst->dodag.prefix_len / 8]), suffix);
+
+        LL_FOREACH(inst->parents, tmp_parent) {
+            if ((tmp_parent->bloom_ext.linksym_checks_req < 3) &&
+                ((now.seconds - tmp_parent->bloom_ext.blacklisted_at.seconds) >= 120) &&
+                !bloom_check(&(tmp_parent->bloom_ext.nhood_linksym),
+                             &(me_suffix.u8[inst->dodag.prefix_len / 8]), (suffix + 7) / 8)) {
+                pa_size += (suffix + 7) / 8;
+            }
+        }
+
+        if (pa_size > 0) {
+            pa_size += sizeof(gnrc_rpl_opt_pa_t);
+        }
+    }
+
+    if (inst->bloom_ext.linksym_check_req) {
+        size += sizeof(gnrc_rpl_opt_na_t);
+    }
+#endif
+
     icmp = (icmpv6_hdr_t *)pkt->data;
     dio = (gnrc_rpl_dio_t *)(icmp + 1);
     pos = (uint8_t *) dio;
@@ -171,8 +204,46 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
         memset(&prefix_info->prefix, 0, sizeof(prefix_info->prefix));
         ipv6_addr_init_prefix(&prefix_info->prefix, &(inst->dodag.dodag_id),
                               inst->dodag.prefix_len);
+        pos += sizeof(*prefix_info);
         inst->dodag.prefix_info_requested = false;
     }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (me && (pa_size > 0)) {
+        gnrc_rpl_opt_pa_t *pa = (gnrc_rpl_opt_pa_t *) pos;
+        uint8_t *pa_addr_vec = (uint8_t *) (pa + 1);
+        ipv6_addr_t addr_suffix = IPV6_ADDR_UNSPECIFIED;
+
+        pa->type = GNRC_RPL_OPT_PARENT_ANNOUNCEMENT;
+        pa->length = pa_size - sizeof(gnrc_rpl_opt_t);
+        LL_FOREACH(inst->parents, tmp_parent) {
+            if (tmp_parent->bloom_ext.linksym_checks_req >= 3) {
+                vtimer_now(&tmp_parent->bloom_ext.blacklisted_at);
+            }
+            else if (((now.seconds - tmp_parent->bloom_ext.blacklisted_at.seconds) >= 120) &&
+                     !bloom_check(&(tmp_parent->bloom_ext.nhood_linksym),
+                     &(me_suffix.u8[inst->dodag.prefix_len / 8]), (suffix + 7) / 8)) {
+                tmp_parent->bloom_ext.linksym_checks_req++;
+                memset(&addr_suffix, 0, sizeof(ipv6_addr_t));
+                ipv6_addr_init_host(&addr_suffix,
+                                    &(tmp_parent->addr.u8[inst->dodag.prefix_len / 8]),
+                                    suffix);
+                memcpy(pa_addr_vec, &(addr_suffix.u8[inst->dodag.prefix_len/8]), (suffix + 7)/8);
+                pa_addr_vec += (suffix + 7) / 8;
+            }
+        }
+        pos += pa_size;
+    }
+
+    if (inst->bloom_ext.linksym_check_req) {
+        inst->bloom_ext.linksym_check_req = false;
+        gnrc_rpl_opt_na_t *nha = (gnrc_rpl_opt_na_t *) pos;
+        nha->type = GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT;
+        nha->length = GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT_LEN;
+        memcpy(nha->bloom, inst->bloom_ext.nhood_linksym.a, GNRC_RPL_BLOOM_LINKSYM_SIZE/8);
+        pos += sizeof(*nha);
+    }
+#endif
 
     gnrc_rpl_send(pkt, NULL, destination, &(inst->dodag.dodag_id));
 }

@@ -464,6 +464,17 @@ uint8_t ipv6_addr_match_prefix(const ipv6_addr_t *a, const ipv6_addr_t *b);
 void ipv6_addr_init_prefix(ipv6_addr_t *out, const ipv6_addr_t *prefix, uint8_t bits);
 
 /**
+ * @brief   Sets the last @p bits of the IPv6 address @p out to @p host.
+ *          Leading bits in @p out remain untouched.
+ *
+ * @param[out]  out     IPV6 address with @p host part set
+ * @param[in]   host    host part
+ * @param[in]   bits    Bits to be copied from @p host to @p out
+ *                      (set to 128 when greater than 128).
+ */
+void ipv6_addr_init_host(ipv6_addr_t *out, const uint8_t *host, uint8_t bits);
+
+/**
  * @brief   Sets @p addr dynamically to the unspecified IPv6 address (::).
  *
  * @see <a href="http://tools.ietf.org/html/rfc4291#section-2.5.2">
