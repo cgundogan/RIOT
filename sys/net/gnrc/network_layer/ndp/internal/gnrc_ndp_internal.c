@@ -445,7 +445,7 @@ void gnrc_ndp_internal_send_rtr_adv(kernel_pid_t iface, ipv6_addr_t *src, ipv6_a
                 processed_before = false;
                 for (gnrc_sixlowpan_nd_router_prf_t *tmp = abr->prfs; tmp != prf; tmp = tmp->next) {
                     if ((processed_before =
-                        _check_prefixes(&prf->prefix->addr, &tmp->prefix->addr))) {
+                        _check_prefixes(prf->prefix, tmp->prefix))) {
                         break;
                     }
                 }
