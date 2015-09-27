@@ -48,7 +48,7 @@ const char *_native_unix_socket_path = NULL;
 
 #ifdef MODULE_NETDEV2_TAP
 #include "netdev2_tap.h"
-extern netdev2_tap_t netdev2_tap;
+extern netdev2_tap_t netdev2_tap[NETDEV2_TAP_NUMOF];
 #endif
 
 /**
@@ -242,7 +242,7 @@ __attribute__((constructor)) static void startup(int argc, char **argv)
 
 #if defined(MODULE_NETDEV2_TAP)
     if (
-            (argc < 2)
+            (argc < (NETDEV2_TAP_NUMOF + 1))
             || (
                 (strcmp("-h", argv[argp]) == 0)
                 || (strcmp("--help", argv[argp]) == 0)
@@ -250,7 +250,7 @@ __attribute__((constructor)) static void startup(int argc, char **argv)
        ) {
         usage_exit();
     }
-    argp++;
+    argp += NETDEV2_TAP_NUMOF;
 #endif
 
     for (; argp < argc; argp++) {
@@ -313,7 +313,9 @@ __attribute__((constructor)) static void startup(int argc, char **argv)
     native_cpu_init();
     native_interrupt_init();
 #ifdef MODULE_NETDEV2_TAP
-    netdev2_tap_setup(&netdev2_tap, argv[1]);
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        netdev2_tap_setup(&netdev2_tap[i], argv[i + 1]);
+    }
 #endif
 
     board_init();

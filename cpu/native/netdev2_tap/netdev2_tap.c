@@ -59,8 +59,7 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-/* support one tap interface for now */
-netdev2_tap_t netdev2_tap;
+netdev2_tap_t netdev2_tap[NETDEV2_TAP_NUMOF];
 
 #ifdef __MACH__
 pid_t _sigio_child_pid;
@@ -123,7 +122,15 @@ static inline void _isr(netdev2_t *netdev)
 
 int _get(netdev2_t *dev, netopt_t opt, void *value, size_t max_len)
 {
-    if (dev != (netdev2_t *)&netdev2_tap) {
+    bool exists = false;
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        if (dev == (netdev2_t *)&netdev2_tap[i]) {
+            exists = true;
+            break;
+        }
+    }
+
+    if (!exists) {
         return -ENODEV;
     }
 
@@ -174,7 +181,15 @@ int _set(netdev2_t *dev, netopt_t opt, void *value, size_t value_len)
 {
     (void)value_len;
 
-    if (dev != (netdev2_t *)&netdev2_tap) {
+    bool exists = false;
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        if (dev == (netdev2_t *)&netdev2_tap[i]) {
+            exists = true;
+            break;
+        }
+    }
+
+    if (!exists) {
         return -ENODEV;
     }
 
@@ -300,13 +315,15 @@ void netdev2_tap_setup(netdev2_tap_t *dev, const char *name) {
 }
 
 static void _tap_isr(void) {
-    netdev2_t *netdev = (netdev2_t *)&netdev2_tap;
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        netdev2_t *netdev = (netdev2_t *)&netdev2_tap[i];
 
-    if (netdev->event_callback) {
-        netdev->event_callback(netdev, NETDEV2_EVENT_ISR, netdev->isr_arg);
-    }
-    else {
-        puts("netdev2_tap: _isr: no event callback.");
+        if (netdev->event_callback) {
+            netdev->event_callback(netdev, NETDEV2_EVENT_ISR, netdev->isr_arg);
+        }
+        else {
+            puts("netdev2_tap: _isr: no event callback.");
+        }
     }
 }
 

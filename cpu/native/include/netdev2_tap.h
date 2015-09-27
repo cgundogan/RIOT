@@ -47,9 +47,16 @@ typedef struct netdev2_tap {
 } netdev2_tap_t;
 
 /**
- * @brief global device struct. driver only supports one tap device as of now.
+ * @brief number of tap interfaces
  */
-extern netdev2_tap_t netdev2_tap;
+#ifndef NETDEV2_TAP_NUMOF
+#define NETDEV2_TAP_NUMOF (1)
+#endif
+
+/**
+ * @brief array of global device structs.
+ */
+extern netdev2_tap_t netdev2_tap[NETDEV2_TAP_NUMOF];
 
 /**
  * @brief Setup netdev2_tap_t structure.

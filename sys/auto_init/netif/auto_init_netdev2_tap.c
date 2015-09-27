@@ -25,7 +25,7 @@
 #include "netdev2_tap.h"
 #include "net/gnrc/gnrc_netdev2_eth.h"
 
-extern netdev2_tap_t netdev2_tap;
+extern netdev2_tap_t netdev2_tap[NETDEV2_TAP_NUMOF];
 
 /**
  * @brief   Define stack parameters for the MAC layer thread
@@ -37,15 +37,16 @@ extern netdev2_tap_t netdev2_tap;
 /**
  * @brief   Stacks for the MAC layer threads
  */
-static char _netdev2_eth_stack[TAP_MAC_STACKSIZE + DEBUG_EXTRA_STACKSIZE];
-static gnrc_netdev2_t _gnrc_netdev2_tap;
+static char _netdev2_eth_stack[NETDEV2_TAP_NUMOF][TAP_MAC_STACKSIZE + DEBUG_EXTRA_STACKSIZE];
+static gnrc_netdev2_t _gnrc_netdev2_tap[NETDEV2_TAP_NUMOF];
 
 void auto_init_netdev2_tap(void)
 {
-    gnrc_netdev2_eth_init(&_gnrc_netdev2_tap, (netdev2_t*)&netdev2_tap);
-
-    gnrc_netdev2_init(_netdev2_eth_stack, TAP_MAC_STACKSIZE,
-            TAP_MAC_PRIO, "gnrc_netdev2_tap", &_gnrc_netdev2_tap);
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        gnrc_netdev2_eth_init(&_gnrc_netdev2_tap[i], (netdev2_t*)&netdev2_tap[i]);
+        gnrc_netdev2_init(_netdev2_eth_stack[i], TAP_MAC_STACKSIZE,
+                TAP_MAC_PRIO, "gnrc_netdev2_tap", &_gnrc_netdev2_tap[i]);
+    }
 }
 
 #else

@@ -51,7 +51,7 @@
 
 #ifdef MODULE_NETDEV2_TAP
 #include "netdev2_tap.h"
-extern netdev2_tap_t netdev2_tap;
+extern netdev2_tap_t netdev2_tap[NETDEV2_TAP_NUMOF];
 #endif
 
 #include "native_internal.h"
@@ -69,7 +69,9 @@ int reboot_arch(int mode)
     printf("\n\n\t\t!! REBOOT !!\n\n");
 
 #ifdef MODULE_NETDEV2_TAP
-    netdev2_tap_cleanup(&netdev2_tap);
+    for (int i = 0; i < NETDEV2_TAP_NUMOF; ++i) {
+        netdev2_tap_cleanup(&netdev2_tap[i]);
+    }
 #endif
 
     if (real_execve(_native_argv[0], _native_argv, NULL) == -1) {
