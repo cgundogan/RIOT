@@ -76,6 +76,10 @@ bool gnrc_rpl_instance_add(uint8_t instance_id, gnrc_rpl_instance_t **inst)
         (*inst)->max_rank_inc = GNRC_RPL_DEFAULT_MAX_RANK_INCREASE;
         (*inst)->min_hop_rank_inc = GNRC_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
         (*inst)->dodag.parents = NULL;
+#ifdef MODULE_GNRC_RPL_BLOOM
+        (*inst)->bloom_ext.instance = *inst;
+        gnrc_rpl_bloom_instance_nhood_init(&(*inst)->bloom_ext);
+#endif
         return true;
     }
 
@@ -181,6 +185,10 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
         LL_APPEND(dodag->parents, *parent);
         (*parent)->state = 1;
         (*parent)->addr = *addr;
+#ifdef MODULE_GNRC_RPL_BLOOM
+        (*parent)->bloom_ext.parent = *parent;
+        gnrc_rpl_bloom_parent_nhood_init(&(*parent)->bloom_ext);
+#endif
         return true;
     }
 
@@ -266,11 +274,33 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     uint16_t old_rank = dodag->my_rank;
     gnrc_rpl_parent_t *elt = NULL, *tmp = NULL;
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    ipv6_addr_t *me = NULL;
+#endif
+
     if (dodag->parents == NULL) {
         return NULL;
     }
 
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (bloom_check(&(dodag->instance->bloom_ext.blacklist_bloom), elt->addr.u8,
+                    sizeof(ipv6_addr_t))) {
+        DEBUG("RPL-BLOOM: delete blacklisted parent (%s)\n",
+              ipv6_addr_to_str(addr_str, &elt->addr, sizeof(addr_str)));
+        gnrc_rpl_parent_remove(elt);
+        continue;
+    }
+    /* find my address */
+    gnrc_ipv6_netif_find_by_prefix(&me, &elt->addr);
+    if (me == NULL) {
+        DEBUG("RPL: no address configured\n");
+        return NULL;
+    }
+    if ((!bloom_check(&(elt->bloom_ext.nhood_bloom), me->u8, sizeof(*me)))) {
+        continue;
+    }
+#endif
         new_best = dodag->instance->of->which_parent(new_best, elt);
     }
 
@@ -308,6 +338,17 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
 
     elt = NULL; tmp = NULL;
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+        /* find my address */
+        gnrc_ipv6_netif_find_by_prefix(&me, &elt->addr);
+        if (me == NULL) {
+            DEBUG("RPL: no address configured\n");
+            return NULL;
+        }
+        if ((!bloom_check(&(elt->bloom_ext.nhood_bloom), me->u8, sizeof(*me)))) {
+            continue;
+        }
+#endif
         if (DAGRANK(dodag->my_rank, dodag->instance->min_hop_rank_inc)
             <= DAGRANK(elt->rank, dodag->instance->min_hop_rank_inc)) {
             gnrc_rpl_parent_remove(elt);

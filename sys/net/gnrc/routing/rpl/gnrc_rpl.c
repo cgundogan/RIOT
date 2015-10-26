@@ -218,6 +218,22 @@ void _update_lifetime(void)
     gnrc_rpl_parent_t *parent;
     gnrc_rpl_instance_t *inst;
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    for (int i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
+        inst = &gnrc_rpl_instances[i];
+        if ((inst->state != 0) && inst->dodag.node_status != GNRC_RPL_ROOT_NODE) {
+            inst->bloom_ext.bloom_fire = false;
+            if ((((uint32_t) now) - inst->bloom_ext.bloom_refreshed_at) > GNRC_RPL_BLOOM_INTERVAL) {
+                inst->bloom_ext.bloom_fire = true;
+                if (++inst->bloom_ext.dio_send_numof > 3) {
+                    inst->bloom_ext.dio_send_numof = 0;
+                    inst->bloom_ext.bloom_refreshed_at = (uint32_t) now;
+                }
+            }
+        }
+    }
+#endif
+
     for (uint8_t i = 0; i < GNRC_RPL_PARENTS_NUMOF; ++i) {
         parent = &gnrc_rpl_parents[i];
         if (parent->state != 0) {
@@ -230,6 +246,12 @@ void _update_lifetime(void)
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
             }
+#ifdef MODULE_GNRC_RPL_BLOOM
+            if (parent->dodag->instance->bloom_ext.bloom_fire) {
+                parent->bloom_ext.linksym_checks_req = 0;
+                memset(parent->bloom_ext.bloom_buf, 0, sizeof(parent->bloom_ext.bloom_buf));
+            }
+#endif
         }
     }
 
@@ -252,6 +274,15 @@ void _update_lifetime(void)
             else {
                 _dao_handle_send(&inst->dodag);
             }
+#ifdef MODULE_GNRC_RPL_BLOOM
+            if (inst->bloom_ext.bloom_fire && inst->dodag.node_status != GNRC_RPL_ROOT_NODE) {
+                DEBUG("RPL-BLOOM: reset blacklist\n");
+                puts("RPL-BLOOM: reset blacklist");
+                memset(&(inst->bloom_ext.blacklist_bloom_buf), 0,
+                       sizeof(inst->bloom_ext.blacklist_bloom_buf));
+                gnrc_rpl_send_DIO(inst, NULL);
+            }
+#endif
         }
     }
 

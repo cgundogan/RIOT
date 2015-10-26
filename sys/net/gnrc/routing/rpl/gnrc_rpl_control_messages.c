@@ -141,6 +141,62 @@ gnrc_pktsnip_t *_dio_prefix_info_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *do
     return opt_snip;
 }
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+gnrc_pktsnip_t *_dio_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_parent_t *parent, ipv6_addr_t *me)
+{
+    gnrc_rpl_opt_pa_t *pa;
+    gnrc_pktsnip_t *opt_snip;
+    ipv6_addr_t paddr = parent->addr;
+
+    /* how many bits are equal? convert to bytes (round down) */
+    uint8_t prefix_bits = ipv6_addr_match_prefix(me, &paddr);
+    uint8_t prefix_bytes = prefix_bits >> 3;
+    uint8_t addr_len = sizeof(ipv6_addr_t) - prefix_bytes;
+
+    /* unset unaligned bits in first byte */
+    paddr.u8[prefix_bytes] &= (0xFF >> (prefix_bits % 8));
+
+    if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_pa_t) + addr_len,
+                                    GNRC_NETTYPE_UNDEF)) == NULL) {
+        DEBUG("RPL: BUILD PARENT ANNOUNCEMENT - no space left in packet buffer\n");
+        gnrc_pktbuf_release(pkt);
+        return NULL;
+    }
+    pa = opt_snip->data;
+    pa->type = GNRC_RPL_OPT_PARENT_ANNOUNCEMENT;
+
+
+    pa->length = sizeof(pa->prefix_len) + addr_len;
+    pa->prefix_len = prefix_bits;
+
+    DEBUG("RPL-BLOOM: put (%s) into PA\n", ipv6_addr_to_str(addr_str, &paddr, sizeof(addr_str)));
+    memcpy(pa + 1, &paddr.u8[prefix_bytes], addr_len);
+
+    return opt_snip;
+}
+
+gnrc_pktsnip_t *_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_instance_t *inst)
+{
+    gnrc_rpl_opt_na_t *na;
+    gnrc_pktsnip_t *opt_snip;
+
+    if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_na_t),
+                                    GNRC_NETTYPE_UNDEF)) == NULL) {
+        DEBUG("RPL: BUILD NEIGHBORHOOD ANNOUNCEMENT - no space left in packet buffer\n");
+        gnrc_pktbuf_release(pkt);
+        return NULL;
+    }
+    na = opt_snip->data;
+    na->type = GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT;
+
+
+    na->length = sizeof(na->bloom);
+    memcpy(na->bloom, &inst->bloom_ext.bloom_buf, sizeof(na->bloom));
+
+    return opt_snip;
+}
+#endif
+
 void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 {
     if (inst == NULL) {
@@ -151,6 +207,56 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     gnrc_rpl_dodag_t *dodag = &inst->dodag;
     gnrc_pktsnip_t *pkt = NULL, *tmp = NULL;
     gnrc_rpl_dio_t *dio;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_parent_t *parent = NULL;
+    ipv6_addr_t *me = NULL;
+    for (int i = 0; i < GNRC_RPL_PARENTS_NUMOF; i++) {
+        parent = &gnrc_rpl_parents[i];
+        if (parent->state != 0) {
+
+            /* ignore parent if blacklisted */
+            if (bloom_check(&(inst->bloom_ext.blacklist_bloom), parent->addr.u8,
+                            sizeof(ipv6_addr_t))) {
+                DEBUG("RPL-BLOOM: do not send PA to blacklisted parent (%s)\n",
+                      ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)));
+                continue;
+            }
+
+            /* find my address */
+            gnrc_ipv6_netif_find_by_prefix(&me, &parent->addr);
+            if (me == NULL) {
+                DEBUG("RPL: no address configured\n");
+                return;
+            }
+            DEBUG("RPL-BLOOM: my src address (%s) for dst ",
+                  ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
+            DEBUG("(%s)\n", ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)));
+
+            if (parent->bloom_ext.linksym_checks_req >= 3) {
+                DEBUG("RPL-BLOOM: add (%s) to blacklist\n",
+                      ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)));
+                bloom_add(&(inst->bloom_ext.blacklist_bloom), parent->addr.u8,
+                          sizeof(ipv6_addr_t));
+            }
+            else if ((!bloom_check(&(parent->bloom_ext.nhood_bloom), me->u8, sizeof(*me)))) {
+                DEBUG("RPL-BLOOM: PA for %s\n",
+                      ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)));
+                parent->bloom_ext.linksym_checks_req++;
+                if ((pkt = _dio_pa_build(pkt, parent, me)) == NULL) {
+                    return;
+                }
+            }
+        }
+    }
+
+    if (inst->bloom_ext.linksym_check_req) {
+        if ((pkt = _dio_na_build(pkt, inst)) == NULL) {
+            return;
+        }
+        inst->bloom_ext.linksym_check_req = false;
+    }
+#endif
 
     if (dodag->prefix_info_requested) {
         if ((pkt = _dio_prefix_info_build(pkt, dodag)) == NULL) {
@@ -358,7 +464,7 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
 
 /** @todo allow target prefixes in target options to be of variable length */
 bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt, uint16_t len,
-                    ipv6_addr_t *src, uint32_t *included_opts)
+                    ipv6_addr_t *src, gnrc_rpl_parent_t *parent, uint32_t *included_opts)
 {
     uint16_t l = 0;
     gnrc_rpl_opt_target_t *first_target = NULL;
@@ -475,6 +581,14 @@ a preceding RPL TARGET DAO option\n");
 
                 first_target = NULL;
                 break;
+#ifdef MODULE_GNRC_RPL_BLOOM
+            case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
+                DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT DIO option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT;
+                gnrc_rpl_opt_na_t *na = (gnrc_rpl_opt_na_t *) opt;
+                memcpy(&parent->bloom_ext.bloom_buf, na->bloom, sizeof(na->bloom));
+                break;
+#endif
 
         }
         l += opt->length + sizeof(gnrc_rpl_opt_t);
@@ -495,6 +609,41 @@ static bool _gnrc_rpl_check_DIO_validity(gnrc_rpl_dio_t *dio, uint16_t len)
 
     return false;
 }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+static void _handle_PA_option(gnrc_rpl_instance_t *inst, gnrc_rpl_dio_t *dio, uint16_t len,
+                              ipv6_addr_t *src)
+{
+    gnrc_rpl_opt_t *opt = (gnrc_rpl_opt_t *)(dio + 1);
+    uint16_t l = 0;
+
+    while(l < len) {
+        if (opt->type == GNRC_RPL_OPT_PAD1) {
+            l += 1;
+            opt = (gnrc_rpl_opt_t *) (((uint8_t *) opt) + 1);
+            continue;
+        }
+        else if (opt->type == GNRC_RPL_OPT_PARENT_ANNOUNCEMENT) {
+            gnrc_rpl_opt_pa_t *pa = (gnrc_rpl_opt_pa_t *) opt;
+            uint8_t *suffix = (((uint8_t *) opt) + 3);
+            ipv6_addr_t me = *src;
+            ipv6_addr_init_iid(&me, suffix, 128 - pa->prefix_len);
+            DEBUG("RPL-BLOOM: received (%s) in PA\n",
+                  ipv6_addr_to_str(addr_str, &me, sizeof(addr_str)));
+            if (gnrc_ipv6_netif_find_by_addr(NULL, &me) != KERNEL_PID_UNDEF) {
+                inst->bloom_ext.linksym_check_req = true;
+                DEBUG("RPL-BLOOM: add (%s) to nhood bloom\n",
+                      ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+                bloom_add(&(inst->bloom_ext.nhood_bloom), src->u8, sizeof(ipv6_addr_t));
+                gnrc_rpl_send_DIO(inst, NULL);
+                return;
+            }
+        }
+        l += opt->length + sizeof(gnrc_rpl_opt_t);
+        opt = (gnrc_rpl_opt_t *) (((uint8_t *) (opt + 1)) + opt->length);
+    }
+}
+#endif
 
 void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
 {
@@ -541,7 +690,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
 
         uint32_t included_opts = 0;
         if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
-                           NULL, &included_opts)) {
+                           NULL, parent, &included_opts)) {
             DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
             gnrc_rpl_instance_remove(inst);
             return;
@@ -579,6 +728,13 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         }
     }
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (bloom_check(&(inst->bloom_ext.blacklist_bloom), src->u8, sizeof(*src))) {
+        DEBUG("RPL-BLOOM: ignore DIO (%s)\n", ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+        return;
+    }
+#endif
+
     if (inst->mop != ((dio->g_mop_prf >> GNRC_RPL_MOP_SHIFT) & GNRC_RPL_SHIFTED_MOP_MASK)) {
         DEBUG("RPL: invalid MOP for this instance.\n");
         return;
@@ -598,6 +754,11 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         trickle_reset_timer(&dodag->trickle);
         return;
     }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    _handle_PA_option(inst, dio, len, src);
+#endif
+
 
     if (dodag->node_status == GNRC_RPL_ROOT_NODE) {
         if (byteorder_ntohs(dio->rank) != GNRC_RPL_INFINITE_RANK) {
@@ -646,7 +807,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         dodag->prf = dio->g_mop_prf & GNRC_RPL_PRF_MASK;
         uint32_t included_opts = 0;
         if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
-                           NULL, &included_opts)) {
+                           NULL, parent, &included_opts)) {
             DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
             gnrc_rpl_instance_remove(inst);
             return;
@@ -932,7 +1093,7 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, ipv6_addr_t *src, uint16_t len)
     }
 
     uint32_t included_opts = 0;
-    if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DAO, inst, opts, len, src, &included_opts)) {
+    if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DAO, inst, opts, len, src, NULL, &included_opts)) {
         DEBUG("RPL: Error encountered during DAO option parsing - ignore DAO\n");
         return;
     }
