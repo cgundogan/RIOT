@@ -28,9 +28,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include "shell.h"
 #include "shell_commands.h"
+
+static bool mute = false;
 
 #ifdef MODULE_NEWLIB
 /* use local copy of putchar, as it seems to be inlined,
@@ -76,6 +79,8 @@ static void print_help(const shell_command_t *command_list)
     printf("%-20s %s\n", "Command", "Description");
     puts("---------------------------------------");
 
+    printf("%-20s %s\n", "mute", "turn shell command echoing and the prompt on or off [on|off]");
+
     const shell_command_t *command_lists[] = {
         command_list,
 #ifdef MODULE_SHELL_COMMANDS
@@ -94,6 +99,16 @@ static void print_help(const shell_command_t *command_list)
                 entry++;
             }
         }
+    }
+}
+
+static void set_mute(const char *option)
+{
+    if (strcmp("on", option) == 0) {
+        mute = true;
+    }
+    else if (strcmp("off", option) == 0) {
+        mute = false;
     }
 }
 
@@ -209,6 +224,9 @@ static void handle_input_line(const shell_command_t *command_list, char *line)
         if (strcmp("help", argv[0]) == 0) {
             print_help(command_list);
         }
+        else if ((strcmp("mute", argv[0]) == 0) && (argc == 2)) {
+            set_mute(argv[1]);
+        }
         else {
             printf("shell: command not found: %s\n", argv[0]);
         }
@@ -234,8 +252,10 @@ static int readline(char *buf, size_t size)
         /* DOS newlines are handled like hitting enter twice, but empty lines are ignored. */
         if (c == '\r' || c == '\n') {
             *line_buf_ptr = '\0';
-            _putchar('\r');
-            _putchar('\n');
+            if (!mute) {
+                _putchar('\r');
+                _putchar('\n');
+            }
 
             /* return 1 if line is empty, 0 otherwise */
             return line_buf_ptr == buf;
@@ -255,15 +275,19 @@ static int readline(char *buf, size_t size)
         }
         else {
             *line_buf_ptr++ = c;
-            _putchar(c);
+            if (!mute) {
+                _putchar(c);
+            }
         }
     }
 }
 
 static inline void print_prompt(void)
 {
-    _putchar('>');
-    _putchar(' ');
+    if (!mute) {
+        _putchar('>');
+        _putchar(' ');
+    }
 
 #ifdef MODULE_NEWLIB
     fflush(stdout);
