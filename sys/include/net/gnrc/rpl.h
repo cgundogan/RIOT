@@ -379,8 +379,10 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination);
  *
  * @param[in] instance          Pointer to the RPL instance, optional.
  * @param[in] destination       IPv6 addres of the destination.
+ * @param[in] n                 N flag as per draft-zhong-roll-dis-modifications-00
+ * @param[in] t                 T flag as per draft-zhong-roll-dis-modifications-00
  */
-void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination);
+void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination, bool n, bool t);
 
 /**
  * @brief   Send a DAO of the @p dodag to the @p destination.

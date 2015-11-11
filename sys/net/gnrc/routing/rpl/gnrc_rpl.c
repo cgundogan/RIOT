@@ -70,7 +70,7 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
     ipv6_addr_t all_RPL_nodes = GNRC_RPL_ALL_NODES_ADDR;
     gnrc_ipv6_netif_add_addr(if_pid, &all_RPL_nodes, IPV6_ADDR_BIT_LEN, 0);
 
-    gnrc_rpl_send_DIS(NULL, &all_RPL_nodes);
+    gnrc_rpl_send_DIS(NULL, &all_RPL_nodes, true, true);
     return gnrc_rpl_pid;
 }
 
@@ -226,7 +226,7 @@ void _update_lifetime(void)
                 continue;
             }
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
-                gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
+                gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, false, false);
             }
         }
     }

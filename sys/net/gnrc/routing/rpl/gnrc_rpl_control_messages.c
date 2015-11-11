@@ -46,6 +46,8 @@ static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 #define GNRC_RPL_DAO_D_BIT                  (1 << 6)
 #define GNRC_RPL_DAO_K_BIT                  (1 << 7)
 #define GNRC_RPL_DAO_ACK_D_BIT              (1 << 7)
+#define GNRC_RPL_DIS_N                      (1 << 1)
+#define GNRC_RPL_DIS_T                      (1 << 0)
 
 void gnrc_rpl_send(gnrc_pktsnip_t *pkt, ipv6_addr_t *src, ipv6_addr_t *dst, ipv6_addr_t *dodag_id)
 {
@@ -196,7 +198,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     gnrc_rpl_send(pkt, NULL, destination, &dodag->dodag_id);
 }
 
-void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
+void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, bool n, bool t)
 {
     gnrc_pktsnip_t *pkt;
     icmpv6_hdr_t *icmp;
@@ -218,7 +220,14 @@ void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 
     icmp = (icmpv6_hdr_t *)pkt->data;
     dis = (gnrc_rpl_dis_t *)(icmp + 1);
-    dis->flags = 0;
+
+    if (ipv6_addr_is_multicast(destination)) {
+        dis->flags = 0 | (n << 1) | (t << 0);
+    }
+    else {
+        dis->flags = 0;
+    }
+
     dis->reserved = 0;
 
     /* TODO add padding may be removed if packet size grows */
@@ -250,12 +259,26 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, ipv6_addr_t *src, ipv6_addr_t *dst, 
         return;
     }
 
+    ipv6_addr_t all_RPL_nodes = GNRC_RPL_ALL_NODES_ADDR;
+
     if (ipv6_addr_is_multicast(dst)) {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
             if ((gnrc_rpl_instances[i].state != 0)
                 /* a leaf node should only react to unicast DIS */
                  && (gnrc_rpl_instances[i].dodag.node_status != GNRC_RPL_LEAF_NODE)) {
-                trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
+                if (dis->flags & GNRC_RPL_DIS_N) {
+                    if (dis->flags & GNRC_RPL_DIS_T) {
+                        gnrc_rpl_instances[i].dodag.dodag_conf_requested = true;
+                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
+                    }
+                    else {
+                        gnrc_rpl_instances[i].dodag.dodag_conf_requested = true;
+                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], &all_RPL_nodes);
+                    }
+                }
+                else {
+                    trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
+                }
             }
         }
     }
@@ -549,7 +572,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, ipv6_addr_t *src, uint16_t len)
         if (!(included_opts & (((uint32_t) 1) << GNRC_RPL_OPT_DODAG_CONF))) {
             DEBUG("RPL: DIO without DODAG_CONF option - remove DODAG and request new DIO\n");
             gnrc_rpl_instance_remove(inst);
-            gnrc_rpl_send_DIS(NULL, src);
+            gnrc_rpl_send_DIS(NULL, src, false, false);
             return;
         }
 
