@@ -279,7 +279,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
         return NULL;
     }
 
-    LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
+    LL_FOREACH(dodag->parents, elt) {
         new_best = dodag->instance->of->which_parent(new_best, elt);
     }
 
