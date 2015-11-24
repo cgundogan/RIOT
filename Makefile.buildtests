@@ -48,6 +48,10 @@ buildtest:
 			LOG=$$(env -i \
 					HOME=$${HOME} \
 					PATH=$${PATH} \
+					LIBRARY_PATH=$${LIBRARY_PATH} \
+					LD_LIBRARY_PATH=$${LD_LIBRARY_PATH} \
+					C_INCLUDE_PATH=$${C_INCLUDE_PATH} \
+					INCLUDE_PATH=$${INCLUDE_PATH} \
 					BOARD=$${BOARD} \
 					CCACHE=$${CCACHE} \
 					CCACHE_DIR=$${CCACHE_DIR} \

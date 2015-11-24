@@ -9,6 +9,9 @@ cache:
         - $HOME/gcc-arm-none-eabi-4_9-2015q3
         - $HOME/mspgcc
         - $HOME/avrgcc
+        - $HOME/libmpc3
+        - $HOME/avr-libc
+        - $HOME/binutils-avr
 
 addons:
     apt:
@@ -31,27 +34,49 @@ addons:
             - build-essential
         packages: &avr_pkgs
             - *common_pkgs
-            - gcc-avr
-            - avr-libc
+
+env:
+    global:
+        NPROC_MAX=8
 
 matrix:
     include:
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=static-tests
+        - env:
+            - BUILDTEST_MCU_GROUP=static-tests
           addons: {apt: {packages: *static_test_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=cortex_m4
+        - env:
+            - BUILDTEST_MCU_GROUP=cortex_m4
+            - PATH=$HOME/gcc-arm-none-eabi-4_9-2015q3/bin/:$PATH
           addons: {apt: {packages: *arm_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=cortex_m0
+        - env:
+            - BUILDTEST_MCU_GROUP=cortex_m0
           addons: {apt: {packages: *arm_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=x86
+        - env:
+            - BUILDTEST_MCU_GROUP=x86
           addons: {apt: {packages: *x86_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=cortex_m3_2
+        - env:
+            - BUILDTEST_MCU_GROUP=cortex_m3_2
           addons: {apt: {packages: *arm_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=cortex_m3_1
+        - env:
+            - BUILDTEST_MCU_GROUP=cortex_m3_1
           addons: {apt: {packages: *arm_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=avr8
+        - env:
+            - BUILDTEST_MCU_GROUP=avr8
+            - PATH=$HOME/avrgcc/usr/bin/:$PATH
+            - LIBRARY_PATH="$HOME/libmpc3/usr/lib/x86_64-linux-gnu/:$HOME/binutils-avr/usr/lib/avr/lib/ldscripts:$LIBRARY_PATH"
+            - LIBRARY_PATH="$HOME/binutils-avr/usr/lib/avr/lib/:$LIBRARY_PATH"
+            - LD_LIBRARY_PATH="$HOME/libmpc3/usr/lib/x86_64-linux-gnu/:$HOME/binutils-avr/usr/lib/avr/lib/ldscripts:$LD_LIBRARY_PATH"
+            - LD_LIBRARY_PATH="$HOME/binutils-avr/usr/lib/avr/lib/:$LD_LIBRARY_PATH"
+            - C_INCLUDE_PATH="$HOME/avr-libc/usr/lib/avr/include:$C_INCLUDE_PATH"
+            - INCLUDE_PATH="$HOME/avr-libc/usr/lib/avr/include:$INCLUDE_PATH"
+            - PATH=$HOME/binutils-avr/usr/bin/:$PATH
+            - PATH=$HOME/binutils-avr/usr/lib/avr/bin/:$PATH
           addons: {apt: {packages: *avr_pkgs}}
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=msp430
-        - env: NPROC_MAX=8 BUILDTEST_MCU_GROUP=arm7
+        - env:
+            - BUILDTEST_MCU_GROUP=msp430
+            - PATH=$HOME/mspgcc/usr/bin/:$PATH
+        - env:
+            - BUILDTEST_MCU_GROUP=arm7
           addons: {apt: {packages: *arm_pkgs}}
 
 before_install:
@@ -61,15 +86,21 @@ before_install:
 install:
     - test -d $HOME/gcc-arm-none-eabi-4_9-2015q3/bin || wget https://launchpad.net/gcc-arm-embedded/4.9/4.9-2015-q3-update/+download/gcc-arm-none-eabi-4_9-2015q3-20150921-linux.tar.bz2
     - test -d $HOME/gcc-arm-none-eabi-4_9-2015q3/bin || tar -xf gcc-arm-none-eabi-4_9-2015q3-20150921-linux.tar.bz2 -C $HOME
-    - export PATH=$PATH:$HOME/gcc-arm-none-eabi-4_9-2015q3/bin/
 
     - test -d $HOME/mspgcc/usr/bin || wget http://launchpadlibrarian.net/145176535/gcc-msp430_4.6.3~mspgcc-20120406-5_amd64.deb
     - test -d $HOME/mspgcc/usr/bin || dpkg -x gcc-msp430_4.6.3~mspgcc-20120406-5_amd64.deb $HOME/mspgcc
-    - export PATH=$PATH:$HOME/mspgcc/usr/bin/
 
     - test -d $HOME/avrgcc/usr/bin || wget https://launchpad.net/ubuntu/+source/gcc-avr/1:4.8-2.1/+build/5894754/+files/gcc-avr_4.8-2.1_amd64.deb
     - test -d $HOME/avrgcc/usr/bin || dpkg -x gcc-avr_4.8-2.1_amd64.deb $HOME/avrgcc
-    - export PATH=$PATH:$HOME/avrgcc/usr/bin/
+
+    - test -d $HOME/libmpc3/usr/lib || wget https://launchpad.net/ubuntu/+source/mpclib3/1.0.1-1ubuntu1/+build/5270270/+files/libmpc3_1.0.1-1ubuntu1_amd64.deb
+    - test -d $HOME/libmpc3/usr/lib || dpkg -x libmpc3_1.0.1-1ubuntu1_amd64.deb $HOME/libmpc3
+
+    - test -d $HOME/avr-libc/usr || wget https://launchpad.net/ubuntu/+archive/primary/+files/avr-libc_1.8.0-4.1_all.deb
+    - test -d $HOME/avr-libc/usr || dpkg -x avr-libc_1.8.0-4.1_all.deb $HOME/avr-libc
+
+    - test -d $HOME/binutils-avr/usr/bin || wget https://launchpad.net/ubuntu/+source/binutils-avr/2.23.1-2.1/+build/5894726/+files/binutils-avr_2.23.1-2.1_amd64.deb
+    - test -d $HOME/binutils-avr/usr/bin || dpkg -x binutils-avr_2.23.1-2.1_amd64.deb $HOME/binutils-avr
 
     - git config --global user.email "travis@example.com"
     - git config --global user.name "Travis CI"
