@@ -1,0 +1,169 @@
+/**
+ * @defgroup    net_gnrc Generic (gnrc) network stack.
+ * @ingroup     net
+ * @brief       RIOT's modular default IP network stack.
+ *
+ * @section gnrc_sec_about About
+ *
+ * This module is currently the default network stack of RIOT and includes many components
+ * ranging from a simple mac protocol (@ref net_gnrc_nomac) through a fully-featured IPv6
+ * implementation (@ref net_gnrc_ipv6) with 6LowPAN extensions (@ref net_gnrc_sixlowpan) to
+ * an udp implementation (@ref net_gnrc_udp) and the Routing Protocol for Low Power and Lossy
+ * Networks (@ref net_gnrc_rpl).
+ *
+ * A list of all features contained in the @ref net_gnrc is available in the `Modules` section above.
+ *
+ * @section gnrc_sec_integratoin Integration into RIOT-OS
+ *
+ * The integration of the @ref net_gnrc into RIOT-OS is handled by two modules:
+ * - @ref net_gnrc_conn
+ * - @ref net_gnrc_netdev2
+ *
+ * The @ref net_gnrc_conn implements the API to the application layer (@ref net_conn),
+ * while the @ref net_gnrc_netdev2 implements the API to communicate with low-level
+ * network device drivers (@ref drivers_netdev_netdev2).
+ *
+ * @section gnrc_sec_structure Architecture
+ *
+ * ![GNRC Network Stack](riot-gnrc.svg)
+ * Each layer of the network stack resembles a stand-alone thread that runs with a thread priority
+ * which is decreasing from bottom to top. In this regard, the thread of the mac layer
+ * implementation has the highest priority and application threads on the application layer have
+ * the lowest priority. The communication between threads is handled by the kernel's
+ * @ref core_msg functionality and by the @ref net_gnrc_netapi. Most of the times inter-process
+ * communication will take place between threads of neighboring layers for packets that traverse
+ * the network stack up or down.
+ *
+ * Due to the design of the @ref net_gnrc and the nature of inter-process communication,
+ * it is crucial for a new module that introduces a new thread to follow a certain programming
+ * construct if it desires to interact with other threads without blocking the system:
+ * Utilizing an `event loop`.
+ *
+ * Hence, a thread for the @ref net_gnrc will usually consist of four basic steps.
+ * -# Initialize a message queue
+ * -# register for a @ref net_gnrc_nettype
+ * -# wait for a message
+ * -# react appropriately to a message and return to 3.
+ * @code{c}
+ * static msg_t _msg_q[Q_SZ];
+ * msg_init_queue(_msg_q, Q_SZ);
+ * gnrc_netreg_entry me_reg = { .demux_ctx = GNRC_NETREG_DEMUX_CTX_ALL, .pid = thread_getpid() };
+ * gnrc_netreg_register(GNRC_NETTYPE_IPV6, &me_reg);
+ * while (1) {
+ *     msg_receive(&msg);
+ *     switch (msg.type) {
+ *         case TYPE1:
+ *             callback1();
+ *             break;
+ *         ...
+ *     }
+ * }
+ * @endcode
+ *
+ * @note As an example have a look at the event loops of @ref net_gnrc_ipv6 and @ref net_gnrc_rpl
+ *
+ * @section gnrc_sec_rxtx Receiving / Transmitting Packets
+ *
+ * Packets can be received or transmitted by interacting with the @ref net_gnrc_netapi.
+ *
+ * @subsection gnrc_subsec_rx Receiving Packets
+ * The reception of a @ref net_gnrc_pkt from another thread is handled by the @ref net_gnrc_netapi
+ * module. In order to receive a @ref net_gnrc_pkt of a specific type, it is necessary to register
+ * for the appropriate @ref net_gnrc_nettype first. Your thread will then be able to receive
+ * certain commands defined in the @ref net_gnrc_netapi module
+ * (e.g. @ref net_gnrc_netapi::GNRC_NETAPI_MSG_TYPE_RCV) for all @ref net_gnrc_pkt "Packets"
+ * that your thread registered for.
+ *
+ * The following example will sketch how to receive incoming and outgoing UDP traffic on port 80.
+ * @code{c}
+ * static msg_t _msg_q[Q_SZ];
+ * msg_t msg, reply;
+ * reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
+ * reply.content.value = -ENOTSUP;
+ * msg_init_queue(_msg_q, Q_SZ);
+ * gnrc_pktsnip_t *pkt = NULL;
+ * gnrc_netreg_entry me_reg = { .demux_ctx = 80, .pid = thread_getpid() };
+ * gnrc_netreg_register(GNRC_NETTYPE_UDP, &me_reg);
+ *
+ * while (1) {
+ *     msg_receive(&msg);
+ *     switch (msg.type) {
+ *         case GNRC_NETAPI_MSG_TYPE_RCV:
+ *             pkt = (gnrc_pktsnip_t *) msg.content.ptr;
+ *             _handle_incoming_pkt(pkt);
+ *             break;
+ *         case GNRC_NETAPI_MSG_TYPE_SND:
+ *             pkt = (gnrc_pktsnip_t *) msg.content.ptr;
+ *             _handle_outgoing_pkt(pkt);
+ *             break;
+ *          case GNRC_NETAPI_MSG_TYPE_SET:
+ *          case GNRC_NETAPI_MSG_TYPE_GET:
+ *             msg_reply(&msg, &reply);
+ *             break;
+ *         default:
+ *             break;
+ *     }
+ * }
+ * @endcode
+ * @note It is necessary to react with a reply message to the other thread for
+ *       @ref GNRC_NETAPI_MSG_TYPE_SET and @ref GNRC_NETAPI_MSG_TYPE_GET commands
+ *
+ * @subsection gnrc_subsec_tx Transmitting Packets
+ * To relay the @ref net_gnrc_pkt to interested threads the @ref net_gnrc_netapi offers
+ * a dispatch functionality.
+ * The following example sketches the usage and assumes a valid @ref net_gnrc_pkt named `pkt`.
+ * @code{c}
+ * if (!gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, 80, pkt)) {
+ *      puts("Error: no thread is interested");
+ *      gnrc_pktbuf_release(pkt);
+ *      return;
+ * }
+ * @endcode
+ * The @ref net_gnrc_pkt "pkt" will be send to all threads that registered for @ref GNRC_NETTYPE_UDP
+ * and the demux context `80`. Every registered thread will receive a @ref GNRC_NETAPI_MSG_TYPE_SND
+ * command and can access the @ref net_gnrc_pkt. If @ref gnrc_netapi_dispatch_send is replaced by
+ * @ref gnrc_netapi_dispatch_receive then threads will receive the @ref GNRC_NETAPI_MSG_TYPE_RCV
+ * instead, again with access to the @ref net_gnrc_pkt.
+ *
+ * @section gnrc_sec_howto How To Use
+ * @ref net_gnrc is highly modular and can be adjusted to include only the desired features.
+ * In the following several of the available modules will be stated that you can include in your
+ * application's Makefile.
+ * - @code
+ * USEMODULE += gnrc_netif_default
+ * @endcode
+ * This will include necessary network drivers. If an IEEE802.15.4 device is present, then 6LoWPAN
+ * will also be included.
+ * - @code
+ * USEMODULE += auto_init_gnrc_netif
+ * @endcode
+ * This will initialize the network devices.
+ * - You may choose to build either as an IPv6 Node or as an IPv6 Router
+ *  -# IPv6 Node:
+ *  @code
+ *  USEMODULE += gnrc_ipv6_default
+ *  @endcode
+ *  -# IPv6 Router:
+ *  @code
+ *  USEMODULE += gnrc_ipv6_router_default
+ *  @endcode
+ *  An IPv6 Router can forward packets, while an IPv6 Node will simply drop packets not targeted
+ *  to it
+ * - @code
+ * USEMODULE += gnrc_icmpv6_echo
+ * @endcode
+ * This will include the ping functionality and your application replies to ICMPv6 echo requests
+ * - @code
+ * USEMODULE += gnrc_udp
+ * @endcode
+ * This will include the UDP implementation of @ref net_gnrc
+ * - @code
+ * USEMODULE += gnrc_conn_udp
+ * @endcode
+ * This will include the @ref net_gnrc_conn_udp
+ * - @code
+ * USEMODULE += gnrc_rpl
+ * @endcode
+ * This will include the @ref net_gnrc_rpl module. It is necessary to build the application with
+ * `gnrc_ipv6_router_default` and not `gnrc_ipv6_default`
+ */
