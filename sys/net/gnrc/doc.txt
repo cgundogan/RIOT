@@ -3,7 +3,7 @@
  * @ingroup     net
  * @brief       RIOT's modular default IP network stack.
  *
- * @section gnrc_sec_about About
+ * # About
  *
  * This module is currently the default network stack of RIOT and includes many components
  * ranging from a simple mac protocol (@ref net_gnrc_nomac) through a fully-featured IPv6
@@ -13,7 +13,7 @@
  *
  * A list of all features contained in the @ref net_gnrc is available in the `Modules` section above.
  *
- * @section gnrc_sec_integratoin Integration into RIOT-OS
+ * # Integration into RIOT-OS
  *
  * The integration of the @ref net_gnrc into RIOT-OS is handled by two modules:
  * - @ref net_gnrc_conn
@@ -23,7 +23,7 @@
  * while the @ref net_gnrc_netdev2 implements the API to communicate with low-level
  * network device drivers (@ref drivers_netdev_netdev2).
  *
- * @section gnrc_sec_structure Architecture
+ * # Architecture
  *
  * ![GNRC Network Stack](riot-gnrc.svg)
  * Each layer of the network stack resembles a stand-alone thread that runs with a thread priority
@@ -62,11 +62,11 @@
  *
  * @note As an example have a look at the event loops of @ref net_gnrc_ipv6 and @ref net_gnrc_rpl
  *
- * @section gnrc_sec_rxtx Receiving / Transmitting Packets
+ * # Receiving / Transmitting Packets
  *
  * Packets can be received or transmitted by interacting with the @ref net_gnrc_netapi.
  *
- * @subsection gnrc_subsec_rx Receiving Packets
+ * ## Receiving Packets
  * The reception of a @ref net_gnrc_pkt from another thread is handled by the @ref net_gnrc_netapi
  * module. In order to receive a @ref net_gnrc_pkt of a specific type, it is necessary to register
  * for the appropriate @ref net_gnrc_nettype first. Your thread will then be able to receive
@@ -108,7 +108,7 @@
  * @note It is necessary to react with a reply message to the other thread for
  *       @ref GNRC_NETAPI_MSG_TYPE_SET and @ref GNRC_NETAPI_MSG_TYPE_GET commands
  *
- * @subsection gnrc_subsec_tx Transmitting Packets
+ * ## Transmitting Packets
  * To relay the @ref net_gnrc_pkt to interested threads the @ref net_gnrc_netapi offers
  * a dispatch functionality.
  * The following example sketches the usage and assumes a valid @ref net_gnrc_pkt named `pkt`.
@@ -125,7 +125,7 @@
  * @ref gnrc_netapi_dispatch_receive then threads will receive the @ref GNRC_NETAPI_MSG_TYPE_RCV
  * instead, again with access to the @ref net_gnrc_pkt.
  *
- * @section gnrc_sec_howto How To Use
+ * # How To Use
  * @ref net_gnrc is highly modular and can be adjusted to include only the desired features.
  * In the following several of the available modules will be stated that you can include in your
  * application's Makefile.
