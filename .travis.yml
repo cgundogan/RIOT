@@ -30,9 +30,7 @@ install:
     - git config --global user.email "travis@example.com"
     - git config --global user.name "Travis CI"
 
-    - git remote add riot https://github.com/RIOT-OS/RIOT.git
-    - git fetch riot master
-    - git log -1 --pretty=format:%H riot/master
+    - git clone -b master https://github.com/RIOT-OS/RIOT.git
 
 script:
     - ./dist/tools/travis-scripts/build_and_test.sh
