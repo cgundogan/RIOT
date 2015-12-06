@@ -32,7 +32,6 @@ install:
 
     - git remote add riot https://github.com/RIOT-OS/RIOT.git
     - git fetch riot master
-    - git log -1 --pretty=format:%H riot/master
 
 script:
     - ./dist/tools/travis-scripts/build_and_test.sh
