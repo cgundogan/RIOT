@@ -111,6 +111,9 @@
  * @note It is necessary to react with a reply message to the other thread for
  *       @ref GNRC_NETAPI_MSG_TYPE_SET and @ref GNRC_NETAPI_MSG_TYPE_GET commands
  *
+ * @note Do not forget to unregister with @ref gnrc_netreg_unregister() if you leave the function
+ *       context
+ *
  * Transmitting Packets
  * --------------------
  *
@@ -128,9 +131,9 @@
  *
  * The @ref net_gnrc_pkt "pkt" will be send to all threads that registered for @ref GNRC_NETTYPE_UDP
  * and the demux context `80`. Every registered thread will receive a @ref GNRC_NETAPI_MSG_TYPE_SND
- * command and can access the @ref net_gnrc_pkt. If @ref gnrc_netapi_dispatch_send is replaced by
- * @ref gnrc_netapi_dispatch_receive then threads will receive the @ref GNRC_NETAPI_MSG_TYPE_RCV
- * instead, again with access to the @ref net_gnrc_pkt.
+ * command and can access the @ref net_gnrc_pkt. If @ref gnrc_netapi_dispatch_send() is replaced by
+ * @ref gnrc_netapi_dispatch_receive() then threads will receive the @ref GNRC_NETAPI_MSG_TYPE_RCV
+ * command instead, again with access to the @ref net_gnrc_pkt.
  *
  * How To Use
  * ==========
@@ -142,52 +145,52 @@
  * USEMODULE += gnrc_netif_default
  * @endcode
  *
- * This will include necessary network drivers. If an IEEE802.15.4 device is present, then 6LoWPAN
- * will also be included.
+ *   This will include necessary network drivers. If an IEEE802.15.4 device is present, then 6LoWPAN
+ *   will also be included.
  *
  * - @code
  * USEMODULE += auto_init_gnrc_netif
  * @endcode
  *
- * This will initialize the network devices.
+ *   This will auto-initialize the network devices.
  * - You may choose to build either as an IPv6 Node or as an IPv6 Router
- *  -# IPv6 Node:
+ *   1. IPv6 Node:
  *
- *  @code
- *  USEMODULE += gnrc_ipv6_default
- *  @endcode
+ *     - @code
+ *     USEMODULE += gnrc_ipv6_default
+ *     @endcode
  *
- *  -# IPv6 Router:
+ *   2. IPv6 Router:
  *
- *  @code
- *  USEMODULE += gnrc_ipv6_router_default
- *  @endcode
+ *     - @code
+ *     USEMODULE += gnrc_ipv6_router_default
+ *     @endcode
  *
- *  An IPv6 Router can forward packets, while an IPv6 Node will simply drop packets not targeted
- *  to it
+ *       An IPv6 Router can forward packets, while an IPv6 Node will simply drop packets not targeted
+ *       to it
  *
  * - @code
  * USEMODULE += gnrc_icmpv6_echo
  * @endcode
  *
- * This will include the ping functionality and your application replies to ICMPv6 echo requests
+ *   This will include the ping functionality and your application replies to ICMPv6 echo requests
  *
  * - @code
  * USEMODULE += gnrc_udp
  * @endcode
  *
- * This will include the UDP implementation of @ref net_gnrc
+ *   This will include the UDP implementation of @ref net_gnrc
  *
  * - @code
  * USEMODULE += gnrc_conn_udp
  * @endcode
  *
- * This will include the @ref net_gnrc_conn_udp
+ *   This will include the @ref net_gnrc_conn_udp
  *
  * - @code
  * USEMODULE += gnrc_rpl
  * @endcode
  *
- * This will include the @ref net_gnrc_rpl module. It is necessary to build the application with
- * `gnrc_ipv6_router_default` and not `gnrc_ipv6_default`
+ *   This will include the @ref net_gnrc_rpl module. It is necessary to build the application with
+ *   `gnrc_ipv6_router_default` and not `gnrc_ipv6_default`
  */
