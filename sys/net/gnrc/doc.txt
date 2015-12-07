@@ -6,29 +6,23 @@
  * # About
  *
  * This module is currently the default network stack of RIOT and includes many components
- * ranging from a simple mac protocol (@ref net_gnrc_nomac) through a fully-featured IPv6
+ * ranging from a simple MAC protocol (@ref net_gnrc_nomac) through a fully-featured IPv6
  * implementation (@ref net_gnrc_ipv6) with 6LowPAN extensions (@ref net_gnrc_sixlowpan) to
- * an udp implementation (@ref net_gnrc_udp) and the Routing Protocol for Low Power and Lossy
- * Networks (@ref net_gnrc_rpl).
+ * an UDP implementation (@ref net_gnrc_udp) and @ref net_gnrc_rpl.
  *
  * A list of all features contained in the @ref net_gnrc is available in the `Modules` section above.
  *
- * # Integration into RIOT-OS
+ * # Integration into RIOT
  *
- * The integration of the @ref net_gnrc into RIOT-OS is handled by two modules:
- * - @ref net_gnrc_conn
- * - @ref net_gnrc_netdev2
- *
- * The @ref net_gnrc_conn implements the API to the application layer (@ref net_conn),
- * while the @ref net_gnrc_netdev2 implements the API to communicate with low-level
- * network device drivers (@ref drivers_netdev_netdev2).
+ * From the application layer the @ref net_gnrc can be accessed through the @ref net_gnrc_conn,
+ * while the interface to the @ref drivers_netdev_netdev2 is defined by the @ref net_gnrc_netdev2.
  *
  * # Architecture
  *
  * ![GNRC Network Stack](riot-gnrc.svg)
- * Each layer of the network stack resembles a stand-alone thread that runs with a thread priority
- * which is decreasing from bottom to top. In this regard, the thread of the mac layer
- * implementation has the highest priority and application threads on the application layer have
+ * Each layer of the network stack runs in its own thread and each lower layer thread has a higher
+ * priority than any upper layer thread. In this regard, the thread of the MAC layer
+ * implementation has the highest priority and threads on the application layer have
  * the lowest priority. The communication between threads is handled by the kernel's
  * @ref core_msg functionality and by the @ref net_gnrc_netapi. Most of the times inter-process
  * communication will take place between threads of neighboring layers for packets that traverse
