@@ -6,7 +6,7 @@
  * About
  * =====
  *
- * This module is currently the default network stack of RIOT and includes many components
+ * This module is currently the default network stack for RIOT and includes many components
  * ranging from a simple MAC protocol (@ref net_gnrc_nomac) through a fully-featured IPv6
  * implementation (@ref net_gnrc_ipv6) with 6LowPAN extensions (@ref net_gnrc_sixlowpan) to
  * an UDP implementation (@ref net_gnrc_udp) and @ref net_gnrc_rpl.
@@ -31,12 +31,12 @@
  * communication will take place between threads of neighboring layers for packets that traverse
  * the network stack up or down.
  *
- * Due to the design of the @ref net_gnrc and the nature of inter-process communication,
+ * Due to the design of @ref net_gnrc "GNRC" and the nature of inter-process communication,
  * it is crucial for a new module that introduces a new thread to follow a certain programming
  * construct if it desires to interact with other threads without blocking the system:
  * Utilizing an `event loop`.
  *
- * Hence, a thread for the @ref net_gnrc will usually consist of four basic steps.
+ * Hence, a thread for @ref net_gnrc "GNRC" will usually consist of four basic steps.
  * -# Initialize a message queue
  * -# register for a @ref net_gnrc_nettype
  * -# wait for a message
