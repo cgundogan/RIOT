@@ -51,7 +51,7 @@
  * 4. react appropriately to a message and return to 3.
  *
  * @code{c}
- * int main() {
+ * void *_event_loop(void *arg) {
  *     static msg_t _msg_q[Q_SZ];
  *     msg_init_queue(_msg_q, Q_SZ);
  *     gnrc_netreg_entry me_reg = { .demux_ctx = GNRC_NETREG_DEMUX_CTX_ALL, .pid = thread_getpid() };
@@ -66,7 +66,7 @@
  *         }
  *     }
  *
- *     return 0;
+ *     return NULL;
  * }
  * @endcode
  *
@@ -90,7 +90,7 @@
  * The following example will sketch how to receive incoming and outgoing UDP traffic on port 80.
  *
  * @code{c}
- * int main() {
+ * void *_event_loop(void *arg) {
  *     static msg_t _msg_q[Q_SZ];
  *     msg_t msg, reply;
  *     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
@@ -120,7 +120,7 @@
  *         }
  *     }
  *
- *     return 0;
+ *     return NULL;
  * }
  * @endcode
  *
