@@ -22,11 +22,11 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-#include "eth_over_serial.h"
+#include "ethos.h"
 #include "periph/uart.h"
 #include "net/gnrc/netdev2/eth.h"
 
-eth_over_serial_t eth_over_serial;
+ethos_t ethos;
 
 /**
  * @brief   Define stack parameters for the MAC layer thread
@@ -39,24 +39,24 @@ eth_over_serial_t eth_over_serial;
  * @brief   Stacks for the MAC layer threads
  */
 static char _netdev2_eth_stack[MAC_STACKSIZE];
-static gnrc_netdev2_t _gnrc_eth_over_serial;
+static gnrc_netdev2_t _gnrc_ethos;
 
 static uint8_t _inbuf[2048];
 
-void auto_init_eth_over_serial(void)
+void auto_init_ethos(void)
 {
-    DEBUG("auto_init_eth_over_serial(): initializing device...\n");
+    DEBUG("auto_init_ethos(): initializing device...\n");
 
     /* setup netdev2 device */
-    eth_over_serial_setup(&eth_over_serial, ETHOS_UART,
+    ethos_setup(&ethos, ETHOS_UART,
             ETHOS_BAUDRATE, _inbuf, sizeof(_inbuf));
 
     /* initialize netdev2<->gnrc adapter state */
-    gnrc_netdev2_eth_init(&_gnrc_eth_over_serial, (netdev2_t*)&eth_over_serial);
+    gnrc_netdev2_eth_init(&_gnrc_ethos, (netdev2_t*)&ethos);
 
     /* start gnrc netdev2 thread */
     gnrc_netdev2_init(_netdev2_eth_stack, MAC_STACKSIZE,
-            MAC_PRIO, "gnrc_eth_over_serial", &_gnrc_eth_over_serial);
+            MAC_PRIO, "gnrc_ethos", &_gnrc_ethos);
 }
 
 #else
