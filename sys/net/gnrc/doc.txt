@@ -37,10 +37,11 @@
  * Utilizing an `event loop`.
  *
  * Hence, a thread for @ref net_gnrc "GNRC" will usually consist of four basic steps.
- * -# Initialize a message queue
- * -# register for a @ref net_gnrc_nettype
- * -# wait for a message
- * -# react appropriately to a message and return to 3.
+ * 1. Initialize a message queue
+ * 2. register for a @ref net_gnrc_nettype
+ * 3. wait for a message
+ * 4. react appropriately to a message and return to 3.
+ *
  * @code{c}
  * static msg_t _msg_q[Q_SZ];
  * msg_init_queue(_msg_q, Q_SZ);
@@ -75,6 +76,7 @@
  * that your thread registered for.
  *
  * The following example will sketch how to receive incoming and outgoing UDP traffic on port 80.
+ *
  * @code{c}
  * static msg_t _msg_q[Q_SZ];
  * msg_t msg, reply;
@@ -105,6 +107,7 @@
  *     }
  * }
  * @endcode
+ *
  * @note It is necessary to react with a reply message to the other thread for
  *       @ref GNRC_NETAPI_MSG_TYPE_SET and @ref GNRC_NETAPI_MSG_TYPE_GET commands
  *
@@ -114,6 +117,7 @@
  * To relay the @ref net_gnrc_pkt to interested threads the @ref net_gnrc_netapi offers
  * a dispatch functionality.
  * The following example sketches the usage and assumes a valid @ref net_gnrc_pkt named `pkt`.
+ *
  * @code{c}
  * if (!gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, 80, pkt)) {
  *      puts("Error: no thread is interested");
@@ -121,6 +125,7 @@
  *      return;
  * }
  * @endcode
+ *
  * The @ref net_gnrc_pkt "pkt" will be send to all threads that registered for @ref GNRC_NETTYPE_UDP
  * and the demux context `80`. Every registered thread will receive a @ref GNRC_NETAPI_MSG_TYPE_SND
  * command and can access the @ref net_gnrc_pkt. If @ref gnrc_netapi_dispatch_send is replaced by
@@ -132,41 +137,57 @@
  * @ref net_gnrc is highly modular and can be adjusted to include only the desired features.
  * In the following several of the available modules will be stated that you can include in your
  * application's Makefile.
+ *
  * - @code
  * USEMODULE += gnrc_netif_default
  * @endcode
+ *
  * This will include necessary network drivers. If an IEEE802.15.4 device is present, then 6LoWPAN
  * will also be included.
+ *
  * - @code
  * USEMODULE += auto_init_gnrc_netif
  * @endcode
+ *
  * This will initialize the network devices.
  * - You may choose to build either as an IPv6 Node or as an IPv6 Router
  *  -# IPv6 Node:
+ *
  *  @code
  *  USEMODULE += gnrc_ipv6_default
  *  @endcode
+ *
  *  -# IPv6 Router:
+ *
  *  @code
  *  USEMODULE += gnrc_ipv6_router_default
  *  @endcode
+ *
  *  An IPv6 Router can forward packets, while an IPv6 Node will simply drop packets not targeted
  *  to it
+ *
  * - @code
  * USEMODULE += gnrc_icmpv6_echo
  * @endcode
+ *
  * This will include the ping functionality and your application replies to ICMPv6 echo requests
+ *
  * - @code
  * USEMODULE += gnrc_udp
  * @endcode
+ *
  * This will include the UDP implementation of @ref net_gnrc
+ *
  * - @code
  * USEMODULE += gnrc_conn_udp
  * @endcode
+ *
  * This will include the @ref net_gnrc_conn_udp
+ *
  * - @code
  * USEMODULE += gnrc_rpl
  * @endcode
+ *
  * This will include the @ref net_gnrc_rpl module. It is necessary to build the application with
  * `gnrc_ipv6_router_default` and not `gnrc_ipv6_default`
  */
