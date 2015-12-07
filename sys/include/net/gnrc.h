@@ -51,18 +51,22 @@
  * 4. react appropriately to a message and return to 3.
  *
  * @code{c}
- * static msg_t _msg_q[Q_SZ];
- * msg_init_queue(_msg_q, Q_SZ);
- * gnrc_netreg_entry me_reg = { .demux_ctx = GNRC_NETREG_DEMUX_CTX_ALL, .pid = thread_getpid() };
- * gnrc_netreg_register(GNRC_NETTYPE_IPV6, &me_reg);
- * while (1) {
- *     msg_receive(&msg);
- *     switch (msg.type) {
- *         case TYPE1:
- *             callback1();
- *             break;
- *         ...
+ * int main() {
+ *     static msg_t _msg_q[Q_SZ];
+ *     msg_init_queue(_msg_q, Q_SZ);
+ *     gnrc_netreg_entry me_reg = { .demux_ctx = GNRC_NETREG_DEMUX_CTX_ALL, .pid = thread_getpid() };
+ *     gnrc_netreg_register(GNRC_NETTYPE_IPV6, &me_reg);
+ *     while (1) {
+ *         msg_receive(&msg);
+ *         switch (msg.type) {
+ *             case TYPE1:
+ *                 callback1();
+ *                 break;
+ *             ...
+ *         }
  *     }
+ *
+ *     return 0;
  * }
  * @endcode
  *
@@ -86,33 +90,37 @@
  * The following example will sketch how to receive incoming and outgoing UDP traffic on port 80.
  *
  * @code{c}
- * static msg_t _msg_q[Q_SZ];
- * msg_t msg, reply;
- * reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
- * reply.content.value = -ENOTSUP;
- * msg_init_queue(_msg_q, Q_SZ);
- * gnrc_pktsnip_t *pkt = NULL;
- * gnrc_netreg_entry me_reg = { .demux_ctx = 80, .pid = thread_getpid() };
- * gnrc_netreg_register(GNRC_NETTYPE_UDP, &me_reg);
+ * int main() {
+ *     static msg_t _msg_q[Q_SZ];
+ *     msg_t msg, reply;
+ *     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
+ *     reply.content.value = -ENOTSUP;
+ *     msg_init_queue(_msg_q, Q_SZ);
+ *     gnrc_pktsnip_t *pkt = NULL;
+ *     gnrc_netreg_entry me_reg = { .demux_ctx = 80, .pid = thread_getpid() };
+ *     gnrc_netreg_register(GNRC_NETTYPE_UDP, &me_reg);
  *
- * while (1) {
- *     msg_receive(&msg);
- *     switch (msg.type) {
- *         case GNRC_NETAPI_MSG_TYPE_RCV:
- *             pkt = (gnrc_pktsnip_t *) msg.content.ptr;
- *             _handle_incoming_pkt(pkt);
- *             break;
- *         case GNRC_NETAPI_MSG_TYPE_SND:
- *             pkt = (gnrc_pktsnip_t *) msg.content.ptr;
- *             _handle_outgoing_pkt(pkt);
- *             break;
- *          case GNRC_NETAPI_MSG_TYPE_SET:
- *          case GNRC_NETAPI_MSG_TYPE_GET:
- *             msg_reply(&msg, &reply);
- *             break;
- *         default:
- *             break;
+ *     while (1) {
+ *         msg_receive(&msg);
+ *         switch (msg.type) {
+ *             case GNRC_NETAPI_MSG_TYPE_RCV:
+ *                 pkt = (gnrc_pktsnip_t *) msg.content.ptr;
+ *                 _handle_incoming_pkt(pkt);
+ *                 break;
+ *             case GNRC_NETAPI_MSG_TYPE_SND:
+ *                 pkt = (gnrc_pktsnip_t *) msg.content.ptr;
+ *                 _handle_outgoing_pkt(pkt);
+ *                 break;
+ *              case GNRC_NETAPI_MSG_TYPE_SET:
+ *              case GNRC_NETAPI_MSG_TYPE_GET:
+ *                 msg_reply(&msg, &reply);
+ *                 break;
+ *             default:
+ *                 break;
+ *         }
  *     }
+ *
+ *     return 0;
  * }
  * @endcode
  *
