@@ -300,7 +300,6 @@ int main(int argc, char *argv[])
             }
 
             if (res) {
-                fprintf(stderr, "sending text frame of size %lu\n", res);
                 char delim = LINE_FRAME_DELIMITER;
                 char head[] = { LINE_FRAME_DELIMITER, LINE_ESC_CHAR, (LINE_FRAME_TYPE_TEXT ^ 0x20) };
                 write(serial_fd, head, sizeof(head));
