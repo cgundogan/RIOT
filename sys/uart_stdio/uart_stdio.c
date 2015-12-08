@@ -77,6 +77,8 @@ void uart_stdio_init(void)
 {
 #ifndef USE_ETHOS_FOR_STDIO
     uart_init(STDIO, STDIO_BAUDRATE, uart_stdio_rx_cb, NULL);
+#else
+    uart_init(ETHOS_UART, ETHOS_BAUDRATE, uart_stdio_rx_cb, NULL);
 #endif
 }
 
