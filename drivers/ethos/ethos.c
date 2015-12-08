@@ -41,31 +41,11 @@
 
 static void _get_mac_addr(netdev2_t *dev, uint8_t* buf);
 static void ethos_isr(void *arg, char c);
+const static netdev2_driver_t netdev2_driver_ethos;
 
 static const uint8_t _esc_esc[] = {ETHOS_ESC_CHAR, (ETHOS_ESC_CHAR ^ 0x20)};
 static const uint8_t _esc_delim[] = {ETHOS_ESC_CHAR, (ETHOS_FRAME_DELIMITER ^ 0x20)};
 
-/* netdev2 interface */
-static int _send(netdev2_t *netdev, const struct iovec *vector, int count);
-static int _recv(netdev2_t *netdev, char* buf, int len);
-static int _init(netdev2_t *dev);
-static void _isr(netdev2_t *dev);
-int _get(netdev2_t *dev, netopt_t opt, void *value, size_t max_len);
-int _set(netdev2_t *dev, netopt_t opt, void *value, size_t value_len);
-
-const static netdev2_driver_t netdev2_driver_ethos = {
-    .send = _send,
-    .recv = _recv,
-    .init = _init,
-    .isr = _isr,
-    .get = _get,
-    .set = netdev2_eth_set,
-};
-
-void dummy(void *arg, char c) {
-    (void)arg;
-    (void)c;
-}
 
 void ethos_setup(ethos_t *dev, uart_t uart, uint32_t baudrate, uint8_t *buf, size_t bufsize)
 {
@@ -330,3 +310,13 @@ int _get(netdev2_t *dev, netopt_t opt, void *value, size_t max_len)
 
     return res;
 }
+
+/* netdev2 interface */
+const static netdev2_driver_t netdev2_driver_ethos = {
+    .send = _send,
+    .recv = _recv,
+    .init = _init,
+    .isr = _isr,
+    .get = _get,
+    .set = netdev2_eth_set
+};
