@@ -469,6 +469,7 @@ void gnrc_ndp_internal_send_rtr_adv(kernel_pid_t iface, ipv6_addr_t *src, ipv6_a
                     else {
                         DEBUG("ndp rtr: error allocating PIO\n");
                         gnrc_pktbuf_release(pkt);
+                        mutex_unlock(&ipv6_iface->mutex);
                         return;
                     }
                 }
