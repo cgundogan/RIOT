@@ -19,13 +19,16 @@
 
 #ifdef MODULE_ETHOS
 
-#define ENABLE_DEBUG (0)
-#include "debug.h"
-
 #include "ethos.h"
 #include "periph/uart.h"
 #include "net/gnrc/netdev2/eth.h"
 
+#define ENABLE_DEBUG (0)
+#include "debug.h"
+
+/**
+ * @brief global ethos object, used by uart_stdio
+ */
 ethos_t ethos;
 
 /**
