@@ -31,6 +31,17 @@
 extern "C" {
 #endif
 
+/* if using ethos + stdio, use STDIO values unless overridden */
+#ifdef USE_ETHOS_FOR_STDIO
+#include "board.h"
+#ifndef ETHOS_UART
+#define ETHOS_UART  STDIO
+#endif
+#ifndef ETHOS_BAUDRATE
+#define ETHOS_BAUDRATE STDIO_BAUDRATE
+#endif
+#endif
+
 /**
  * @brief Escape char definitions
  * @{
