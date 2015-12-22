@@ -77,7 +77,8 @@ typedef enum {
 #ifdef MODULE_GNRC_TCP
     GNRC_NETTYPE_TCP,           /**< Protocol is TCP */
 #endif
-#ifdef MODULE_GNRC_UDP
+#if defined(MODULE_GNRC_UDP) || \
+    (defined(MODULE_GNRC_SIXLOWPAN_IPHC_NHC) && defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER))
     GNRC_NETTYPE_UDP,           /**< Protocol is UDP */
 #endif
     /**
