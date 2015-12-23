@@ -118,8 +118,13 @@ inline static size_t iphc_nhc_udp_decode(gnrc_pktsnip_t *pkt, gnrc_pktsnip_t **d
     uint8_t *payload = pkt->data;
     gnrc_pktsnip_t *ipv6 = *dec_hdr;
     ipv6_hdr_t *ipv6_hdr = ipv6->data;
+#ifdef MODULE_GNRC_UDP
+    const gnrc_nettype_t snip_type = GNRC_NETTYPE_UDP;
+#else
+    const gnrc_nettype_t snip_type = GNRC_NETTYPE_UNDEF;
+#endif
     gnrc_pktsnip_t *udp = gnrc_pktbuf_add(NULL, NULL, sizeof(udp_hdr_t),
-                                          GNRC_NETTYPE_UDP);
+                                          snip_type);
     uint8_t udp_nhc = payload[offset++];
     uint8_t tmp;
 
