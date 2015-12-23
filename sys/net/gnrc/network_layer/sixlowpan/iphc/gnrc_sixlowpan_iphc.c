@@ -111,8 +111,7 @@ static inline bool _context_overlaps_iid(gnrc_sixlowpan_ctx_t *ctx,
              (iid->uint8[(ctx->prefix_len / 8) - 8] & byte_mask[ctx->prefix_len % 8])));
 }
 
-#if defined(MODULE_GNRC_SIXLOWPAN_IPHC_NHC) && \
-    (defined(MODULE_GNRC_UDP) || defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER))
+#ifdef MODULE_GNRC_SIXLOWPAN_IPHC_NHC
 inline static size_t iphc_nhc_udp_decode(gnrc_pktsnip_t *pkt, gnrc_pktsnip_t **dec_hdr,
                                          size_t offset)
 {
@@ -477,11 +476,9 @@ size_t gnrc_sixlowpan_iphc_decode(gnrc_pktsnip_t **dec_hdr, gnrc_pktsnip_t *pkt,
 #ifdef MODULE_GNRC_SIXLOWPAN_IPHC_NHC
     if (iphc_hdr[IPHC1_IDX] & SIXLOWPAN_IPHC1_NH) {
         switch (iphc_hdr[payload_offset] & NHC_ID_MASK) {
-#if defined(MODULE_GNRC_UDP) || defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER)
             case NHC_UDP_ID:
                 payload_offset = iphc_nhc_udp_decode(pkt, dec_hdr, payload_offset);
                 break;
-#endif
 
             default:
                 break;
@@ -492,8 +489,7 @@ size_t gnrc_sixlowpan_iphc_decode(gnrc_pktsnip_t **dec_hdr, gnrc_pktsnip_t *pkt,
     return payload_offset;
 }
 
-#if defined(MODULE_GNRC_SIXLOWPAN_IPHC_NHC) && \
-    (defined(MODULE_GNRC_UDP) || defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER))
+#ifdef MODULE_GNRC_SIXLOWPAN_IPHC_NHC
 inline static size_t iphc_nhc_udp_encode(gnrc_pktsnip_t *udp, ipv6_hdr_t *ipv6_hdr)
 {
     udp_hdr_t *udp_hdr = udp->data;
@@ -628,8 +624,7 @@ bool gnrc_sixlowpan_iphc_encode(gnrc_pktsnip_t *pkt)
 
     /* compress next header */
     switch (ipv6_hdr->nh) {
-#if defined(MODULE_GNRC_SIXLOWPAN_IPHC_NHC) && \
-    (defined(MODULE_GNRC_UDP) || defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER))
+#ifdef MODULE_GNRC_SIXLOWPAN_IPHC_NHC
         case PROTNUM_UDP:
             iphc_nhc_udp_encode(pkt->next->next, ipv6_hdr);
             iphc_hdr[IPHC1_IDX] |= SIXLOWPAN_IPHC1_NH;
