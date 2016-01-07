@@ -117,9 +117,9 @@ def is_updated(application_folder, subprocess_env):
         if base_branch == '':
             return True
 
-        if '.travis.yml' in diff_files or \
-           any('dist/' in s for s in diff_files):
-            return True
+#        if '.travis.yml' in diff_files or \
+#           any('dist/' in s for s in diff_files):
+#            return True
 
         boards_changes = set()
 
@@ -250,6 +250,7 @@ if __name__ == '__main__':
     if len(argv) > 1:
         base_branch = argv[1]
         diff_files = check_output(('git', 'diff', '--name-only', base_branch, 'HEAD'))
+        stdout.write(diff_files)
         diff_files = set(diff_files.split())
     else:
         base_branch = ''
