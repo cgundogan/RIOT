@@ -758,10 +758,12 @@ INPUT                  = ../../doc.txt \
                          ../../cpu \
                          ../../boards \
                          ../../drivers \
-                         ../../sys \
                          ../../pkg \
+                         ../../sys \
                          src/ \
                          src/mainpage.md \
+                         src/creating-modules.md \
+                         src/creating-an-application.md \
                          src/getting-started.md
 
 # This tag can be used to specify the character encoding of the source files
@@ -822,6 +824,7 @@ EXCLUDE_PATTERNS       = */board/*/tools/* \
                          */cpu/*/include/atmel/* \
                          */cpu/sam3/include/sam3* \
                          */cpu/sam3/include/system_sam*.h \
+                         */cpu/samd21/include/samd21.h \
                          */cpu/lpc*/include/core_cm*.h \
                          */cpu/cortexm_common/include/core_cm*.h \
                          */cpu/stm32f*/include/stm32f* \
