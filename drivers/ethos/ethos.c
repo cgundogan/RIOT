@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Kaspar Schleiser <kaspar@schleiser.de>
+ * Copyright (C) 2016 Kaspar Schleiser <kaspar@schleiser.de>
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -63,6 +63,9 @@ void ethos_setup(ethos_t *dev, uart_t uart, uint32_t baudrate, uint8_t *buf, siz
     memcpy(dev->mac_addr, (char*)&a, 4);
     a = genrand_uint32();
     memcpy(dev->mac_addr+4, (char*)&a, 2);
+
+    dev->mac_addr[0] &= (2)     /* unset globally unique bit */
+    dev->mac_addr[0] &= ~(1);   /* set unicast bit*/
 
     uart_init(uart, baudrate, ethos_isr, (void*)dev);
 }
