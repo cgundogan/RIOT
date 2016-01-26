@@ -64,8 +64,8 @@ void ethos_setup(ethos_t *dev, uart_t uart, uint32_t baudrate, uint8_t *buf, siz
     a = genrand_uint32();
     memcpy(dev->mac_addr+4, (char*)&a, 2);
 
-    dev->mac_addr[0] &= (2)     /* unset globally unique bit */
-    dev->mac_addr[0] &= ~(1);   /* set unicast bit*/
+    dev->mac_addr[0] &= (0x2);      /* unset globally unique bit */
+    dev->mac_addr[0] &= ~(0x1);     /* set unicast bit*/
 
     uart_init(uart, baudrate, ethos_isr, (void*)dev);
 }
