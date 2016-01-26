@@ -1,3 +1,9 @@
+## Requirements
+
+- currently, the host side only compiles on Linux
+
+## Usage
+
 To use, add
 
     #
