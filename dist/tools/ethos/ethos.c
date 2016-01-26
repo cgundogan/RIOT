@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    set_serial_attribs(serial_fd, 115200, 0);
+    set_serial_attribs(serial_fd, B115200, 0);
     set_blocking(serial_fd, 1);
 
     fd_set readfds;
