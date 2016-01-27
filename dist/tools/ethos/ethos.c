@@ -7,10 +7,13 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <netdb.h>
 #include <netinet/in.h>
+ #include <netinet/tcp.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
 #include <sys/types.h>
@@ -19,6 +22,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 
 #include <termios.h>
@@ -226,10 +230,50 @@ static void _write_escaped(int fd, char* buf, ssize_t n)
 int main(int argc, char *argv[])
 {
     char inbuf[MTU];
+    int serial_fd = -1;
+    serial_t serial = { .state = 0, .frametype = 0, .framebytes = 0 };
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
 
-    serial_t serial = {0};
+    if (argc == 3) {
+        serial_fd = open(argv[2], O_RDWR | O_NOCTTY | O_SYNC);
+        if (serial_fd < 0) {
+            fprintf(stderr, "Error opening serial device %s\n", argv[2]);
+            return 1;
+        }
 
-    if (argc < 3) {
+        set_serial_attribs(serial_fd, B115200, 0);
+        set_blocking(serial_fd, 1);
+    }
+    else if (argc == 4) {
+        int port = atoi(argv[3]);
+        memset((char *) &serv_addr, 0, sizeof(serv_addr));
+        serial_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (serial_fd < 0) {
+            fprintf(stderr, "Error allocating socket\n");
+            return 1;
+        }
+        int flag = 1;
+        int result = setsockopt(serial_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+        if (result < 0) {
+            fprintf(stderr, "Error disabling the Nagle algorithm for the socket\n");
+            return 1;
+        }
+
+        server = gethostbyname(argv[2]);
+        if (server == NULL) {
+            fprintf(stderr, "Could not find %s\n", argv[2]);
+            return 1;
+        }
+        serv_addr.sin_family = AF_INET;
+        memcpy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+        serv_addr.sin_port = htons(port);
+        if (connect(serial_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+            fprintf(stderr, "Error connecting to serial device at %s:%d\n", argv[2], port);
+            return 1;
+        }
+    }
+    else {
         usage();
         return 1;
     }
@@ -241,16 +285,6 @@ int main(int argc, char *argv[])
     if (tap_fd < 0) {
         return 1;
     }
-
-    int serial_fd = open(argv[2], O_RDWR | O_NOCTTY | O_SYNC);
-
-    if (serial_fd < 0) {
-        fprintf(stderr, "Error opening serial device %s\n", argv[2]);
-        return 1;
-    }
-
-    set_serial_attribs(serial_fd, B115200, 0);
-    set_blocking(serial_fd, 1);
 
     fd_set readfds;
     int max_fd = (serial_fd > tap_fd) ? serial_fd : tap_fd;
@@ -290,7 +324,7 @@ int main(int argc, char *argv[])
         if (FD_ISSET(tap_fd, &readfds)) {
             ssize_t res = read(tap_fd, inbuf, sizeof(inbuf));
             if (res <= 0) {
-                fprintf(stderr, "error reading from tap device. res=%lu\n", res);
+                fprintf(stderr, "error reading from tap device. res=%zu\n", res);
                 continue;
             }
 
@@ -303,7 +337,7 @@ int main(int argc, char *argv[])
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
             ssize_t res = read(STDIN_FILENO, inbuf, sizeof(inbuf));
             if (res <= 0) {
-                fprintf(stderr, "error reading from stdio. res=%lu\n", res);
+                fprintf(stderr, "error reading from stdio. res=%zu\n", res);
                 continue;
             }
 
