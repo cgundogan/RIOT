@@ -24,6 +24,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #include "net/eui64.h"
 #include "net/ieee802154.h"
