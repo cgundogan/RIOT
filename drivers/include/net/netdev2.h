@@ -48,6 +48,7 @@ extern "C" {
 
 #include "net/netstats.h"
 #include "net/netopt.h"
+#include "net/netstats.h"
 
 enum {
     NETDEV2_TYPE_UNKNOWN,
@@ -199,6 +200,7 @@ typedef struct netdev2_driver {
      */
     int (*set)(netdev2_t *dev, netopt_t opt,
                void *value, size_t value_len);
+
 } netdev2_driver_t;
 
 #ifdef __cplusplus
