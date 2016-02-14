@@ -120,7 +120,7 @@ void isl29125_read_rgb_lux(isl29125_t *dev, isl29125_rgb_t *dest)
     dest->blue = blue * luxfactor;
 }
 
-void isl29125_read_rgb_color(isl29125_t *dev, color_rgb_t *dest)
+void isl29125_read_rgb_color(isl29125_t *dev, color_argb_t *dest)
 {
     /* acquire exclusive access to the bus */
     (void) i2c_acquire(dev->i2c);
@@ -135,9 +135,9 @@ void isl29125_read_rgb_color(isl29125_t *dev, color_rgb_t *dest)
     /* factor normalize 12 or 16 bit to 8 bit */
     int normfactor = (dev->res == ISL29125_RESOLUTION_12) ? 4 : 8;
     /* parse and normalize readings */
-    dest->g = (bytes[0] | (bytes[1] << 8)) >> normfactor;
-    dest->r = (bytes[2] | (bytes[3] << 8)) >> normfactor;
-    dest->b = (bytes[4] | (bytes[5] << 8)) >> normfactor;
+    dest->argb.g = (bytes[0] | (bytes[1] << 8)) >> normfactor;
+    dest->argb.r = (bytes[2] | (bytes[3] << 8)) >> normfactor;
+    dest->argb.b = (bytes[4] | (bytes[5] << 8)) >> normfactor;
 }
 
 void isl29125_set_mode(isl29125_t *dev, isl29125_mode_t mode)

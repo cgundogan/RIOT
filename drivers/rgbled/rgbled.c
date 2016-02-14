@@ -41,9 +41,9 @@ void rgbled_init(rgbled_t *led, pwm_t pwm, int channel_r, int channel_g, int cha
     pwm_init(pwm, PWM_LEFT, PWM_FREQU, PWM_RES);
 }
 
-void rgbled_set(rgbled_t *led, color_rgb_t *color)
+void rgbled_set(rgbled_t *led, color_argb_t *color)
 {
-    pwm_set(led->device, led->channel_r, (unsigned int)color->r);
-    pwm_set(led->device, led->channel_g, (unsigned int)color->g);
-    pwm_set(led->device, led->channel_b, (unsigned int)color->b);
+    pwm_set(led->device, led->channel_r, (unsigned int)color->argb.r);
+    pwm_set(led->device, led->channel_g, (unsigned int)color->argb.g);
+    pwm_set(led->device, led->channel_b, (unsigned int)color->argb.b);
 }

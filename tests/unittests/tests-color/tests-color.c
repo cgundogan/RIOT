@@ -23,24 +23,24 @@
 static void test_str2rgb__success(void)
 {
     const char *color_str = "F09A1D";
-    color_rgb_t rgb;
+    color_argb_t color;
 
-    color_str2rgb(color_str, &rgb);
-    TEST_ASSERT_EQUAL_INT(0xF0, rgb.r);
-    TEST_ASSERT_EQUAL_INT(0x9A, rgb.g);
-    TEST_ASSERT_EQUAL_INT(0x1D, rgb.b);
+    color_str2rgb(color_str, &color);
+    TEST_ASSERT_EQUAL_INT(0xF0, color.argb.r);
+    TEST_ASSERT_EQUAL_INT(0x9A, color.argb.g);
+    TEST_ASSERT_EQUAL_INT(0x1D, color.argb.b);
 }
 
 static void test_rgb2str__success(void)
 {
     char color_str[7] = { 0 };
-    color_rgb_t rgb;
+    color_argb_t color;
 
-    rgb.r = 0x0A;
-    rgb.g = 0xB1;
-    rgb.b = 0x3C;
+    color.argb.r = 0x0A;
+    color.argb.g = 0xB1;
+    color.argb.b = 0x3C;
 
-    color_rgb2str(&rgb, color_str);
+    color_rgb2str(&color, color_str);
 
     TEST_ASSERT_EQUAL_STRING("0AB13C", (char *) color_str);
 }

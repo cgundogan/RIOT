@@ -38,7 +38,7 @@ int main(void)
 {
     isl29125_t dev;
     isl29125_rgb_t data;
-    color_rgb_t data8bit;
+    color_argb_t data8bit;
     memset(&data, 0x00, sizeof(data));
 
     puts("ISL29125 light sensor test application\n");
@@ -69,7 +69,7 @@ int main(void)
         xtimer_usleep(SLEEP);
         isl29125_read_rgb_color(&dev, &data8bit);
         printf("RGB value: (%3i / %3i / %3i) 8 bit\n",
-                data8bit.r, data8bit.g, data8bit.b);
+                data8bit.argb.r, data8bit.argb.g, data8bit.argb.b);
     }
 
     puts("Resetting mode to RGB and reading continuously");

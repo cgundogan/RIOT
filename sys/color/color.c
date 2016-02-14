@@ -24,14 +24,14 @@
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
-void color_rgb2hsv(color_rgb_t *rgb, color_hsv_t *hsv)
+void color_rgb2hsv(color_argb_t *color, color_hsv_t *hsv)
 {
     float rd, gd, bd, delta;
 
     /* norm RGB colors to the range [0 - 1.0] */
-    rd = (float)rgb->r / 255.0f;
-    gd = (float)rgb->g / 255.0f;
-    bd = (float)rgb->b / 255.0f;
+    rd = (float)color->argb.r / 255.0f;
+    gd = (float)color->argb.g / 255.0f;
+    bd = (float)color->argb.b / 255.0f;
 
     /* find value as maximum of the three colors */
     if (rd >= gd) {
@@ -77,15 +77,15 @@ void color_rgb2hsv(color_rgb_t *rgb, color_hsv_t *hsv)
     }
 }
 
-void color_hsv2rgb(color_hsv_t *hsv, color_rgb_t *rgb)
+void color_hsv2rgb(color_hsv_t *hsv, color_argb_t *color)
 {
     int i;
     float aa, bb, cc, f, h;
 
     if (hsv->s == 0.0f) {
-        rgb->r = (uint8_t)(hsv->v * 255.0f);
-        rgb->g = (uint8_t)(hsv->v * 255.0f);
-        rgb->b = (uint8_t)(hsv->v * 255.0f);
+        color->argb.r = (uint8_t)(hsv->v * 255.0f);
+        color->argb.g = (uint8_t)(hsv->v * 255.0f);
+        color->argb.b = (uint8_t)(hsv->v * 255.0f);
         return;
     }
 
@@ -99,79 +99,67 @@ void color_hsv2rgb(color_hsv_t *hsv, color_rgb_t *rgb)
 
     switch (i) {
         case 0:
-            rgb->r = (uint8_t)(hsv->v * 255.0f);
-            rgb->g = (uint8_t)(cc * 255.0f);
-            rgb->b = (uint8_t)(aa * 255.0f);
+            color->argb.r = (uint8_t)(hsv->v * 255.0f);
+            color->argb.g = (uint8_t)(cc * 255.0f);
+            color->argb.b = (uint8_t)(aa * 255.0f);
             break;
         case 1:
-            rgb->r = (uint8_t)(bb * 255.0f);
-            rgb->g = (uint8_t)(hsv->v * 255.0f);
-            rgb->b = (uint8_t)(aa * 255.0f);
+            color->argb.r = (uint8_t)(bb * 255.0f);
+            color->argb.g = (uint8_t)(hsv->v * 255.0f);
+            color->argb.b = (uint8_t)(aa * 255.0f);
             break;
         case 2:
-            rgb->r = (uint8_t)(aa * 255.0f);
-            rgb->g = (uint8_t)(hsv->v * 255.0f);
-            rgb->b = (uint8_t)(cc * 255.0f);
+            color->argb.r = (uint8_t)(aa * 255.0f);
+            color->argb.g = (uint8_t)(hsv->v * 255.0f);
+            color->argb.b = (uint8_t)(cc * 255.0f);
             break;
         case 3:
-            rgb->r = (uint8_t)(aa * 255.0f);
-            rgb->g = (uint8_t)(bb * 255.0f);
-            rgb->b = (uint8_t)(hsv->v * 255.0f);
+            color->argb.r = (uint8_t)(aa * 255.0f);
+            color->argb.g = (uint8_t)(bb * 255.0f);
+            color->argb.b = (uint8_t)(hsv->v * 255.0f);
             break;
         case 4:
-            rgb->r = (uint8_t)(cc * 255.0f);
-            rgb->g = (uint8_t)(aa * 255.0f);
-            rgb->b = (uint8_t)(hsv->v * 255.0f);
+            color->argb.r = (uint8_t)(cc * 255.0f);
+            color->argb.g = (uint8_t)(aa * 255.0f);
+            color->argb.b = (uint8_t)(hsv->v * 255.0f);
             break;
         case 5:
-            rgb->r = (uint8_t)(hsv->v * 255.0f);
-            rgb->g = (uint8_t)(aa * 255.0f);
-            rgb->b = (uint8_t)(bb * 255.0f);
+            color->argb.r = (uint8_t)(hsv->v * 255.0f);
+            color->argb.g = (uint8_t)(aa * 255.0f);
+            color->argb.b = (uint8_t)(bb * 255.0f);
             break;
     }
 }
 
-void color_hex2rgb(uint32_t hex, color_rgb_t *rgb)
+void color_str2rgb(const char* str, color_argb_t *color)
 {
-    rgb->r = ((hex >> 16) & 0xFF);
-    rgb->g = ((hex >> 8) & 0xFF);
-    rgb->b = (hex & 0xFF);
+    color->argb.r = (((str[0] > '9') ? (str[0] &~ 0x20) - 'A' + 10 : (str[0] - '0')) << 4) | /* R */
+                    (((str[1] > '9') ? (str[1] &~ 0x20) - 'A' + 10 : (str[1] - '0')) << 0) ; /* R */
+    color->argb.g = (((str[2] > '9') ? (str[2] &~ 0x20) - 'A' + 10 : (str[2] - '0')) << 4) | /* G */
+                    (((str[3] > '9') ? (str[3] &~ 0x20) - 'A' + 10 : (str[3] - '0')) << 0) ; /* G */
+    color->argb.b = (((str[4] > '9') ? (str[4] &~ 0x20) - 'A' + 10 : (str[4] - '0')) << 4) | /* B */
+                    (((str[5] > '9') ? (str[5] &~ 0x20) - 'A' + 10 : (str[5] - '0')) << 0) ; /* B */
 }
 
-void color_rgb2hex(color_rgb_t *rgb, uint32_t *hex)
-{
-    *hex = (rgb->r << 16) | (rgb->g << 8) | (rgb->b);
-}
-
-void color_str2rgb(const char* str, color_rgb_t *rgb)
-{
-    rgb->r = (((str[0] > '9') ? (str[0] &~ 0x20) - 'A' + 10 : (str[0] - '0')) << 4) | /* R */
-             (((str[1] > '9') ? (str[1] &~ 0x20) - 'A' + 10 : (str[1] - '0')) << 0) ; /* R */
-    rgb->g = (((str[2] > '9') ? (str[2] &~ 0x20) - 'A' + 10 : (str[2] - '0')) << 4) | /* G */
-             (((str[3] > '9') ? (str[3] &~ 0x20) - 'A' + 10 : (str[3] - '0')) << 0) ; /* G */
-    rgb->b = (((str[4] > '9') ? (str[4] &~ 0x20) - 'A' + 10 : (str[4] - '0')) << 4) | /* B */
-             (((str[5] > '9') ? (str[5] &~ 0x20) - 'A' + 10 : (str[5] - '0')) << 0) ; /* B */
-}
-
-void color_rgb2str(color_rgb_t *rgb, char* str)
+void color_rgb2str(color_argb_t *color, char* str)
 {
     uint8_t tmp;
 
     /* RR */
-    tmp = rgb->r >> 4;
+    tmp = color->argb.r >> 4;
     str[0] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
-    tmp = rgb->r & 0x0F;
+    tmp = color->argb.r & 0x0F;
     str[1] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
 
     /* GG */
-    tmp = rgb->g >> 4;
+    tmp = color->argb.g >> 4;
     str[2] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
-    tmp = rgb->g & 0x0F;
+    tmp = color->argb.g & 0x0F;
     str[3] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
 
     /* BB */
-    tmp = rgb->b >> 4;
+    tmp = color->argb.b >> 4;
     str[4] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
-    tmp = rgb->b & 0x0F;
+    tmp = color->argb.b & 0x0F;
     str[5] = (tmp > 9) ? ('A' - 10 + tmp) : ('0' + tmp);
 }

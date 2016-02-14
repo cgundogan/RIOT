@@ -17,7 +17,7 @@
  * channel. Selecting a higher precision results in a longer
  * conversion time.
  *
- * The driver uses the @ref color_rgb_t color definition from @ref
+ * The driver uses the @ref color_argb_t color definition from @ref
  * color.h for value representation. It does not depend on the color
  * module however.
  *
@@ -137,7 +137,7 @@ void isl29125_read_rgb_lux(isl29125_t *dev, isl29125_rgb_t *dest);
  * @param[in] dev       device descriptor of an ISL29125 device
  * @param[in] dest      pointer to RGB color object data is written to
  */
-void isl29125_read_rgb_color(isl29125_t *dev, color_rgb_t *dest);
+void isl29125_read_rgb_color(isl29125_t *dev, color_argb_t *dest);
 
 /**
  * @brief set the device's operation mode
