@@ -73,12 +73,16 @@ static bool _is_iface(kernel_pid_t dev)
     return false;
 }
 
-#ifdef MODULE_NETSTATS_L2
-static int _netif_stats(kernel_pid_t dev, bool reset)
+#if defined(MODULE_NETSTATS_L2) || defined(MODULE_NETSTATS_L3)
+static int _netif_stats(kernel_pid_t dev, unsigned layer, bool reset)
 {
     netstats_t *stats;
     int res = -ENOTSUP;
-    res = gnrc_netapi_get(dev, NETOPT_STATS, 0, &stats, sizeof(&stats));
+
+    if (layer & NETSTATS_LAYER2) {
+        res = gnrc_netapi_get(dev, NETOPT_STATS, 0, &stats, sizeof(&stats));
+    }
+
     if (res < 0) {
         puts("           Protocol or device doesn't provide statistics.");
     }
@@ -97,6 +101,7 @@ static int _netif_stats(kernel_pid_t dev, bool reset)
                (unsigned) stats->tx_bytes,
                (unsigned) stats->tx_success,
                (unsigned) stats->tx_failed);
+        res = 0;
     }
     return res;
 }
@@ -155,7 +160,7 @@ static void _del_usage(char *cmd_name)
 
 static void _stats_usage(char *cmd_name)
 {
-    printf("usage: %s <if_id> stats [reset]\n", cmd_name);
+    printf("usage: %s <if_id> stats [layer] [reset]\n", cmd_name);
 }
 
 static void _print_netopt(netopt_t opt)
@@ -1108,11 +1113,29 @@ int _netif_config(int argc, char **argv)
             }
 #ifdef MODULE_NETSTATS_L2
             else if (strcmp(argv[2], "stats") == 0) {
+                netstats_layer_t layer;
                 bool reset = false;
-                if ((argc > 3) && (strncmp(argv[3], "reset", 5) == 0)) {
+
+                /* check for requested layer */
+                if ((argc == 3) || (atoi(argv[3] == 0))) {
+                    layer = NETSTATS_LAYER_ALL;
+                }
+                else {
+                    layer = atoi(argv[3]);
+                }
+
+                /* check if reset flag was given */
+                if ((argc > 4) && (strncmp(argv[4], "reset", 5) == 0)) {
                     reset = true;
                 }
-                return _netif_stats((kernel_pid_t)dev, reset);
+                if (layer & NETSTATS_LAYER2) {
+                    _netif_stats((kernel_pid_t) dev, NETSTATS_LAYER2, reset);
+                }
+                if (layer & NETSTATS_LAYER3) {
+                    _netif_stats((kernel_pid_t) dev, NETSTATS_LAYER3, reset);
+                }
+
+                return 1;
             }
 #endif
 #ifdef MODULE_GNRC_IPV6_NETIF

@@ -34,6 +34,7 @@ PSEUDOMODULES += lwip_udplite
 PSEUDOMODULES += netdev_default
 PSEUDOMODULES += netif
 PSEUDOMODULES += netstats_l2
+PSEUDOMODULES += netstats_l3
 PSEUDOMODULES += newlib
 PSEUDOMODULES += newlib_nano
 PSEUDOMODULES += pktqueue
