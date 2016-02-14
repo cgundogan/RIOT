@@ -25,6 +25,13 @@
 extern "C" {
 #endif
 
+typedef enum {
+    NETSTATS_LAYER2     = 0x01,
+    NETSTATS_LAYER3     = 0x02,
+    NETSTATS_LAYER_ALL  = 0xFF
+} netstats_layer_t;
+
+
 /**
  * @brief       Global statistics struct
  */
