@@ -29,7 +29,8 @@ before_install:
 
 install:
     - sudo apt-get -y install $(./dist/tools/travis-scripts/get-pkg-list.py)
-    - sudo pip install pexpect  # current version in Ubuntu repos is errorneous
+    - wget https://launchpad.net/ubuntu/+archive/primary/+files/python-pexpect_4.0.1-1_all.deb
+    - sudo dpkg --install python-pexpect_4.0.1-1_all.deb
     - git config --global user.email "travis@example.com"
     - git config --global user.name "Travis CI"
     - test "$TRAVIS_BRANCH" = "master" || git fetch origin $TRAVIS_BRANCH:$TRAVIS_BRANCH

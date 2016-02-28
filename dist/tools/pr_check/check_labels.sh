@@ -11,7 +11,7 @@
 # ./dist/tools/pr_check/pr_check.sh
 
 GITHUB_API_HOST="https://api.github.com"
-GITHUB_REPO="RIOT-OS/RIOT"
+GITHUB_REPO="cgundogan/RIOT"
 
 if which wget &> /dev/null; then
     GET="wget -O -"
