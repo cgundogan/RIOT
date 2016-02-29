@@ -316,6 +316,7 @@ static inline bool GNRC_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define GNRC_RPL_OPT_SOLICITED_INFO       (7)
 #define GNRC_RPL_OPT_PREFIX_INFO          (8)
 #define GNRC_RPL_OPT_TARGET_DESC          (9)
+#define GNRC_RPL_OPT_DIO_REQ_OPT          (12)
 /** @} */
 
 /**
@@ -446,8 +447,11 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination);
  * @param[in] instance          Pointer to the RPL instance, optional.
  * @param[in] destination       IPv6 addres of the destination.
  * @param[in] flags             Flags of the DIS message
+ * @param[in] req_opts          DIO options to request
+ * @param[in] req_opts_numof    Number of DIO options to request
  */
-void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination, uint8_t flags);
+void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination, uint8_t flags,
+                       uint8_t req_opts[], uint8_t req_opts_numof);
 
 /**
  * @brief   Send a DAO of the @p dodag to the @p destination.

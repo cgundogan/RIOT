@@ -174,9 +174,10 @@ int _gnrc_rpl_trickle_start(char *arg1)
     return 0;
 }
 
-int _gnrc_rpl_send_dis(ipv6_addr_t *addr, uint8_t flags)
+int _gnrc_rpl_send_dis(ipv6_addr_t *addr, uint8_t flags, uint8_t req_opt)
 {
-    gnrc_rpl_send_DIS(NULL, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, flags);
+    uint8_t req_opts[1] = { req_opt };
+    gnrc_rpl_send_DIS(NULL, addr, flags, req_opts, !!req_opt);
 
     puts("success: send a DIS\n");
     return 0;
@@ -349,7 +350,8 @@ int _gnrc_rpl(int argc, char **argv)
     }
     else if (strcmp(argv[1], "send") == 0) {
         if (strcmp(argv[2], "dis") == 0) {
-            if (argc == 5) {
+            uint8_t req_opt;
+            if (argc == 6) {
                 ipv6_addr_t addr;
                 if (ipv6_addr_from_str(&addr, argv[3]) == NULL) {
                     puts("error: <addr> must be a valid IPv6 address");
@@ -359,14 +361,16 @@ int _gnrc_rpl(int argc, char **argv)
                     puts("error: <addr> must be a unicast address");
                     return 1;
                 }
-                return _gnrc_rpl_send_dis(&addr, atoi(argv[4]));
+                req_opt = atoi(argv[5]);
+                return _gnrc_rpl_send_dis(&addr, atoi(argv[4]), req_opt);
             }
-            else if (argc == 4) {
+            else if (argc == 5) {
                 ipv6_addr_t addr = GNRC_RPL_ALL_NODES_ADDR;
-                return _gnrc_rpl_send_dis(&addr, atoi(argv[3]));
+                req_opt = atoi(argv[4]);
+                return _gnrc_rpl_send_dis(&addr, atoi(argv[3]), req_opt);
             }
-            puts("usage:\nunicast:  rpl send dis <unicast_addr> <flags>\n"
-                 "multicast: rpl send dis <flags>");
+            puts("usage:\nunicast:  rpl send dis <unicast_addr> <flags> <dio_opt>\n"
+                 "multicast: rpl send dis <flags> <dio_opt>");
         }
     }
     else if (strcmp(argv[1], "leaf") == 0) {
