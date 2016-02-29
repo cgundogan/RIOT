@@ -175,6 +175,16 @@ typedef struct __attribute__((packed)) {
     ipv6_addr_t prefix;         /**< prefix used for Stateless Address Autoconfiguration */
 } gnrc_rpl_opt_prefix_info_t;
 
+/**
+ * @brief DIO Option Request Option
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t type;               /**< option type */
+    uint8_t length;             /**< option length without the first two bytes */
+    uint8_t dio_opt;            /**< requested DIO option */
+} gnrc_rpl_opt_dio_req_opt_t;
+
+
 typedef struct gnrc_rpl_dodag gnrc_rpl_dodag_t;
 typedef struct gnrc_rpl_parent gnrc_rpl_parent_t;
 typedef struct gnrc_rpl_instance gnrc_rpl_instance_t;
