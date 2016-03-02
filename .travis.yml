@@ -21,6 +21,9 @@ env:
         - BUILDTEST_MCU_GROUP=msp430
         - BUILDTEST_MCU_GROUP=arm7
 
+matrix:
+    fast_finish: true
+
 before_install:
     - source ./dist/tools/pr_check/check_labels.sh
     - test -z "$TRAVIS_PULL_REQUEST" || test "$BUILDTEST_MCU_GROUP" = "static-tests" || check_gh_label "Ready for CI build" || exit 1
