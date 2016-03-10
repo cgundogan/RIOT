@@ -1,5 +1,5 @@
 TOOL_NAME=desvirt
-TOOL_URL=https://github.com/des-testbed/desvirt.git
+TOOL_URL=https://github.com/cgundogan/desvirt.git
 TOOL_VERSION=master
 TOOL_DIR=$(RIOTBASE)/dist/tools/$(TOOL_NAME)/$(TOOL_NAME)
 
