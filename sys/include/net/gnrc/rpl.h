@@ -72,6 +72,9 @@
 #include "net/gnrc/ipv6.h"
 #include "net/ipv6/addr.h"
 #include "net/gnrc/nettype.h"
+#ifdef MODULE_GNRC_RPL_BLOOM
+#include "net/gnrc/rpl/rpl_bloom.h"
+#endif
 #include "net/gnrc/rpl/structs.h"
 #include "net/gnrc/rpl/dodag.h"
 #include "net/gnrc/rpl/of_manager.h"
@@ -393,6 +396,9 @@ static inline bool GNRC_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  *          </a>
  * @{
  */
+#ifdef MODULE_GNRC_RPL_BLOOM
+#define GNRC_RPL_DIS_R                      (1 << 2)
+#endif
 #define GNRC_RPL_DIS_N                      (1 << 1)
 #define GNRC_RPL_DIS_T                      (1 << 0)
 /**  @} */

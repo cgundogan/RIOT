@@ -19,6 +19,8 @@
 #include "net/gnrc/ipv6/netif.h"
 #include "net/gnrc.h"
 #include "mutex.h"
+#include "periph/cpuid.h"
+#include "random.h"
 
 #include "net/gnrc/rpl.h"
 #ifdef MODULE_GNRC_RPL_P2P
@@ -70,6 +72,16 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
 
         gnrc_rpl_of_manager_init();
         xtimer_set_msg(&_lt_timer, _lt_time, &_lt_msg, gnrc_rpl_pid);
+#ifdef MODULE_GNRC_RPL_BLOOM
+        uint8_t cpuid[CPUID_LEN];
+        uint32_t seed = 0;
+        cpuid_get(cpuid);
+        for (unsigned int i = 0; i < CPUID_LEN; i++) {
+            seed += cpuid[i];
+        }
+        random_init(seed);
+        gnrc_rpl_bloom_init();
+#endif
     }
 
     /* register all_RPL_nodes multicast address */
@@ -199,6 +211,9 @@ static void *_event_loop(void *args)
     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
 
     trickle_t *trickle;
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_inst_ext_t *inst_bloom;
+#endif
     /* start event loop */
     while (1) {
         DEBUG("RPL: waiting for incoming message.\n");
@@ -223,6 +238,32 @@ static void *_event_loop(void *args)
                     trickle_callback(trickle);
                 }
                 break;
+#ifdef MODULE_GNRC_RPL_BLOOM
+            case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
+                if (msg.content.ptr) {
+                    inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
+                    if (inst_bloom->instance && inst_bloom->instance->state) {
+                        gnrc_rpl_bloom_request_na(inst_bloom);
+                    }
+                }
+                break;
+            case GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO received\n");
+                if (msg.content.ptr) {
+                    inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
+                    if (inst_bloom->instance && inst_bloom->instance->state) {
+                        inst_bloom->instance->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                        gnrc_rpl_send_DIO(inst_bloom->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
+                        inst_bloom->delayed_dio = false;
+                    }
+                }
+                break;
+            case GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST received\n");
+                gnrc_rpl_bloom_blacklist_reset();
+                break;
+#endif
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 DEBUG("RPL: GNRC_NETAPI_MSG_TYPE_RCV received\n");
                 _receive((gnrc_pktsnip_t *)msg.content.ptr);
@@ -260,8 +301,14 @@ void _update_lifetime(void)
                 gnrc_rpl_parent_update(dodag, NULL);
                 continue;
             }
+#ifdef MODULE_GNRC_RPL_BLOOM
+            else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 5)) {
+                parent->bloom_ext.bidirectional = false;
+                gnrc_rpl_bloom_request_na_safe(&parent->dodag->instance->bloom_ext);
+#else
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
+#endif
             }
         }
     }
@@ -278,6 +325,17 @@ void _update_lifetime(void)
                     continue;
                 }
             }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+            inst->bloom_ext.bloom_lifetime -= GNRC_RPL_LIFETIME_UPDATE_STEP;
+            if (inst->bloom_ext.bloom_lifetime <= 0) {
+                gnrc_rpl_bloom_refresh(&inst->bloom_ext);
+                if ((inst->dodag.parents) || (inst->dodag.node_status == GNRC_RPL_ROOT_NODE)) {
+                    inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                    gnrc_rpl_send_DIO(inst, NULL);
+                }
+            }
+#endif
 
             if (inst->dodag.dao_time > GNRC_RPL_LIFETIME_UPDATE_STEP) {
                 inst->dodag.dao_time -= GNRC_RPL_LIFETIME_UPDATE_STEP;
