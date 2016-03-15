@@ -68,6 +68,12 @@ ifneq (,$(filter gnrc_rpl_p2p,$(USEMODULE)))
   USEMODULE += gnrc_rpl
 endif
 
+ifneq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+  USEMODULE += hashes
+  USEMODULE += bloom
+  USEMODULE += gnrc_rpl
+endif
+
 ifneq (,$(filter gnrc_rpl,$(USEMODULE)))
   USEMODULE += fib
   USEMODULE += gnrc_ipv6_router_default

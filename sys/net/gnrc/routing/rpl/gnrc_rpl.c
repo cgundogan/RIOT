@@ -70,6 +70,9 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
 
         gnrc_rpl_of_manager_init();
         xtimer_set_msg(&_lt_timer, _lt_time, &_lt_msg, gnrc_rpl_pid);
+#ifdef MODULE_GNRC_RPL_BLOOM
+        gnrc_rpl_bloom_init();
+#endif
     }
 
     /* register all_RPL_nodes multicast address */
@@ -223,6 +226,12 @@ static void *_event_loop(void *args)
                     trickle_callback(trickle);
                 }
                 break;
+#ifdef MODULE_GNRC_RPL_BLOOM
+            case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
+                gnrc_rpl_bloom_request_na((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr);
+                break;
+#endif
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 DEBUG("RPL: GNRC_NETAPI_MSG_TYPE_RCV received\n");
                 _receive((gnrc_pktsnip_t *)msg.content.ptr);

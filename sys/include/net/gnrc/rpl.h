@@ -72,6 +72,9 @@
 #include "net/gnrc/ipv6.h"
 #include "net/ipv6/addr.h"
 #include "net/gnrc/nettype.h"
+#ifdef MODULE_GNRC_RPL_BLOOM
+#include "net/gnrc/rpl/rpl_bloom.h"
+#endif
 #include "net/gnrc/rpl/structs.h"
 #include "net/gnrc/rpl/dodag.h"
 #include "net/gnrc/rpl/of_manager.h"

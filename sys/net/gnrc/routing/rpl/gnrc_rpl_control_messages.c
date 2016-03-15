@@ -188,6 +188,14 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     }
 #endif
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (dodag->dio_opts & GNRC_RPL_REQ_OPT_NA) {
+        if ((pkt = gnrc_rpl_bloom_dio_na_build(pkt, &inst->bloom_ext)) == NULL) {
+            return;
+        }
+    }
+#endif
+
     if (dodag->dio_opts & GNRC_RPL_REQ_DIO_OPT_DODAG_CONF) {
         if ((pkt = _dio_dodag_conf_build(pkt, dodag)) == NULL) {
             return;
@@ -225,52 +233,105 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 }
 
-void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t flags,
-                       uint8_t dio_opts[], uint8_t req_opts_numof)
+gnrc_pktsnip_t *_dis_padding_build(gnrc_pktsnip_t *pkt, int padding)
 {
-    gnrc_pktsnip_t *pkt;
-    icmpv6_hdr_t *icmp;
+    gnrc_rpl_opt_t *rpl_opt;
+    gnrc_pktsnip_t *opt_snip;
+    uint8_t *ptr;
+
+    if (padding < 1) {
+        return NULL;
+    }
+
+    if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, padding, GNRC_NETTYPE_UNDEF)) == NULL) {
+        DEBUG("RPL: BUILD PADDING - no space left in packet buffer\n");
+        gnrc_pktbuf_release(pkt);
+        return NULL;
+    }
+
+    ptr = opt_snip->data;
+
+    if (padding > 1) {
+        padding -= sizeof(gnrc_rpl_opt_t);
+        rpl_opt = opt_snip->data;
+        rpl_opt->type = GNRC_RPL_OPT_PADN;
+        rpl_opt->length = padding;
+        ptr = (ptr + sizeof(gnrc_rpl_opt_t));
+    }
+    memset(ptr, 0, padding);
+
+    return opt_snip;
+}
+
+gnrc_pktsnip_t *_dis_dio_opt_req_build(gnrc_pktsnip_t *pkt, uint8_t req_opts[],
+                                       uint8_t req_opts_numof)
+{
+    gnrc_rpl_opt_dio_req_opt_t *req_opt;
+    gnrc_pktsnip_t *opt_snip;
+
+    for (int i = 0; i < req_opts_numof; i++) {
+        if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_dio_req_opt_t),
+                                        GNRC_NETTYPE_UNDEF)) == NULL) {
+            DEBUG("RPL: BUILD DIO OPT REQ OPT - no space left in packet buffer\n");
+            gnrc_pktbuf_release(pkt);
+            return NULL;
+        }
+
+        req_opt = opt_snip->data;
+        req_opt->length = GNRC_RPL_OPT_DIO_REQ_OPT_LEN;
+        req_opt->type = GNRC_RPL_OPT_DIO_REQ_OPT;
+        req_opt->dio_opt = req_opts[i];
+        pkt = opt_snip;
+    }
+
+    return pkt;
+}
+
+void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t flags,
+                       uint8_t req_opts[], uint8_t req_opts_numof)
+{
+    gnrc_pktsnip_t *pkt = NULL, *tmp = NULL;;
     gnrc_rpl_dis_t *dis;
+
+    if (req_opts_numof) {
+        if ((pkt = _dis_dio_opt_req_build(pkt, req_opts, req_opts_numof)) == NULL) {
+            return;
+        }
+    }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (inst && (inst->dodag.dis_opts & GNRC_RPL_REQ_DIS_OPT_PA)) {
+        if ((pkt = gnrc_rpl_bloom_dis_pa_build(pkt, &inst->bloom_ext, destination)) == NULL) {
+            return;
+        }
+    }
+#endif
 
     /* TODO: Currently the DIS is too small so that wireshark complains about an incorrect
      * ethernet frame check sequence. In order to prevent this, 4 PAD1 options are added.
      * This will be addressed in follow-up PRs */
-    uint8_t padding[] = {
-            0x01, 0x02, 0x00, 0x00
-    };
-
-    int size = sizeof(icmpv6_hdr_t) + sizeof(gnrc_rpl_dis_t) + sizeof(padding) +
-               (sizeof(gnrc_rpl_opt_dio_req_opt_t) * req_opts_numof);
-
-    if ((pkt = gnrc_icmpv6_build(NULL, ICMPV6_RPL_CTRL, GNRC_RPL_ICMPV6_CODE_DIS, size)) == NULL) {
-        DEBUG("RPL: Send DIS - no space left in packet buffer\n");
+    if ((pkt = _dis_padding_build(pkt, 4)) == NULL) {
         return;
     }
 
-    icmp = (icmpv6_hdr_t *)pkt->data;
-    dis = (gnrc_rpl_dis_t *)(icmp + 1);
-
-    dis->flags = 0;
-
-    if (ipv6_addr_is_multicast(destination)) {
-        dis->flags = flags;
+    if ((tmp = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_dis_t), GNRC_NETTYPE_UNDEF)) == NULL) {
+        DEBUG("RPL: Send DIS - no space left in packet buffer\n");
+        gnrc_pktbuf_release(pkt);
+        return;
     }
+    pkt = tmp;
+    dis = pkt->data;
 
+    dis->flags = flags;
     dis->reserved = 0;
 
-    if (req_opts_numof) {
-        gnrc_rpl_opt_dio_req_opt_t *req_opt = (gnrc_rpl_opt_dio_req_opt_t *)(dis + 1);
-        for (int i = 0; i < req_opts_numof; i++) {
-            req_opt->length = GNRC_RPL_OPT_DIO_REQ_OPT_LEN;
-            req_opt->type = GNRC_RPL_OPT_DIO_REQ_OPT;
-            req_opt->dio_opt = dio_opts[i];
-            req_opt++;
-        }
+    if ((tmp = gnrc_icmpv6_build(pkt, ICMPV6_RPL_CTRL, GNRC_RPL_ICMPV6_CODE_DIS,
+                                 sizeof(icmpv6_hdr_t))) == NULL) {
+        DEBUG("RPL: Send DIS - no space left in packet buffer\n");
+        gnrc_pktbuf_release(pkt);
+        return;
     }
-
-    /* TODO add padding may be removed if packet size grows */
-    memcpy((((uint8_t *) (dis + 1)) + req_opts_numof * sizeof(gnrc_rpl_opt_dio_req_opt_t)),
-           padding, sizeof(padding));
+    pkt = tmp;
 
     gnrc_rpl_send(pkt, KERNEL_PID_UNDEF, NULL, destination, (inst? &(inst->dodag.dodag_id) : NULL));
 }
@@ -369,6 +430,34 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
                     return false;
                 }
                 break;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+            case (GNRC_RPL_OPT_PARENT_ANNOUNCEMENT):
+                if (msg_type != GNRC_RPL_ICMPV6_CODE_DIS) {
+                    DEBUG("RPL-BLOOM: PARENT ANNOUNCEMENT option not expected\n");
+                    return false;
+                }
+
+                if (opt->length != GNRC_RPL_OPT_PA_LEN) {
+                    DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) len: %d, expected: %d\n",
+                          opt->length, GNRC_RPL_OPT_PA_LEN);
+                    return false;
+                }
+                break;
+
+            case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
+                if (msg_type != GNRC_RPL_ICMPV6_CODE_DIO) {
+                    DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT option not expected\n");
+                    return false;
+                }
+
+                if (opt->length != GNRC_RPL_OPT_NA_LEN) {
+                    DEBUG("RPL: wrong DIO option (NHOOD ANNOUNCEMENT) len: %d, expected: %d\n",
+                          opt->length, GNRC_RPL_OPT_NA_LEN);
+                    return false;
+                }
+                break;
+#endif
 
             default:
                 break;
@@ -533,8 +622,24 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
                         DEBUG("RPL: DODAG CONF OPT\n");
                         inst->dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                         break;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                    case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
+                        DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT OPT\n");
+                        inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                        break;
+#endif
                 }
                 break;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+            case (GNRC_RPL_OPT_PARENT_ANNOUNCEMENT):
+                gnrc_rpl_bloom_handle_pa((gnrc_rpl_opt_pa_t *) opt, src, inst, included_opts);
+                break;
+
+            case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
+                gnrc_rpl_bloom_handle_na((gnrc_rpl_opt_pa_t *) opt, src, inst, included_opts);
+                break;
+#endif
 
         }
         l += opt->length + sizeof(gnrc_rpl_opt_t);
@@ -622,6 +727,13 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
 {
     gnrc_rpl_instance_t *inst = NULL;
     gnrc_rpl_dodag_t *dodag = NULL;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (bloom_check(&(gnrc_rpl_bloom_blacklist), src->u8, sizeof(*src))) {
+        DEBUG("RPL-BLOOM: ignore DIO (%s)\n", ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+        return;
+    }
+#endif
 
     if (!_gnrc_rpl_check_DIO_validity(dio, len)) {
         return;
@@ -712,6 +824,11 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
                       dodag->dio_interval_doubl, dodag->dio_redun);
 
         gnrc_rpl_parent_update(dodag, parent);
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+        gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+#endif
+
         return;
     }
     else if (inst == NULL) {
