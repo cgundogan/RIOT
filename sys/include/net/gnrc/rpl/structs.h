@@ -33,6 +33,10 @@ extern "C" {
 #include "trickle.h"
 #include "net/netstats.h"
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+#include "net/gnrc/rpl/rpl_bloom.h"
+#endif
+
 /**
  * @anchor GNRC_RPL_REQ_DIO_OPTS
  * @name DIO Options for gnrc_rpl_dodag_t::dio_opts
@@ -203,6 +207,9 @@ struct gnrc_rpl_parent {
     uint32_t lifetime;              /**< lifetime of this parent in seconds */
     double  link_metric;            /**< metric of the link */
     uint8_t link_metric_type;       /**< type of the metric */
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_parent_ext_t bloom_ext;  /**< rpl bloom parent extension */
+#endif
 };
 
 /**
@@ -244,6 +251,7 @@ struct gnrc_rpl_dodag {
     bool dao_ack_received;          /**< flag to check for DAO-ACK */
     uint8_t dio_opts;               /**< options in the next DIO
                                          (see @ref GNRC_RPL_REQ_DIO_OPTS "DIO Options") */
+    uint8_t dis_opts;               /**< options that should be included in the next DIS */
     uint8_t dao_time;               /**< time to schedule a DAO in seconds */
     trickle_t trickle;              /**< trickle representation */
 };
@@ -262,6 +270,9 @@ struct gnrc_rpl_instance {
     int8_t cleanup;                 /**< cleanup time in seconds */
 #ifdef MODULE_NETSTATS_RPL
     netstats_rpl_t stats;
+#endif
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_inst_ext_t bloom_ext;  /**< rpl bloom instance extension */
 #endif
 };
 
