@@ -88,6 +88,9 @@ endif
 ifneq (,$(filter gnrc_rpl_p2p,$(USEMODULE)))
     DIRS += routing/rpl/p2p
 endif
+ifneq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+    DIRS += routing/rpl/bloom
+endif
 ifneq (,$(filter gnrc_sixlowpan,$(USEMODULE)))
     DIRS += network_layer/sixlowpan
 endif

@@ -89,6 +89,10 @@ bool gnrc_rpl_instance_add(uint8_t instance_id, gnrc_rpl_instance_t **inst)
         (*inst)->max_rank_inc = GNRC_RPL_DEFAULT_MAX_RANK_INCREASE;
         (*inst)->min_hop_rank_inc = GNRC_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
         (*inst)->dodag.parents = NULL;
+#ifdef MODULE_GNRC_RPL_BLOOM
+        (*inst)->bloom_ext.instance = (*inst);
+        gnrc_rpl_bloom_instance_ext_init(&(*inst)->bloom_ext);
+#endif
         return true;
     }
 
@@ -110,6 +114,9 @@ bool gnrc_rpl_instance_remove_by_id(uint8_t instance_id)
 
 bool gnrc_rpl_instance_remove(gnrc_rpl_instance_t *inst)
 {
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_instance_ext_remove(&inst->bloom_ext);
+#endif
     gnrc_rpl_dodag_t *dodag = &inst->dodag;
 #ifdef MODULE_GNRC_RPL_P2P
     gnrc_rpl_p2p_ext_remove(dodag);
@@ -200,6 +207,10 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
 
     if (*parent != NULL) {
         (*parent)->dodag = dodag;
+#ifdef MODULE_GNRC_RPL_BLOOM
+        (*parent)->bloom_ext.parent = (*parent);
+        gnrc_rpl_bloom_parent_ext_init(&(*parent)->bloom_ext);
+#endif
         LL_APPEND(dodag->parents, *parent);
         (*parent)->state = 1;
         (*parent)->addr = *addr;
@@ -217,6 +228,10 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
     assert(parent != NULL);
 
     gnrc_rpl_dodag_t *dodag = parent->dodag;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_parent_ext_remove(&parent->bloom_ext);
+#endif
 
     if (parent == dodag->parents) {
         fib_remove_entry(&gnrc_ipv6_fib_table,
@@ -312,7 +327,13 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     }
 
     LL_FOREACH(dodag->parents, elt) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+        if (elt->bloom_ext.bidirectional) {
+            new_best = elt->rank < new_best->rank ? elt : new_best;
+        }
+#else
         new_best = dodag->instance->of->which_parent(new_best, elt);
+#endif
     }
 
     if (new_best->rank == GNRC_RPL_INFINITE_RANK) {
