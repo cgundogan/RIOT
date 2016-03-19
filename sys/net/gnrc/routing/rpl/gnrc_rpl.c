@@ -229,7 +229,13 @@ static void *_event_loop(void *args)
 #ifdef MODULE_GNRC_RPL_BLOOM
             case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
                 DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
-                gnrc_rpl_bloom_request_na((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr);
+                if (msg.content.ptr) {
+                    gnrc_rpl_bloom_request_na((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr);
+                }
+                break;
+            case GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST received\n");
+                gnrc_rpl_bloom_blacklist_reset();
                 break;
 #endif
             case GNRC_NETAPI_MSG_TYPE_RCV:
@@ -270,7 +276,12 @@ void _update_lifetime(void)
                 continue;
             }
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+                parent->bloom_ext.bidirectional = false;
+                gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+#else
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
+#endif
             }
         }
     }
@@ -287,6 +298,15 @@ void _update_lifetime(void)
                     continue;
                 }
             }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+            inst->bloom_ext.bloom_lifetime -= GNRC_RPL_LIFETIME_UPDATE_STEP;
+            if (inst->bloom_ext.bloom_lifetime <= 0) {
+                gnrc_rpl_bloom_refresh(&inst->bloom_ext);
+                inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                gnrc_rpl_send_DIO(inst, NULL);
+            }
+#endif
 
             if (inst->dodag.dao_time > GNRC_RPL_LIFETIME_UPDATE_STEP) {
                 inst->dodag.dao_time -= GNRC_RPL_LIFETIME_UPDATE_STEP;

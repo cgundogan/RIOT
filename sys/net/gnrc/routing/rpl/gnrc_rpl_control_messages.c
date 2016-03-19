@@ -193,6 +193,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
         if ((pkt = gnrc_rpl_bloom_dio_na_build(pkt, &inst->bloom_ext)) == NULL) {
             return;
         }
+        dodag->dio_opts &= ~GNRC_RPL_REQ_OPT_NA;
     }
 #endif
 
@@ -438,9 +439,10 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
                     return false;
                 }
 
-                if (opt->length != GNRC_RPL_OPT_PA_LEN) {
-                    DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) len: %d, expected: %d\n",
-                          opt->length, GNRC_RPL_OPT_PA_LEN);
+                if (opt->length > (GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t))) {
+                    DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) length, "
+                           "expected: 0 < %d <= %d\n",
+                          opt->length, GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t));
                     return false;
                 }
                 break;
@@ -633,11 +635,13 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 
 #ifdef MODULE_GNRC_RPL_BLOOM
             case (GNRC_RPL_OPT_PARENT_ANNOUNCEMENT):
-                gnrc_rpl_bloom_handle_pa((gnrc_rpl_opt_pa_t *) opt, src, inst, included_opts);
+                gnrc_rpl_bloom_handle_pa((gnrc_rpl_opt_pa_t *) opt, src, &inst->bloom_ext,
+                                         included_opts);
                 break;
 
             case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
-                gnrc_rpl_bloom_handle_na((gnrc_rpl_opt_pa_t *) opt, src, inst, included_opts);
+                gnrc_rpl_bloom_handle_na((gnrc_rpl_opt_na_t *) opt, src, &inst->bloom_ext,
+                                         included_opts);
                 break;
 #endif
 
@@ -658,6 +662,8 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
     if (!_gnrc_rpl_check_DIS_validity(dis, len)) {
         return;
     }
+
+    len -= (sizeof(gnrc_rpl_dis_t) + sizeof(icmpv6_hdr_t));
 
     gnrc_rpl_opt_t *opts = (gnrc_rpl_opt_t *) (dis + 1);
 
@@ -729,8 +735,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
     gnrc_rpl_dodag_t *dodag = NULL;
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-    if (bloom_check(&(gnrc_rpl_bloom_blacklist), src->u8, sizeof(*src))) {
-        DEBUG("RPL-BLOOM: ignore DIO (%s)\n", ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+    if (gnrc_rpl_bloom_check_blacklist(src)) {
         return;
     }
 #endif

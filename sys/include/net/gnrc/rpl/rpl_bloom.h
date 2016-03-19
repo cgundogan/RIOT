@@ -46,6 +46,21 @@ extern "C" {
 #define GNRC_RPL_BLACKLIST_BLOOM_SIZE       (16)
 
 /**
+ * @brief MSG Type for the blacklist bloom filter
+ */
+#define GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST   (0x0911)
+
+/**
+ * @brief Lifetime of the neighborhood bloom filter in seconds
+ */
+#define GNRC_RPL_BLOOM_LIFETIME             (120)
+
+/**
+ * @brief Lifetime of the blacklist bloom filter in seconds
+ */
+#define GNRC_RPL_BLOOM_BLACKLIST_LIFETIME   (120)
+
+/**
  * @brief Number of hashes for the bloom filter
  */
 #define GNRC_RPL_BLOOM_HASHES_NUMOF         (8)
@@ -71,12 +86,13 @@ extern "C" {
 /**
  * @brief Length for the Parent Announcement RPL-Bloom DIS control message option
  */
-#define GNRC_RPL_OPT_PA_LEN                 (GNRC_RPL_BLOOM_SIZE)
+#define GNRC_RPL_OPT_PA_LEN                 (sizeof(gnrc_rpl_opt_pa_t) - sizeof(gnrc_rpl_opt_t))
 
 /**
  * @brief Length for the Neighborhood Announcement RPL-Bloom DIO control message option
  */
-#define GNRC_RPL_OPT_NA_LEN                 (sizeof(gnrc_rpl_opt_na_t) - sizeof(gnrc_rpl_opt_t))
+#define GNRC_RPL_OPT_NA_LEN                 (sizeof(gnrc_rpl_opt_na_t) - sizeof(gnrc_rpl_opt_t) + \
+                                             GNRC_RPL_BLOOM_SIZE)
 /** @} */
 
 /**
@@ -115,9 +131,6 @@ extern "C" {
 #define GNRC_RPL_REQ_DIS_OPT_PA                 (1 << GNRC_RPL_REQ_DIS_OPT_PA_SHIFT)
 /** @} */
 
-extern bloom_t gnrc_rpl_bloom_blacklist;
-extern uint8_t gnrc_rpl_bloom_blacklist_buf[GNRC_RPL_BLACKLIST_BLOOM_SIZE];
-
 /**
  * @brief RPL-Bloom Parent Announcement
  */
@@ -142,9 +155,7 @@ typedef struct {
     struct gnrc_rpl_instance *instance;         /**< RPL instance */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE];     /**< buffer for neighborhood bloom filter */
-    uint8_t request_retry_numof;                /**< number of request retries */
-    bool bloom_fire;                            /**< flag to signal that bloom is refreshing */
-    uint32_t bloom_refreshed_at;                /**< time when bloom filter was last refreshed */
+    int8_t bloom_lifetime;                      /**< seconds til the next bloom filter refresh */
 } gnrc_rpl_bloom_inst_ext_t;
 
 /**
@@ -152,27 +163,13 @@ typedef struct {
  */
 typedef struct {
     struct gnrc_rpl_parent *parent;             /**< RPL parent */
+    xtimer_t link_check_timer;                  /**< timer for link symmetry checking */
+    msg_t link_check_msg;                       /**< msg for link symmetry checking */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE]; /**< buffer for bloom filter */
     uint8_t linksym_checks;                     /**< number of link symmetry checks requested */
     bool bidirectional;                         /**< bidirectional link to this parent */
-    xtimer_t link_check_timer;                  /**< timer for link symmetry checking */
-    msg_t link_check_msg;                       /**< msg for link symmetry checking */
 } gnrc_rpl_bloom_parent_ext_t;
-
-/**
- * @brief   Add the host suffix of @p src to the neighborhood bloom filter of the @p instance
- *          if the announced parent matches any of the configured addresses
- *
- * @param[in] instance      Pointer to the instance
- * @param[in] src           IPv6 address of the sender
- * @param[in] pa            Parent Announcement
- *
- * @return true, if the announced parent address matches any of the configured addresses
- * @return false, otherwise
- */
-bool gnrc_rpl_bloom_add_neighbor(gnrc_rpl_bloom_inst_ext_t *ext, ipv6_addr_t *src,
-                                 gnrc_rpl_opt_pa_t *pa);
 
 /**
  * @brief   Initialize the neighborhood bloom extension of an instance
@@ -244,22 +241,39 @@ void gnrc_rpl_bloom_init(void);
  *
  * @param[in] opt               Pointer to the parent announcement option
  * @param[in] src               Pointer to the source address of the incoming DIS
- * @param[in] inst              Pointer to the rpl instance
+ * @param[in] ext               Pointer to the rpl bloom instance extension
  * @param[in,out] included_opts Pointer to the included options
  */
-void gnrc_rpl_bloom_handle_pa(gnrc_rpl_opt_pa_t *opt, ipv6_addr_t *src, gnrc_rpl_instance_t *inst,
-                              uint32_t *included_opts);
+void gnrc_rpl_bloom_handle_pa(gnrc_rpl_opt_pa_t *opt, ipv6_addr_t *src,
+                              gnrc_rpl_bloom_inst_ext_t *ext, uint32_t *included_opts);
 
 /**
  * @brief   Handle a neighborhood announcement option
  *
  * @param[in] opt               Pointer to the neighborhood announcement option
  * @param[in] src               Pointer to the source address of the incoming DIS
- * @param[in] inst              Pointer to the rpl instance
+ * @param[in] ext               Pointer to the rpl bloom instance extension
  * @param[in,out] included_opts Pointer to the included options
  */
-void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_pa_t *opt, ipv6_addr_t *src, gnrc_rpl_instance_t *inst,
-                              uint32_t *included_opts);
+void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
+                              gnrc_rpl_bloom_inst_ext_t *ext, uint32_t *included_opts);
+/**
+ * @brief   Resets the RPL bloom filter of the given instance
+ *
+ * @param[in] ext               RPL bloom extension of the instance
+ */
+void gnrc_rpl_bloom_refresh(gnrc_rpl_bloom_inst_ext_t *ext);
+
+/**
+ * @brief   Resets the blacklist bloom filter
+ */
+void gnrc_rpl_bloom_blacklist_reset(void);
+
+/**
+ * @brief   Check if the given IPv6 address is blacklisted
+ */
+bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr);
+
 #ifdef __cplusplus
 }
 #endif

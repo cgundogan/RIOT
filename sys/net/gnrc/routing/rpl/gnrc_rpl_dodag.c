@@ -375,15 +375,6 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
         }
     }
 
-#ifdef MODULE_GNRC_RPL_BLOOM
-    if (!dodag->parents->bloom_ext.bidirectional) {
-        dodag->node_status = GNRC_RPL_LEAF_NODE;
-    }
-    else if (dodag->node_status == GNRC_RPL_LEAF_NODE) {
-        gnrc_rpl_router_operation(dodag);
-    }
-#endif
-
     return dodag->parents;
 }
 
