@@ -925,6 +925,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
         parent->dtsn = dio->dtsn;
         dodag->grounded = dio->g_mop_prf >> GNRC_RPL_GROUNDED_SHIFT;
         dodag->prf = dio->g_mop_prf & GNRC_RPL_PRF_MASK;
+/*
         uint32_t included_opts = 0;
         if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
                            src, &included_opts)) {
@@ -932,7 +933,21 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             gnrc_rpl_instance_remove(inst);
             return;
         }
+*/
     }
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (parent->state) {
+        uint32_t included_opts = 0;
+        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
+                           src, &included_opts)) {
+            DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
+            gnrc_rpl_instance_remove(inst);
+            return;
+        }
+        gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+    }
+#endif
+
 }
 
 gnrc_pktsnip_t *_dao_target_build(gnrc_pktsnip_t *pkt, ipv6_addr_t *addr, uint8_t prefix_length)

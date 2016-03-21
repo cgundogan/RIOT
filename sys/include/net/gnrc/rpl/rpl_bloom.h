@@ -169,6 +169,7 @@ typedef struct {
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE]; /**< buffer for bloom filter */
     uint8_t linksym_checks;                     /**< number of link symmetry checks requested */
     bool bidirectional;                         /**< bidirectional link to this parent */
+    bool na_req_running;                        /**< inidicator that na req is running */
 } gnrc_rpl_bloom_parent_ext_t;
 
 /**

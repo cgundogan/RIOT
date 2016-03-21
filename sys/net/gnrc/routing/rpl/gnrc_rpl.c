@@ -230,6 +230,7 @@ static void *_event_loop(void *args)
             case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
                 DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
                 if (msg.content.ptr) {
+                    ((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr)->na_req_running = false;
                     gnrc_rpl_bloom_request_na((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr);
                 }
                 break;

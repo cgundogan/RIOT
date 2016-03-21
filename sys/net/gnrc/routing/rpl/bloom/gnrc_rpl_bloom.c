@@ -217,6 +217,12 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext)
         return;
     }
 
+    if (ext->na_req_running) {
+        return;
+    }
+
+    ext->na_req_running = true;
+
     dodag = ext->parent->dodag;
 
     if (!dodag->parents->bloom_ext.bidirectional) {
@@ -292,6 +298,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                     parent->bloom_ext.bidirectional = true;
                     parent->bloom_ext.linksym_checks = 0;
                     xtimer_remove(&parent->bloom_ext.link_check_timer);
+                    gnrc_rpl_parent_update(&ext->instance->dodag, NULL);
                     if ((ext->instance->dodag.node_status == GNRC_RPL_LEAF_NODE) &&
                         (ext->instance->dodag.parents->bloom_ext.bidirectional)) {
                         ext->instance->dodag.node_status = GNRC_RPL_NORMAL_NODE;
@@ -299,7 +306,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                     }
                 }
                 else {
-                    puts("!!!!! ----- COULD NOT VERIFY ----- !!!!!");
+                    DEBUG("RPL-BLOOM: my address not found in parent's nhood bloom filter\n");
                     parent->bloom_ext.bidirectional = false;
                     gnrc_rpl_bloom_request_na(&parent->bloom_ext);
                 }

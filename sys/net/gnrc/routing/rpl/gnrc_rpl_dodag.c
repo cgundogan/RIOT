@@ -319,7 +319,19 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
 static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *dodag)
 {
     gnrc_rpl_parent_t *old_best = dodag->parents;
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_parent_t *new_best = NULL;
+    LL_FOREACH(dodag->parents, new_best) {
+        if (new_best->bloom_ext.bidirectional) {
+            break;
+        }
+    }
+    if (!new_best) {
+        new_best = old_best;
+    }
+#else
     gnrc_rpl_parent_t *new_best = old_best;
+#endif
     uint16_t old_rank = dodag->my_rank;
     gnrc_rpl_parent_t *elt, *tmp;
 
@@ -328,8 +340,21 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     }
 
     LL_FOREACH(dodag->parents, elt) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+        if ((elt->bloom_ext.bidirectional && !new_best->bloom_ext.bidirectional) ||
+            (!elt->bloom_ext.bidirectional && new_best->bloom_ext.bidirectional)) {
+            continue;
+        }
+#endif
         new_best = dodag->instance->of->which_parent(new_best, elt);
     }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (!new_best->bloom_ext.bidirectional) {
+        DEBUG("RPL-BLOOM: preferred parent is not bidirectional\n");
+        new_best = old_best;
+    }
+#endif
 
     if (new_best->rank == GNRC_RPL_INFINITE_RANK) {
         return NULL;
