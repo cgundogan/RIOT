@@ -245,6 +245,9 @@ static int _recv(netdev2_t *netdev2, char *buf, int len, void *info)
     DEBUG("netdev2_tap: read %d bytes\n", nread);
 
     if (nread > 0) {
+#ifdef MODULE_NETSTATS
+        netdev2->stats.rx_count++;
+#endif
         ethernet_hdr_t *hdr = (ethernet_hdr_t *)buf;
         if (!(dev->promiscous) && !_is_addr_multicast(hdr->dst) &&
             !_is_addr_broadcast(hdr->dst) &&
