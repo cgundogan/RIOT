@@ -73,14 +73,20 @@ static bool _is_iface(kernel_pid_t dev)
     return false;
 }
 
-#if defined(MODULE_NETSTATS_L2) || defined(MODULE_NETSTATS_L3)
-static int _netif_stats(kernel_pid_t dev, unsigned layer, bool reset)
+#if defined(MODULE_NETSTATS_L2) || defined(MODULE_NETSTATS_IPV6)
+static int _netif_stats(kernel_pid_t dev, unsigned module, bool reset)
 {
     netstats_t *stats;
     int res = -ENOTSUP;
 
-    if (layer & NETSTATS_LAYER2) {
+    if (module == NETSTATS_LAYER2) {
         res = gnrc_netapi_get(dev, NETOPT_STATS, 0, &stats, sizeof(&stats));
+    }
+    else if (module == NETSTATS_IPV6) {
+        stats = gnrc_ipv6_netif_get_stats(dev);
+        if (stats != NULL) {
+            res = 1;
+        }
     }
 
     if (res < 0) {
@@ -160,7 +166,8 @@ static void _del_usage(char *cmd_name)
 
 static void _stats_usage(char *cmd_name)
 {
-    printf("usage: %s <if_id> stats [layer] [reset]\n", cmd_name);
+    printf("usage: %s <if_id> stats [l2|ipv6] [reset]\n", cmd_name);
+    puts("       reset can be only used if the module is specified.");
 }
 
 static void _print_netopt(netopt_t opt)
@@ -465,10 +472,10 @@ static void _netif_list(kernel_pid_t dev)
 
 #ifdef MODULE_NETSTATS_L2
     puts("");
-    _netif_stats(dev, 2, false);
+    _netif_stats(dev, NETSTATS_LAYER2, false);
 #endif
-#ifdef MODULE_NETSTATS_L3
-    _netif_stats(dev, 3, false);
+#ifdef MODULE_NETSTATS_IPV6
+    _netif_stats(dev, NETSTATS_IPV6, false);
 #endif
     puts("");
 }
@@ -1116,26 +1123,33 @@ int _netif_config(int argc, char **argv)
             }
 #ifdef MODULE_NETSTATS_L2
             else if (strcmp(argv[2], "stats") == 0) {
-                netstats_layer_t layer;
+                netstats_module_t module;
                 bool reset = false;
 
-                /* check for requested layer */
-                if ((argc == 3) || (atoi(argv[3]) == 0)) {
-                    layer = NETSTATS_LAYER_ALL;
+                /* check for requested module */
+                if ((argc == 3) || (strcmp(argv[3], "all") == 0)) {
+                    module = NETSTATS_ALL;
+                }
+                else if (strcmp(argv[3], "l2") == 0) {
+                    module = NETSTATS_LAYER2;
+                }
+                else if (strcmp(argv[3], "ipv6") == 0) {
+                    module = NETSTATS_IPV6;
                 }
                 else {
-                    layer = atoi(argv[3]);
+                    printf("Module %s doesn't exist or do not provide statistics.\n", argv[3]);
+                    return 0;
                 }
 
                 /* check if reset flag was given */
                 if ((argc > 4) && (strncmp(argv[4], "reset", 5) == 0)) {
                     reset = true;
                 }
-                if (layer & NETSTATS_LAYER2) {
+                if (module & NETSTATS_LAYER2) {
                     _netif_stats((kernel_pid_t) dev, NETSTATS_LAYER2, reset);
                 }
-                if (layer & NETSTATS_LAYER3) {
-                    _netif_stats((kernel_pid_t) dev, NETSTATS_LAYER3, reset);
+                if (module & NETSTATS_IPV6) {
+                    _netif_stats((kernel_pid_t) dev, NETSTATS_IPV6, reset);
                 }
 
                 return 1;

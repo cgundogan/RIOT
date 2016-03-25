@@ -344,7 +344,7 @@ static void _send_to_iface(kernel_pid_t iface, gnrc_pktsnip_t *pkt)
         gnrc_pktbuf_release(pkt);
         return;
     }
-#ifdef MODULE_NETSTATS_L3
+#ifdef MODULE_NETSTATS_IPV6
     if_entry->stats.tx_success++;
     if_entry->stats.tx_bytes += gnrc_pkt_len(pkt->next);
 #endif
@@ -395,7 +395,7 @@ static void _send_unicast(kernel_pid_t iface, uint8_t *dst_l2addr,
 
     DEBUG("ipv6: send unicast over interface %" PRIkernel_pid "\n", iface);
     /* and send to interface */
-#ifdef MODULE_NETSTATS_L3
+#ifdef MODULE_NETSTATS_IPV6
     gnrc_ipv6_netif_get_stats(iface)->tx_unicast_count++;
 #endif
     _send_to_iface(iface, pkt);
