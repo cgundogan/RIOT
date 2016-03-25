@@ -88,7 +88,7 @@ static int _netif_stats(kernel_pid_t dev, unsigned layer, bool reset)
     }
     else if (reset) {
         memset(stats, 0, sizeof(netstats_t));
-        puts("Reset statistics!");
+        printf("Reset statistics for module %u!", layer);
     }
     else {
         printf("           RX packets %u  bytes %u\n"
@@ -465,7 +465,10 @@ static void _netif_list(kernel_pid_t dev)
 
 #ifdef MODULE_NETSTATS_L2
     puts("");
-    _netif_stats(dev, false);
+    _netif_stats(dev, 2, false);
+#endif
+#ifdef MODULE_NETSTATS_L3
+    _netif_stats(dev, 3, false);
 #endif
     puts("");
 }
@@ -1117,7 +1120,7 @@ int _netif_config(int argc, char **argv)
                 bool reset = false;
 
                 /* check for requested layer */
-                if ((argc == 3) || (atoi(argv[3] == 0))) {
+                if ((argc == 3) || (atoi(argv[3]) == 0)) {
                     layer = NETSTATS_LAYER_ALL;
                 }
                 else {

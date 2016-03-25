@@ -344,6 +344,9 @@ typedef struct {
     xtimer_t rtr_adv_timer; /**< Timer for periodic router advertisements */
     msg_t rtr_adv_msg;      /**< msg_t for gnrc_ipv6_netif_t::rtr_adv_timer */
 #endif
+#ifdef MODULE_NETSTATS_L3
+    netstats_t stats;                       /**< transceiver's statistics */
+#endif
 } gnrc_ipv6_netif_t;
 
 /**
@@ -586,6 +589,18 @@ static inline bool gnrc_ipv6_netif_addr_is_non_unicast(const ipv6_addr_t *addr)
  *          be called in an interface's thread (will otherwise hang up).
  */
 void gnrc_ipv6_netif_init_by_dev(void);
+
+/**
+ * @brief   Get sent and received statistics about IPv6 traffic on this interface.
+ *
+ * @note    This function is only available if compiled with module `netstats_l3`.
+ *
+ * @param[in] pid   The PID to the interface.
+ *
+ * @return  A @ref netstats_t pointer to the statistics.
+ * @return  NULL if no statistics are available.
+ */
+netstats_t *gnrc_ipv6_netif_get_stats(kernel_pid_t pid);
 
 #ifdef __cplusplus
 }
