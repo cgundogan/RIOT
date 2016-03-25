@@ -94,12 +94,14 @@ static int _netif_stats(kernel_pid_t dev, unsigned module, bool reset)
     }
     else if (reset) {
         memset(stats, 0, sizeof(netstats_t));
-        printf("Reset statistics for module %u!", layer);
+        printf("Reset statistics for module %u!", module);
     }
     else {
-        printf("           RX packets %u  bytes %u\n"
-               "           TX packets %u (Multicast: %u)  bytes %u\n"
-               "           TX succeeded %u errors %u\n",
+        printf("           Statistics for %s\n"
+               "            RX packets %u  bytes %u\n"
+               "            TX packets %u (Multicast: %u)  bytes %u\n"
+               "            TX succeeded %u errors %u\n",
+               netstats_module_to_str(module),
                (unsigned) stats->rx_count,
                (unsigned) stats->rx_bytes,
                (unsigned) (stats->tx_unicast_count + stats->tx_mcast_count),
