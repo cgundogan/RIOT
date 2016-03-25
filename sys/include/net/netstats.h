@@ -27,9 +27,9 @@ extern "C" {
 
 typedef enum {
     NETSTATS_LAYER2     = 0x01,
-    NETSTATS_LAYER3     = 0x02,
-    NETSTATS_LAYER_ALL  = 0xFF
-} netstats_layer_t;
+    NETSTATS_IPV6       = 0x02,
+    NETSTATS_ALL        = 0xFF
+} netstats_module_t;
 
 
 /**
