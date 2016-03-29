@@ -865,6 +865,19 @@ do {                                                                            
 } while (0)
 /** @} */
 
+/** @brief check membership */
+#define LL_IS_MEMBER(head, el, is_member)                                                      \
+do {                                                                                           \
+    LDECLTYPE(head) _tmp;                                                                      \
+    is_member = 0;                                                                             \
+    LL_FOREACH(head, _tmp) {                                                                   \
+        if (_tmp == el) {                                                                      \
+            is_member = 1;                                                                     \
+            break;                                                                             \
+        }                                                                                      \
+    }                                                                                          \
+} while(0)
+
 #ifdef __cplusplus
 }
 #endif

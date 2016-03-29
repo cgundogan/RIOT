@@ -153,6 +153,7 @@ typedef struct __attribute__((packed)) {
  */
 typedef struct {
     struct gnrc_rpl_instance *instance;         /**< RPL instance */
+    struct gnrc_rpl_parent *unchecked_parents;  /**< parents need to be checked for link sym */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE];     /**< buffer for neighborhood bloom filter */
     int8_t bloom_lifetime;                      /**< seconds til the next bloom filter refresh */
@@ -168,7 +169,6 @@ typedef struct {
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE]; /**< buffer for bloom filter */
     uint8_t linksym_checks;                     /**< number of link symmetry checks requested */
-    bool bidirectional;                         /**< bidirectional link to this parent */
     bool na_req_running;                        /**< inidicator that na req is running */
 } gnrc_rpl_bloom_parent_ext_t;
 
