@@ -326,6 +326,17 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                     LL_APPEND(dodag->parents, parent);
                     parent->bloom_ext.linksym_checks = 0;
                     xtimer_remove(&parent->bloom_ext.link_check_timer);
+                    if (parent == dodag->parents) {
+                        fib_add_entry(&gnrc_ipv6_fib_table,
+                                      dodag->iface,
+                                      (uint8_t *) ipv6_addr_unspecified.u8,
+                                      sizeof(ipv6_addr_t),
+                                      0x0,
+                                      dodag->parents->addr.u8,
+                                      sizeof(ipv6_addr_t),
+                                      FIB_FLAG_RPL_ROUTE,
+                                      (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
+                    }
                     gnrc_rpl_parent_update(dodag, NULL);
                     if ((dodag->node_status == GNRC_RPL_LEAF_NODE) && (dodag->parents)) {
                         dodag->node_status = GNRC_RPL_NORMAL_NODE;
@@ -337,7 +348,14 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                 DEBUG("RPL-BLOOM: my address not found in parent's nhood bloom filter\n");
                 if (!unchecked) {
                     LL_DELETE(dodag->parents, parent);
-                    LL_APPEND(ext->unchecked_parents, parent);
+                    if (parent == dodag->parents) {
+                        LL_PREPEND(ext->unchecked_parents, parent);
+                        fib_remove_entry(&gnrc_ipv6_fib_table, (uint8_t *) ipv6_addr_unspecified.u8,
+                                         sizeof(ipv6_addr_t));
+                    }
+                    else {
+                        LL_APPEND(ext->unchecked_parents, parent);
+                    }
                 }
                 gnrc_rpl_bloom_request_na(&parent->bloom_ext);
             }
