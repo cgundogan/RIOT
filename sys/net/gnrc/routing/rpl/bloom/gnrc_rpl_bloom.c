@@ -226,9 +226,11 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext)
     bool is_member = false;
     LL_IS_MEMBER(dodag->parents, ext->parent, is_member);
 
-    if (is_member || ext->na_req_running) {
+    if (is_member) {
         return;
     }
+
+    DEBUG("RPL-BLOOM: requesting NA\n");
 
     ext->na_req_running = true;
 
@@ -321,10 +323,12 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
             if (bloom_check(&parent->bloom_ext.nhood_bloom, &paddr.u8[prefix_bytes], addr_len)) {
                 DEBUG("RPL-BLOOM: bidirectional link with (%s)\n",
                       ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+
                 if (unchecked) {
                     LL_DELETE(ext->unchecked_parents, parent);
                     LL_APPEND(dodag->parents, parent);
                     parent->bloom_ext.linksym_checks = 0;
+                    parent->bloom_ext.na_req_running = false;
                     xtimer_remove(&parent->bloom_ext.link_check_timer);
                     if (parent == dodag->parents) {
                         fib_add_entry(&gnrc_ipv6_fib_table,
@@ -357,7 +361,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                         LL_APPEND(ext->unchecked_parents, parent);
                     }
                 }
-                gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+                gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
             }
         }
     }

@@ -831,7 +831,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
         gnrc_rpl_parent_update(dodag, parent);
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-        gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
 #endif
 
         return;
@@ -944,7 +944,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             gnrc_rpl_instance_remove(inst);
             return;
         }
-        gnrc_rpl_bloom_request_na(&parent->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
     }
 #endif
 

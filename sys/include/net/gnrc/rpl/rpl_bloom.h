@@ -233,6 +233,20 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
 void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext);
 
 /**
+ * @brief   Request a neighborhood announcement only if there is currently no
+ *          request in progress
+ *
+ * @param[in] ext       Pointer to the parent rpl bloom extension
+ */
+static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_parent_ext_t *ext)
+{
+    if (!ext->na_req_running) {
+        gnrc_rpl_bloom_request_na(ext);
+    }
+    return;
+}
+
+/**
  * @brief   Initializes the rpl bloom implementation
  */
 void gnrc_rpl_bloom_init(void);
