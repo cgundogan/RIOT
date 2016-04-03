@@ -181,6 +181,11 @@ void gnrc_rpl_dodag_remove_all_parents(gnrc_rpl_dodag_t *dodag)
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
         gnrc_rpl_parent_remove(elt);
     }
+#ifdef MODULE_GNRC_RPL_BLOOM
+    LL_FOREACH_SAFE(dodag->instance->bloom_ext.unchecked_parents, elt, tmp) {
+        gnrc_rpl_parent_remove(elt);
+    }
+#endif
     dodag->my_rank = GNRC_RPL_INFINITE_RANK;
 }
 
@@ -207,13 +212,15 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
 
     if (*parent != NULL) {
         (*parent)->dodag = dodag;
-        LL_APPEND(dodag->parents, *parent);
-        (*parent)->state = 1;
-        (*parent)->addr = *addr;
 #ifdef MODULE_GNRC_RPL_BLOOM
         (*parent)->bloom_ext.parent = (*parent);
         gnrc_rpl_bloom_parent_ext_init(&(*parent)->bloom_ext);
+        LL_APPEND(dodag->instance->bloom_ext.unchecked_parents, *parent);
+#else
+        LL_APPEND(dodag->parents, *parent);
 #endif
+        (*parent)->state = 1;
+        (*parent)->addr = *addr;
         return true;
     }
 

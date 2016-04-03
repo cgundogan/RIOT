@@ -278,7 +278,9 @@ void _update_lifetime(void)
             }
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
 #ifdef MODULE_GNRC_RPL_BLOOM
-                parent->bloom_ext.bidirectional = false;
+                gnrc_rpl_dodag_t *dodag = parent->dodag;
+                LL_DELETE(dodag->parents, parent);
+                LL_PREPEND(dodag->instance->bloom_ext.unchecked_parents, parent);
                 gnrc_rpl_bloom_request_na(&parent->bloom_ext);
 #else
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);

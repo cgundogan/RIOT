@@ -278,6 +278,14 @@ int _gnrc_rpl_dodag_show(void)
                     parent->rank, ((int32_t) (parent->lifetime - (((uint32_t) xnow / SEC_IN_USEC))))
                     < 0 ? 0 : (parent->lifetime - ((uint32_t) xnow / SEC_IN_USEC)));
         }
+#ifdef MODULE_GNRC_RPL_BLOOM
+        LL_FOREACH(gnrc_rpl_instances[i].bloom_ext.unchecked_parents, parent) {
+            printf("\t\tunchecked parent [addr: %s | rank: %d | lifetime: %" PRIu32 "s]\n",
+                    ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)),
+                    parent->rank, ((int32_t) (parent->lifetime - (((uint32_t) xnow / SEC_IN_USEC))))
+                    < 0 ? 0 : (parent->lifetime - ((uint32_t) xnow / SEC_IN_USEC)));
+        }
+#endif
     }
     return 0;
 }
