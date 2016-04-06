@@ -259,7 +259,13 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
                           (parent->next->lifetime - now) * SEC_IN_MS);
         }
     }
+#ifdef MODULE_GNRC_RPL_BLOOM
+    if (dodag->parents) {
+#endif
     LL_DELETE(dodag->parents, parent);
+#ifdef MODULE_GNRC_RPL_BLOOM
+    }
+#endif
     memset(parent, 0, sizeof(gnrc_rpl_parent_t));
     return true;
 }
@@ -393,6 +399,15 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
             gnrc_rpl_parent_remove(elt);
         }
     }
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    LL_FOREACH_SAFE(dodag->instance->bloom_ext.unchecked_parents, elt, tmp) {
+        if (DAGRANK(dodag->my_rank, dodag->instance->min_hop_rank_inc)
+            <= DAGRANK(elt->rank, dodag->instance->min_hop_rank_inc)) {
+            gnrc_rpl_parent_remove(elt);
+        }
+    }
+#endif
 
     return dodag->parents;
 }

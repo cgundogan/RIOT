@@ -114,6 +114,9 @@ void gnrc_rpl_bloom_parent_ext_init(gnrc_rpl_bloom_parent_ext_t *ext)
 
 void gnrc_rpl_bloom_parent_ext_remove(gnrc_rpl_bloom_parent_ext_t *ext)
 {
+    if (ext->parent->dodag->instance->bloom_ext.unchecked_parents) {
+        LL_DELETE(ext->parent->dodag->instance->bloom_ext.unchecked_parents, ext->parent);
+    }
     xtimer_remove(&ext->link_check_timer);
     memset(ext, 0, sizeof(gnrc_rpl_bloom_parent_ext_t));
 }
@@ -369,7 +372,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
 
 bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr)
 {
-    if (bloom_check(&(gnrc_rpl_bloom_blacklist), addr->u8, sizeof(*addr))) {
+    if (bloom_check(&(gnrc_rpl_bloom_blacklist), addr->u8, sizeof(ipv6_addr_t))) {
         DEBUG("RPL-BLOOM: (%s) is blacklisted\n", ipv6_addr_to_str(addr_str, addr, sizeof(addr_str)));
         return true;
     }
