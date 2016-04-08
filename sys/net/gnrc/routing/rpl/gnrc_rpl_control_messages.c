@@ -105,6 +105,7 @@ void gnrc_rpl_send(gnrc_pktsnip_t *pkt, kernel_pid_t iface, ipv6_addr_t *src, ip
 
 gnrc_pktsnip_t *_dio_dodag_conf_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *dodag)
 {
+    gnrc_rpl_instance_t *instance;
     gnrc_rpl_opt_dodag_conf_t *dodag_conf;
     gnrc_pktsnip_t *opt_snip;
     if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_dodag_conf_t),
@@ -113,6 +114,7 @@ gnrc_pktsnip_t *_dio_dodag_conf_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *dod
         gnrc_pktbuf_release(pkt);
         return NULL;
     }
+    instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
     dodag_conf = opt_snip->data;
     dodag_conf->type = GNRC_RPL_OPT_DODAG_CONF;
     dodag_conf->length = GNRC_RPL_OPT_DODAG_CONF_LEN;
@@ -120,9 +122,9 @@ gnrc_pktsnip_t *_dio_dodag_conf_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *dod
     dodag_conf->dio_int_doubl = dodag->dio_interval_doubl;
     dodag_conf->dio_int_min = dodag->dio_min;
     dodag_conf->dio_redun = dodag->dio_redun;
-    dodag_conf->max_rank_inc = byteorder_htons(dodag->instance->max_rank_inc);
-    dodag_conf->min_hop_rank_inc = byteorder_htons(dodag->instance->min_hop_rank_inc);
-    dodag_conf->ocp = byteorder_htons(dodag->instance->of->ocp);
+    dodag_conf->max_rank_inc = byteorder_htons(instance->max_rank_inc);
+    dodag_conf->min_hop_rank_inc = byteorder_htons(instance->min_hop_rank_inc);
+    dodag_conf->ocp = byteorder_htons(instance->of->ocp);
     dodag_conf->reserved = 0;
     dodag_conf->default_lifetime = dodag->default_lifetime;
     dodag_conf->lifetime_unit = byteorder_htons(dodag->lifetime_unit);

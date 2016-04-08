@@ -260,7 +260,8 @@ void _update_lifetime(void)
                 continue;
             }
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
-                gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
+                gnrc_rpl_send_DIS(container_of(parent->dodag, gnrc_rpl_instance_t, dodag),
+                                  &parent->addr);
             }
         }
     }
@@ -310,6 +311,7 @@ void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
 
 void _dao_handle_send(gnrc_rpl_dodag_t *dodag)
 {
+    gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
 #ifdef MODULE_GNRC_RPL_P2P
     if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
         return;
@@ -317,7 +319,7 @@ void _dao_handle_send(gnrc_rpl_dodag_t *dodag)
 #endif
     if ((dodag->dao_ack_received == false) && (dodag->dao_counter < GNRC_RPL_DAO_SEND_RETRIES)) {
         dodag->dao_counter++;
-        gnrc_rpl_send_DAO(dodag->instance, NULL, dodag->default_lifetime);
+        gnrc_rpl_send_DAO(instance, NULL, dodag->default_lifetime);
         dodag->dao_time = GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK;
     }
     else if (dodag->dao_ack_received == false) {

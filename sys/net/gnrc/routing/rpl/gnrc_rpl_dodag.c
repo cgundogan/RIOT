@@ -153,7 +153,6 @@ bool gnrc_rpl_dodag_init(gnrc_rpl_instance_t *instance, ipv6_addr_t *dodag_id, k
     dodag->dtsn = 0;
     dodag->dao_ack_received = false;
     dodag->dao_counter = 0;
-    dodag->instance = instance;
     dodag->iface = iface;
     dodag->netif_addr = netif_addr;
 
@@ -256,9 +255,10 @@ void gnrc_rpl_local_repair(gnrc_rpl_dodag_t *dodag)
     }
 
     if (dodag->my_rank != GNRC_RPL_INFINITE_RANK) {
+        gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
         dodag->my_rank = GNRC_RPL_INFINITE_RANK;
         trickle_reset_timer(&dodag->trickle);
-        dodag->instance->cleanup = GNRC_RPL_CLEANUP_TIME;
+        instance->cleanup = GNRC_RPL_CLEANUP_TIME;
     }
 }
 
@@ -303,6 +303,7 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
  */
 static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *dodag)
 {
+    gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
     gnrc_rpl_parent_t *old_best = dodag->parents;
     gnrc_rpl_parent_t *new_best = old_best;
     uint16_t old_rank = dodag->my_rank;
@@ -313,7 +314,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     }
 
     LL_FOREACH(dodag->parents, elt) {
-        new_best = dodag->instance->of->which_parent(new_best, elt);
+        new_best = instance->of->which_parent(new_best, elt);
     }
 
     if (new_best->rank == GNRC_RPL_INFINITE_RANK) {
@@ -324,9 +325,9 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
         LL_DELETE(dodag->parents, new_best);
         LL_PREPEND(dodag->parents, new_best);
         /* no-path DAOs only for the storing mode */
-        if ((dodag->instance->mop == GNRC_RPL_MOP_STORING_MODE_NO_MC) ||
-            (dodag->instance->mop == GNRC_RPL_MOP_STORING_MODE_MC)) {
-            gnrc_rpl_send_DAO(dodag->instance, &old_best->addr, 0);
+        if ((instance->mop == GNRC_RPL_MOP_STORING_MODE_NO_MC) ||
+            (instance->mop == GNRC_RPL_MOP_STORING_MODE_MC)) {
+            gnrc_rpl_send_DAO(instance, &old_best->addr, 0);
             gnrc_rpl_delay_dao(dodag);
         }
 
@@ -348,14 +349,14 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
 
     }
 
-    dodag->my_rank = dodag->instance->of->calc_rank(dodag->parents, 0);
+    dodag->my_rank = instance->of->calc_rank(dodag->parents, 0);
     if (dodag->my_rank != old_rank) {
         trickle_reset_timer(&dodag->trickle);
     }
 
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
-        if (DAGRANK(dodag->my_rank, dodag->instance->min_hop_rank_inc)
-            <= DAGRANK(elt->rank, dodag->instance->min_hop_rank_inc)) {
+        if (DAGRANK(dodag->my_rank, instance->min_hop_rank_inc)
+            <= DAGRANK(elt->rank, instance->min_hop_rank_inc)) {
             gnrc_rpl_parent_remove(elt);
         }
     }
@@ -374,7 +375,6 @@ gnrc_rpl_instance_t *gnrc_rpl_root_instance_init(uint8_t instance_id, ipv6_addr_
     ipv6_addr_t *configured_addr;
     gnrc_ipv6_netif_addr_t *netif_addr = NULL;
     gnrc_rpl_instance_t *inst = NULL;
-    gnrc_rpl_dodag_t *dodag = NULL;
     kernel_pid_t iface;
 
     if (!(ipv6_addr_is_global(dodag_id) || ipv6_addr_is_unique_local_unicast(dodag_id))) {
@@ -416,17 +416,15 @@ gnrc_rpl_instance_t *gnrc_rpl_root_instance_init(uint8_t instance_id, ipv6_addr_
         return NULL;
     }
 
-    dodag = &inst->dodag;
-    dodag->instance = inst;
-
     return inst;
 }
 
 void gnrc_rpl_leaf_operation(gnrc_rpl_dodag_t *dodag)
 {
+    gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
     dodag->node_status = GNRC_RPL_LEAF_NODE;
     /* send INFINITE_RANK DIO to current children */
-    gnrc_rpl_send_DIO(dodag->instance, NULL);
+    gnrc_rpl_send_DIO(instance, NULL);
 }
 
 void gnrc_rpl_router_operation(gnrc_rpl_dodag_t *dodag)
