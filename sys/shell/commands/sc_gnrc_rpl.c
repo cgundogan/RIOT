@@ -225,22 +225,24 @@ int _gnrc_rpl_dodag_show(void)
 
     putchar('\n');
 
-    gnrc_rpl_dodag_t *dodag = NULL;
+    gnrc_rpl_instance_t *instance;
+    gnrc_rpl_dodag_t *dodag;
     char addr_str[IPV6_ADDR_MAX_STR_LEN];
     int8_t cleanup;
     uint64_t tc, ti, xnow = xtimer_now64();
 
     for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
-        if (gnrc_rpl_instances[i].state == 0) {
+        instance = &gnrc_rpl_instances[i];
+
+        if (instance->state == 0) {
             continue;
         }
 
-        dodag = &gnrc_rpl_instances[i].dodag;
+        dodag = &instance->dodag;
 
         printf("instance [%d | Iface: %" PRIkernel_pid " | mop: %d | ocp: %d | mhri: %d | mri %d]\n",
-                gnrc_rpl_instances[i].id, dodag->iface,
-                gnrc_rpl_instances[i].mop, gnrc_rpl_instances[i].of->ocp,
-                gnrc_rpl_instances[i].min_hop_rank_inc, gnrc_rpl_instances[i].max_rank_inc);
+                instance->id, dodag->iface, instance->mop,instance->of->ocp,
+                instance->min_hop_rank_inc,instance->max_rank_inc);
 
         tc = (((uint64_t) dodag->trickle.msg_callback_timer.long_target << 32)
                 | dodag->trickle.msg_callback_timer.target) - xnow;
@@ -250,7 +252,7 @@ int _gnrc_rpl_dodag_show(void)
                 | dodag->trickle.msg_interval_timer.target) - xnow;
         ti = (int64_t) ti < 0 ? 0 : ti / SEC_IN_USEC;
 
-        cleanup = dodag->instance->cleanup < 0 ? 0 : dodag->instance->cleanup;
+        cleanup = instance->cleanup < 0 ? 0 : instance->cleanup;
 
         printf("\tdodag [%s | R: %d | OP: %s | PIO: %s | CL: %ds | "
                "TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
@@ -261,7 +263,7 @@ int _gnrc_rpl_dodag_show(void)
                dodag->trickle.c, (uint32_t) (tc & 0xFFFFFFFF), (uint32_t) (ti & 0xFFFFFFFF));
 
 #ifdef MODULE_GNRC_RPL_P2P
-        if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+        if (instance->mop == GNRC_RPL_P2P_MOP) {
             gnrc_rpl_p2p_ext_t *p2p_ext = gnrc_rpl_p2p_ext_get(dodag);
             printf("\tP2P-Ext [%s | HBH: %s | R: %s | L: %us]\n",
                     ipv6_addr_to_str(addr_str, &p2p_ext->target, sizeof(addr_str)),
@@ -271,7 +273,7 @@ int _gnrc_rpl_dodag_show(void)
 #endif
 
         gnrc_rpl_parent_t *parent;
-        LL_FOREACH(gnrc_rpl_instances[i].dodag.parents, parent) {
+        LL_FOREACH(dodag->parents, parent) {
             printf("\t\tparent [addr: %s | rank: %d | lifetime: %" PRIu32 "s]\n",
                     ipv6_addr_to_str(addr_str, &parent->addr, sizeof(addr_str)),
                     parent->rank, ((int32_t) (parent->lifetime - (((uint32_t) xnow / SEC_IN_USEC))))
