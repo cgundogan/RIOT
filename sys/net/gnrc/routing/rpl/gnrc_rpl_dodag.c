@@ -51,7 +51,7 @@ static void _rpl_trickle_send_dio(void *args)
     }
 
 #ifdef MODULE_GNRC_RPL_P2P
-    if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+    if (inst->mop == GNRC_RPL_P2P_MOP) {
         gnrc_rpl_p2p_ext_t *p2p_ext = gnrc_rpl_p2p_ext_get(dodag);
         if (p2p_ext && (p2p_ext->for_me || ((p2p_ext->lifetime_sec <= 0) || p2p_ext->stop))) {
             trickle_stop(&dodag->trickle);
@@ -270,7 +270,8 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
     if (parent != NULL) {
         parent->lifetime = (now / SEC_IN_USEC) + ((dodag->default_lifetime * dodag->lifetime_unit));
 #ifdef MODULE_GNRC_RPL_P2P
-        if (dodag->instance->mop != GNRC_RPL_P2P_MOP) {
+        gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
+        if (instance->mop != GNRC_RPL_P2P_MOP) {
 #endif
         if (parent == dodag->parents) {
             fib_add_entry(&gnrc_ipv6_fib_table,
@@ -332,7 +333,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
         }
 
 #ifdef MODULE_GNRC_RPL_P2P
-    if (dodag->instance->mop != GNRC_RPL_P2P_MOP) {
+    if (instance->mop != GNRC_RPL_P2P_MOP) {
 #endif
         fib_add_entry(&gnrc_ipv6_fib_table,
                       dodag->iface,

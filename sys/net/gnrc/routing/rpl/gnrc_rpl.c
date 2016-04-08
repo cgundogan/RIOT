@@ -313,7 +313,7 @@ void _dao_handle_send(gnrc_rpl_dodag_t *dodag)
 {
     gnrc_rpl_instance_t *instance = container_of(dodag, gnrc_rpl_instance_t, dodag);
 #ifdef MODULE_GNRC_RPL_P2P
-    if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+    if (instance->mop == GNRC_RPL_P2P_MOP) {
         return;
     }
 #endif

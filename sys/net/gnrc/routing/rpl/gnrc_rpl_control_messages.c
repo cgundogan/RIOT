@@ -171,7 +171,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 
 #ifdef MODULE_GNRC_RPL_P2P
     gnrc_rpl_p2p_ext_t *p2p_ext = gnrc_rpl_p2p_ext_get(dodag);
-    if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+    if (inst->mop == GNRC_RPL_P2P_MOP) {
         if (!p2p_ext->for_me) {
             if ((pkt = gnrc_rpl_p2p_rdo_build(pkt, p2p_ext)) == NULL) {
                 return;
@@ -668,7 +668,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
 
 #ifdef MODULE_GNRC_RPL_P2P
     gnrc_rpl_p2p_ext_t *p2p_ext = gnrc_rpl_p2p_ext_get(dodag);
-    if ((dodag->instance->mop == GNRC_RPL_P2P_MOP) && (p2p_ext->lifetime_sec <= 0)) {
+    if ((inst->mop == GNRC_RPL_P2P_MOP) && (p2p_ext->lifetime_sec <= 0)) {
         return;
     }
 #endif
@@ -799,7 +799,7 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     }
 
 #ifdef MODULE_GNRC_RPL_P2P
-    if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+    if (inst->mop == GNRC_RPL_P2P_MOP) {
         return;
     }
 #endif
@@ -1037,7 +1037,7 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
     }
 
 #ifdef MODULE_GNRC_RPL_P2P
-    if (dodag->instance->mop == GNRC_RPL_P2P_MOP) {
+    if (inst->mop == GNRC_RPL_P2P_MOP) {
         return;
     }
 #endif

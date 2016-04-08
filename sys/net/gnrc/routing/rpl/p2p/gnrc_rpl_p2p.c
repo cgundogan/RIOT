@@ -55,7 +55,8 @@ void gnrc_rpl_p2p_update(void)
             p2p_ext->lifetime_sec -= GNRC_RPL_LIFETIME_UPDATE_STEP;
             if (p2p_ext->lifetime_sec <= 0) {
                 gnrc_rpl_dodag_remove_all_parents(p2p_ext->dodag);
-                p2p_ext->dodag->instance->cleanup = GNRC_RPL_CLEANUP_TIME;
+                container_of(p2p_ext->dodag, gnrc_rpl_instance_t,
+                             dodag)->cleanup = GNRC_RPL_CLEANUP_TIME;
                 continue;
             }
             p2p_ext->dro_delay -= GNRC_RPL_LIFETIME_UPDATE_STEP;
@@ -251,7 +252,7 @@ static gnrc_pktsnip_t *_build_initial_DRO(gnrc_rpl_p2p_ext_t *p2p_ext)
         return NULL;
     }
     dro = opt_snip->data;
-    dro->instance_id = p2p_ext->dodag->instance->id;
+    dro->instance_id = container_of(p2p_ext->dodag, gnrc_rpl_instance_t, dodag)->id;
     dro->version_number = 0;
     dro->flags_rev = byteorder_htons((((p2p_ext->stop << 1) | (p2p_ext->dro_ack << 0))
                                       << GNRC_RPL_P2P_DRO_FLAGS_ACK) |
