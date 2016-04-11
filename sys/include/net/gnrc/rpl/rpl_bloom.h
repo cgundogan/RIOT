@@ -132,6 +132,18 @@ extern "C" {
 /** @} */
 
 /**
+ * @name Bit positions and shifts for gnrc_rpl_bloom_parent_ext_t::flags
+ * @{
+ */
+#define GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT   (0)
+#define GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF         (7 << GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT)
+#define GNRC_RPL_BLOOM_PARENT_NA_RUNNING_SHIFT      (3)
+#define GNRC_RPL_BLOOM_PARENT_NA_RUNNING            (1 << GNRC_RPL_BLOOM_PARENT_NA_RUNNING_SHIFT)
+#define GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL_SHIFT   (4)
+#define GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL         (1 << GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL_SHIFT)
+/** @} */
+
+/**
  * @brief RPL-Bloom Parent Announcement
  */
 typedef struct __attribute__((packed)) {
@@ -153,7 +165,6 @@ typedef struct __attribute__((packed)) {
  */
 typedef struct {
     struct gnrc_rpl_instance *instance;         /**< RPL instance */
-    struct gnrc_rpl_parent *unchecked_parents;  /**< parents need to be checked for link sym */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE];     /**< buffer for neighborhood bloom filter */
     int8_t bloom_lifetime;                      /**< seconds til the next bloom filter refresh */
@@ -168,8 +179,7 @@ typedef struct {
     msg_t link_check_msg;                       /**< msg for link symmetry checking */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE]; /**< buffer for bloom filter */
-    uint8_t linksym_checks;                     /**< number of link symmetry checks requested */
-    bool na_req_running;                        /**< inidicator that na req is running */
+    uint8_t flags;                              /** #linksym_checks, na_req_running, bidir. */
 } gnrc_rpl_bloom_parent_ext_t;
 
 /**
@@ -240,7 +250,7 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext);
  */
 static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_parent_ext_t *ext)
 {
-    if (!ext->na_req_running) {
+    if (!(ext->flags & GNRC_RPL_BLOOM_PARENT_NA_RUNNING)) {
         gnrc_rpl_bloom_request_na(ext);
     }
     return;

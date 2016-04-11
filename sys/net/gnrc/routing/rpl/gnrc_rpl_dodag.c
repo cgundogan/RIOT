@@ -181,11 +181,6 @@ void gnrc_rpl_dodag_remove_all_parents(gnrc_rpl_dodag_t *dodag)
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
         gnrc_rpl_parent_remove(elt);
     }
-#ifdef MODULE_GNRC_RPL_BLOOM
-    LL_FOREACH_SAFE(dodag->instance->bloom_ext.unchecked_parents, elt, tmp) {
-        gnrc_rpl_parent_remove(elt);
-    }
-#endif
     dodag->my_rank = GNRC_RPL_INFINITE_RANK;
 }
 
@@ -215,10 +210,8 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
 #ifdef MODULE_GNRC_RPL_BLOOM
         (*parent)->bloom_ext.parent = (*parent);
         gnrc_rpl_bloom_parent_ext_init(&(*parent)->bloom_ext);
-        LL_APPEND(dodag->instance->bloom_ext.unchecked_parents, *parent);
-#else
-        LL_APPEND(dodag->parents, *parent);
 #endif
+        LL_APPEND(dodag->parents, *parent);
         (*parent)->state = 1;
         (*parent)->addr = *addr;
         return true;
@@ -316,21 +309,9 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
 #endif
     }
 
-#ifdef MODULE_GNRC_RPL_BLOOM
-    gnrc_rpl_parent_t *tmp = _gnrc_rpl_find_preferred_parent(dodag);
-    if (!tmp) {
-        if (dodag->instance->bloom_ext.unchecked_parents) {
-            dodag->node_status = GNRC_RPL_LEAF_NODE;
-        }
-        else {
-            gnrc_rpl_local_repair(dodag);
-        }
-    }
-#else
     if (_gnrc_rpl_find_preferred_parent(dodag) == NULL) {
         gnrc_rpl_local_repair(dodag);
     }
-#endif
 }
 
 /**
@@ -353,7 +334,13 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     }
 
     LL_FOREACH(dodag->parents, elt) {
+#ifdef MODULE_GNRC_RPL_BLOOM
+        if (elt->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL) {
+            new_best = elt->rank <= new_best->rank ? elt : new_best;
+        }
+#else
         new_best = dodag->instance->of->which_parent(new_best, elt);
+#endif
     }
 
     if (new_best->rank == GNRC_RPL_INFINITE_RANK) {
@@ -399,15 +386,6 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
             gnrc_rpl_parent_remove(elt);
         }
     }
-
-#ifdef MODULE_GNRC_RPL_BLOOM
-    LL_FOREACH_SAFE(dodag->instance->bloom_ext.unchecked_parents, elt, tmp) {
-        if (DAGRANK(dodag->my_rank, dodag->instance->min_hop_rank_inc)
-            <= DAGRANK(elt->rank, dodag->instance->min_hop_rank_inc)) {
-            gnrc_rpl_parent_remove(elt);
-        }
-    }
-#endif
 
     return dodag->parents;
 }

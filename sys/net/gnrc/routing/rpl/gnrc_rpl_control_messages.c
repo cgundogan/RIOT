@@ -216,7 +216,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     /* a leaf node announces an INFINITE_RANK */
 #ifdef MODULE_GNRC_RPL_BLOOM
     dio->rank = (((dodag->node_status == GNRC_RPL_LEAF_NODE) &&
-                   !dodag->instance->bloom_ext.unchecked_parents) ?
+                   (dodag->parents->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL)) ?
                  byteorder_htons(GNRC_RPL_INFINITE_RANK) : byteorder_htons(dodag->my_rank));
 #else
     dio->rank = ((dodag->node_status == GNRC_RPL_LEAF_NODE) ?

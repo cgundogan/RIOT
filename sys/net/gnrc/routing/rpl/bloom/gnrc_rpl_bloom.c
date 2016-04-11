@@ -94,16 +94,12 @@ void gnrc_rpl_bloom_refresh(gnrc_rpl_bloom_inst_ext_t *ext)
 
 void gnrc_rpl_bloom_instance_ext_remove(gnrc_rpl_bloom_inst_ext_t *ext)
 {
-    gnrc_rpl_parent_t *elt, *tmp;
-    LL_FOREACH_SAFE(ext->unchecked_parents, elt, tmp) {
-        LL_DELETE(ext->unchecked_parents, elt);
-    }
     memset(ext, 0, sizeof(gnrc_rpl_bloom_inst_ext_t));
 }
 
 void gnrc_rpl_bloom_parent_ext_init(gnrc_rpl_bloom_parent_ext_t *ext)
 {
-    ext->linksym_checks = 0;
+    ext->flags = 0;
     ext->link_check_msg.type = GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM;
     ext->link_check_msg.content.ptr = (char *) ext;
     memset(ext->nhood_bloom_buf, 0, sizeof(ext->nhood_bloom_buf));
@@ -114,37 +110,24 @@ void gnrc_rpl_bloom_parent_ext_init(gnrc_rpl_bloom_parent_ext_t *ext)
 
 void gnrc_rpl_bloom_parent_ext_remove(gnrc_rpl_bloom_parent_ext_t *ext)
 {
-    if (ext->parent->dodag->instance->bloom_ext.unchecked_parents) {
-        LL_DELETE(ext->parent->dodag->instance->bloom_ext.unchecked_parents, ext->parent);
-    }
     xtimer_remove(&ext->link_check_timer);
     memset(ext, 0, sizeof(gnrc_rpl_bloom_parent_ext_t));
 }
 
-static bool _handle_parents_dis_pa_build(gnrc_pktsnip_t **pkt, gnrc_rpl_parent_t *parent,
-                                         ipv6_addr_t *dest)
+static gnrc_pktsnip_t *_handle_parents_dis_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_parent_t *parent)
 {
     gnrc_rpl_opt_pa_t *opt_pa;
     gnrc_pktsnip_t *opt_snip;
 
-    bool stop = false;
-    bool is_unicast = (dest && (!ipv6_addr_is_multicast(dest)));
     int prefix_bits;
     uint8_t prefix_bytes, addr_len;
     ipv6_addr_t paddr;
 
-    if (is_unicast) {
-       if (ipv6_addr_equal(dest, &parent->addr)) {
-        stop = true;
-       }
-       else {
-           return false;
-       }
-    }
-
     paddr = parent->addr;
     prefix_bits = _ipv6_addr_suffix(&paddr);
     if (prefix_bits < 0) {
+        DEBUG("RPL-BLOOM: BUILD PARENT ANNOUNCEMENT OPT - prefix bits negative\n");
+        gnrc_pktbuf_release(pkt);
         return NULL;
     }
     prefix_bytes = prefix_bits >> 3;
@@ -152,37 +135,52 @@ static bool _handle_parents_dis_pa_build(gnrc_pktsnip_t **pkt, gnrc_rpl_parent_t
 
     DEBUG("RPL-BLOOM: put (%s) into PA\n", ipv6_addr_to_str(addr_str, &paddr, sizeof(addr_str)));
 
-    if ((opt_snip = gnrc_pktbuf_add(*pkt, NULL, addr_len, GNRC_NETTYPE_UNDEF)) == NULL) {
+    if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, addr_len, GNRC_NETTYPE_UNDEF)) == NULL) {
         DEBUG("RPL-BLOOM: BUILD PARENT ANNOUNCEMENT OPT - no space left in packet buffer\n");
-        gnrc_pktbuf_release(*pkt);
+        gnrc_pktbuf_release(pkt);
         return NULL;
     }
-    *pkt = opt_snip;
-    memcpy((*pkt)->data, &paddr.u8[prefix_bytes], addr_len);
+    pkt = opt_snip;
+    memcpy((pkt)->data, &paddr.u8[prefix_bytes], addr_len);
 
-    if ((opt_snip = gnrc_pktbuf_add(*pkt, NULL, sizeof(gnrc_rpl_opt_pa_t),
+    if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_pa_t),
                                     GNRC_NETTYPE_UNDEF)) == NULL) {
         DEBUG("RPL-BLOOM: BUILD PARENT ANNOUNCEMENT OPT - no space left in packet buffer\n");
-        gnrc_pktbuf_release(*pkt);
+        gnrc_pktbuf_release(pkt);
         return NULL;
     }
-    *pkt = opt_snip;
+    pkt = opt_snip;
 
-    opt_pa = (*pkt)->data;
+    opt_pa = (pkt)->data;
     opt_pa->type = GNRC_RPL_OPT_PARENT_ANNOUNCEMENT;
     opt_pa->length = sizeof(gnrc_rpl_opt_pa_t) - sizeof(gnrc_rpl_opt_t) + addr_len;
     opt_pa->prefix_len = prefix_bits;
 
-    return stop;
+    return pkt;
 }
 
 gnrc_pktsnip_t *gnrc_rpl_bloom_dis_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_inst_ext_t *ext,
                                             ipv6_addr_t *dest)
 {
     gnrc_rpl_parent_t *parent;
+    bool stop = false, is_unicast = (dest && (!ipv6_addr_is_multicast(dest)));
 
-    LL_FOREACH(ext->unchecked_parents, parent) {
-        if (_handle_parents_dis_pa_build(&pkt, parent, dest)) {
+    LL_FOREACH(ext->instance->dodag.parents, parent) {
+        if (parent->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL) {
+            continue;
+        }
+        if (is_unicast) {
+           if (ipv6_addr_equal(dest, &parent->addr)) {
+            stop = true;
+           }
+           else {
+               continue;
+           }
+        }
+        if ((pkt = _handle_parents_dis_pa_build(pkt, parent)) == NULL) {
+            return NULL;
+        }
+        if (stop) {
             break;
         }
     }
@@ -220,28 +218,27 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
 
 void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext)
 {
-    gnrc_rpl_dodag_t *dodag;
-
     assert(ext->parent && ext->parent->state);
+    gnrc_rpl_dodag_t *dodag = ext->parent->dodag;
 
-    dodag = ext->parent->dodag;
-
-    bool is_member = false;
-    LL_IS_MEMBER(dodag->parents, ext->parent, is_member);
-
-    if (is_member) {
+    if (ext->flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL) {
         return;
     }
 
     DEBUG("RPL-BLOOM: requesting NA\n");
 
-    ext->na_req_running = true;
+    ext->flags |= GNRC_RPL_BLOOM_PARENT_NA_RUNNING;
 
     if (!dodag->parents) {
         dodag->node_status = GNRC_RPL_LEAF_NODE;
     }
 
-    if ((++ext->linksym_checks) > GNRC_RPL_BLOOM_LINKSYM_RETRIES) {
+    ext->flags = (ext->flags & ~GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF) |
+                 (((ext->flags >> GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT) + 1) &
+                  GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF) << GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT;
+
+    if (((ext->flags & GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF) >> GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT)
+        > GNRC_RPL_BLOOM_LINKSYM_RETRIES) {
         bloom_add(&gnrc_rpl_bloom_blacklist, ext->parent->addr.u8, sizeof(ipv6_addr_t));
         DEBUG("RPL-BLOOM: blacklisted %s\n", ipv6_addr_to_str(addr_str, &ext->parent->addr,
                                              sizeof(addr_str)));
@@ -252,8 +249,7 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext)
 
     dodag->dis_opts |= GNRC_RPL_REQ_DIS_OPT_PA;
     uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
-    gnrc_rpl_send_DIS(dodag->instance, &ext->parent->addr, 0, req_na,
-                      sizeof(req_na)/sizeof(req_na[0]));
+    gnrc_rpl_send_DIS(dodag->instance, &ext->parent->addr, 0, req_na, sizeof(req_na)/sizeof(req_na[0]));
     dodag->dis_opts &= ~GNRC_RPL_REQ_DIS_OPT_PA;
 
     xtimer_set_msg(&ext->link_check_timer,
@@ -293,20 +289,10 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
     ipv6_addr_t *me = NULL, paddr;
     int prefix_bits;
     uint8_t prefix_bytes, addr_len;
-    bool unchecked = false;
 
     LL_FOREACH(dodag->parents, parent) {
         if (ipv6_addr_equal(src, &parent->addr)) {
-            unchecked = false;
             break;
-        }
-    }
-    if (!parent) {
-        LL_FOREACH(ext->unchecked_parents, parent) {
-            if (ipv6_addr_equal(src, &parent->addr)) {
-                unchecked = true;
-                break;
-            }
         }
     }
 
@@ -327,44 +313,25 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                 DEBUG("RPL-BLOOM: bidirectional link with (%s)\n",
                       ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
 
-                if (unchecked) {
-                    LL_DELETE(ext->unchecked_parents, parent);
-                    LL_APPEND(dodag->parents, parent);
-                    parent->bloom_ext.linksym_checks = 0;
-                    parent->bloom_ext.na_req_running = false;
+                if (!(parent->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL)) {
+                    parent->bloom_ext.flags |= GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL;
+                    parent->bloom_ext.flags &= ~(GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF | GNRC_RPL_BLOOM_PARENT_NA_RUNNING);
                     xtimer_remove(&parent->bloom_ext.link_check_timer);
-                    if (parent == dodag->parents) {
-                        fib_add_entry(&gnrc_ipv6_fib_table,
-                                      dodag->iface,
-                                      (uint8_t *) ipv6_addr_unspecified.u8,
-                                      sizeof(ipv6_addr_t),
-                                      0x0,
-                                      dodag->parents->addr.u8,
-                                      sizeof(ipv6_addr_t),
-                                      FIB_FLAG_RPL_ROUTE,
-                                      (dodag->default_lifetime * dodag->lifetime_unit) * SEC_IN_MS);
-                    }
-                    gnrc_rpl_parent_update(dodag, NULL);
-                    if ((dodag->node_status == GNRC_RPL_LEAF_NODE) && (dodag->parents)) {
-                        dodag->node_status = GNRC_RPL_NORMAL_NODE;
-                        trickle_interval(&dodag->trickle);
-                    }
+                    gnrc_rpl_parent_update(dodag, parent);
                 }
             }
             else {
                 DEBUG("RPL-BLOOM: my address not found in parent's nhood bloom filter\n");
-                if (!unchecked) {
-                    LL_DELETE(dodag->parents, parent);
-                    if (parent == dodag->parents) {
-                        LL_PREPEND(ext->unchecked_parents, parent);
-                        fib_remove_entry(&gnrc_ipv6_fib_table, (uint8_t *) ipv6_addr_unspecified.u8,
-                                         sizeof(ipv6_addr_t));
-                    }
-                    else {
-                        LL_APPEND(ext->unchecked_parents, parent);
-                    }
+                if (parent->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL) {
+                    parent->bloom_ext.flags &= ~GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL;
+                    gnrc_rpl_parent_update(dodag, NULL);
                 }
                 gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
+            }
+            if ((dodag->node_status == GNRC_RPL_LEAF_NODE) &&
+                (dodag->parents->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL)) {
+                dodag->node_status = GNRC_RPL_NORMAL_NODE;
+                trickle_interval(&dodag->trickle);
             }
         }
     }

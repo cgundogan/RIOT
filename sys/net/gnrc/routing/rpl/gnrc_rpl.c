@@ -275,13 +275,12 @@ void _update_lifetime(void)
                 gnrc_rpl_parent_update(dodag, NULL);
                 continue;
             }
-            else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
 #ifdef MODULE_GNRC_RPL_BLOOM
-                gnrc_rpl_dodag_t *dodag = parent->dodag;
-                LL_DELETE(dodag->parents, parent);
-                LL_PREPEND(dodag->instance->bloom_ext.unchecked_parents, parent);
+            else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 5)) {
+                parent->bloom_ext.flags &= ~GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL;
                 gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
 #else
+            else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
 #endif
             }
@@ -305,8 +304,10 @@ void _update_lifetime(void)
             inst->bloom_ext.bloom_lifetime -= GNRC_RPL_LIFETIME_UPDATE_STEP;
             if (inst->bloom_ext.bloom_lifetime <= 0) {
                 gnrc_rpl_bloom_refresh(&inst->bloom_ext);
-                inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
-                gnrc_rpl_send_DIO(inst, NULL);
+                if ((inst->dodag.parents) || (inst->dodag.node_status == GNRC_RPL_ROOT_NODE)) {
+                    inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                    gnrc_rpl_send_DIO(inst, NULL);
+                }
             }
 #endif
 
