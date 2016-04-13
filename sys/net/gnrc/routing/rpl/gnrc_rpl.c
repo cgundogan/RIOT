@@ -202,6 +202,9 @@ static void *_event_loop(void *args)
     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
 
     trickle_t *trickle;
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_parent_ext_t *parent_bloom;
+#endif
     /* start event loop */
     while (1) {
         DEBUG("RPL: waiting for incoming message.\n");
@@ -230,7 +233,10 @@ static void *_event_loop(void *args)
             case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
                 DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
                 if (msg.content.ptr) {
-                    gnrc_rpl_bloom_request_na((gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr);
+                    parent_bloom = (gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr;
+                    if (parent_bloom->parent && parent_bloom->parent->state) {
+                        gnrc_rpl_bloom_request_na(parent_bloom);
+                    }
                 }
                 break;
             case GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST:

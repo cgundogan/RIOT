@@ -336,7 +336,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     LL_FOREACH(dodag->parents, elt) {
 #ifdef MODULE_GNRC_RPL_BLOOM
         if (elt->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL) {
-            new_best = elt->rank <= new_best->rank ? elt : new_best;
+            new_best = elt->rank < new_best->rank ? elt : new_best;
         }
 #else
         new_best = dodag->instance->of->which_parent(new_best, elt);
