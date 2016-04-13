@@ -215,8 +215,7 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     dio->version_number = dodag->version;
     /* a leaf node announces an INFINITE_RANK */
 #ifdef MODULE_GNRC_RPL_BLOOM
-    dio->rank = (((dodag->node_status == GNRC_RPL_LEAF_NODE) &&
-                   (dodag->parents->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL)) ?
+    dio->rank = (((dodag->node_status == GNRC_RPL_LEAF_NODE) && dodag->parents->bloom_ext.bidirectional) ?
                  byteorder_htons(GNRC_RPL_INFINITE_RANK) : byteorder_htons(dodag->my_rank));
 #else
     dio->rank = ((dodag->node_status == GNRC_RPL_LEAF_NODE) ?
@@ -633,7 +632,11 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 #ifdef MODULE_GNRC_RPL_BLOOM
                     case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
                         DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT OPT\n");
-                        inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                        if (!inst->bloom_ext.delayed_dio) {
+                            xtimer_set_msg(&inst->bloom_ext.dio_timer,
+                                           GNRC_RPL_BLOOM_DIO_DELAY * SEC_IN_USEC,
+                                           &inst->bloom_ext.dio_msg, gnrc_rpl_pid);
+                        }
                         break;
 #endif
                 }
@@ -695,6 +698,11 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                         gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                         gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
                     }
+#ifdef MODULE_GNRC_RPL_BLOOM
+                    else if (dis->flags & GNRC_RPL_DIS_R) {
+                        /* DO NOTHING */
+                    }
+#endif
                     else {
                         gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                         gnrc_rpl_send_DIO(&gnrc_rpl_instances[i],
@@ -837,7 +845,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
         gnrc_rpl_parent_update(dodag, parent);
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-        gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext);
 #endif
 
         return;
@@ -940,7 +948,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             gnrc_rpl_instance_remove(inst);
             return;
         }
-        gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext);
     }
 #else
     /* incoming DIO is from pref. parent */

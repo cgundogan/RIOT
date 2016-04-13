@@ -282,7 +282,7 @@ int _gnrc_rpl_dodag_show(void)
                     parent->rank, ((int32_t) (parent->lifetime - (((uint32_t) xnow / SEC_IN_USEC))))
 #ifdef MODULE_GNRC_RPL_BLOOM
                     < 0 ? 0 : (parent->lifetime - ((uint32_t) xnow / SEC_IN_USEC)),
-                    parent->bloom_ext.flags & GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL ? "yes" : "no");
+                    parent->bloom_ext.bidirectional ? "yes" : "no");
 #else
                     < 0 ? 0 : (parent->lifetime - ((uint32_t) xnow / SEC_IN_USEC)));
 #endif

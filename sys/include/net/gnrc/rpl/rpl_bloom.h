@@ -101,9 +101,9 @@ extern "C" {
 #define GNRC_RPL_BLOOM_INTERVAL             (120 * SEC_IN_USEC)
 
 /**
- * @brief MSG type for link symmetry checks
+ * @brief MSG type for delayed DIOs
  */
-#define GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM     (0x0910)
+#define GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO (0x0912)
 
 /**
  * @brief Link symmetry check max retries
@@ -132,18 +132,6 @@ extern "C" {
 /** @} */
 
 /**
- * @name Bit positions and shifts for gnrc_rpl_bloom_parent_ext_t::flags
- * @{
- */
-#define GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT   (0)
-#define GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF         (7 << GNRC_RPL_BLOOM_PARENT_LINKSYM_NUMOF_SHIFT)
-#define GNRC_RPL_BLOOM_PARENT_NA_RUNNING_SHIFT      (3)
-#define GNRC_RPL_BLOOM_PARENT_NA_RUNNING            (1 << GNRC_RPL_BLOOM_PARENT_NA_RUNNING_SHIFT)
-#define GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL_SHIFT   (4)
-#define GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL         (1 << GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL_SHIFT)
-/** @} */
-
-/**
  * @brief RPL-Bloom Parent Announcement
  */
 typedef struct __attribute__((packed)) {
@@ -168,6 +156,12 @@ typedef struct {
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE];     /**< buffer for neighborhood bloom filter */
     int8_t bloom_lifetime;                      /**< seconds til the next bloom filter refresh */
+    xtimer_t link_check_timer;                  /**< timer for link symmetry checking */
+    msg_t link_check_msg;                       /**< msg for link symmetry checking */
+    xtimer_t dio_timer;                         /**< timer for delayed dios */
+    msg_t dio_msg;                              /**< msg for delayed dios */
+    bool delayed_dio;                           /**< delayed DIO running */
+    bool na_req_running;                        /**< na req running */
 } gnrc_rpl_bloom_inst_ext_t;
 
 /**
@@ -175,11 +169,10 @@ typedef struct {
  */
 typedef struct {
     struct gnrc_rpl_parent *parent;             /**< RPL parent */
-    xtimer_t link_check_timer;                  /**< timer for link symmetry checking */
-    msg_t link_check_msg;                       /**< msg for link symmetry checking */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE]; /**< buffer for bloom filter */
-    uint8_t flags;                              /** #linksym_checks, na_req_running, bidir. */
+    bool bidirectional;                         /** bidir. */
+    uint8_t linksym_checks;                     /** #linksym_checks */
 } gnrc_rpl_bloom_parent_ext_t;
 
 /**
@@ -238,19 +231,19 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
  * @brief   Operate as leaf node if we have no parent with a bidirectional link,
  *          send a parent announcement and request a neighborhood announcement
  *
- * @param[in] ext       Pointer to the parent rpl bloom extension
+ * @param[in] ext       Pointer to the instance rpl bloom extension
  */
-void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_parent_ext_t *ext);
+void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext);
 
 /**
  * @brief   Request a neighborhood announcement only if there is currently no
  *          request in progress
  *
- * @param[in] ext       Pointer to the parent rpl bloom extension
+ * @param[in] ext       Pointer to the instance rpl bloom extension
  */
-static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_parent_ext_t *ext)
+static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_inst_ext_t *ext)
 {
-    if (!(ext->flags & GNRC_RPL_BLOOM_PARENT_NA_RUNNING)) {
+    if (!ext->na_req_running) {
         gnrc_rpl_bloom_request_na(ext);
     }
     return;

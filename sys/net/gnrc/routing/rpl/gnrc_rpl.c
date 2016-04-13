@@ -203,7 +203,7 @@ static void *_event_loop(void *args)
 
     trickle_t *trickle;
 #ifdef MODULE_GNRC_RPL_BLOOM
-    gnrc_rpl_bloom_parent_ext_t *parent_bloom;
+    gnrc_rpl_bloom_inst_ext_t *inst_bloom;
 #endif
     /* start event loop */
     while (1) {
@@ -233,9 +233,20 @@ static void *_event_loop(void *args)
             case GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM:
                 DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM received\n");
                 if (msg.content.ptr) {
-                    parent_bloom = (gnrc_rpl_bloom_parent_ext_t *) msg.content.ptr;
-                    if (parent_bloom->parent && parent_bloom->parent->state) {
-                        gnrc_rpl_bloom_request_na(parent_bloom);
+                    inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
+                    if (inst_bloom->instance && inst_bloom->instance->state) {
+                        gnrc_rpl_bloom_request_na(inst_bloom);
+                    }
+                }
+                break;
+            case GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO:
+                DEBUG("RPL-BLOOM: GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO received\n");
+                if (msg.content.ptr) {
+                    inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
+                    if (inst_bloom->instance && inst_bloom->instance->state) {
+                        inst_bloom->instance->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+                        gnrc_rpl_send_DIO(inst_bloom->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
+                        inst_bloom->delayed_dio = false;
                     }
                 }
                 break;
@@ -283,8 +294,8 @@ void _update_lifetime(void)
             }
 #ifdef MODULE_GNRC_RPL_BLOOM
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 5)) {
-                parent->bloom_ext.flags &= ~GNRC_RPL_BLOOM_PARENT_BIDIRECTIONAL;
-                gnrc_rpl_bloom_request_na_safe(&parent->bloom_ext);
+                parent->bloom_ext.bidirectional = false;
+                gnrc_rpl_bloom_request_na_safe(&parent->dodag->instance->bloom_ext);
 #else
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
