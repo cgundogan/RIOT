@@ -10,7 +10,7 @@
  * @{
  * @ingroup     net_netstats
  * @file
- * @brief       This file contains functionality to stringify netstats_module_t 
+ * @brief       This file contains functionality to stringify netstats_module_t
  *
  * @author      Oliver Hahm <oliver.hahm@inria.fr>
  * @}
