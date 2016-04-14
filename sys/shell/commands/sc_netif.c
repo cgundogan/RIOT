@@ -94,7 +94,7 @@ static int _netif_stats(kernel_pid_t dev, unsigned module, bool reset)
     }
     else if (reset) {
         memset(stats, 0, sizeof(netstats_t));
-        printf("Reset statistics for module %u!", module);
+        printf("Reset statistics for module %s!\n", netstats_module_to_str(module));
     }
     else {
         printf("           Statistics for %s\n"
