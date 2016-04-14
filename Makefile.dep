@@ -128,7 +128,9 @@ ifneq (,$(filter gnrc_sixlowpan_border_router_default,$(USEMODULE)))
 endif
 
 ifneq (,$(filter gnrc_sixlowpan_router,$(USEMODULE)))
-  USEMODULE += gnrc_sixlowpan_nd_router
+    ifeq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+      USEMODULE += gnrc_sixlowpan_nd_router
+    endif
 endif
 
 ifneq (,$(filter gnrc_sixlowpan_frag,$(USEMODULE)))
@@ -186,8 +188,10 @@ ifneq (,$(filter gnrc_ipv6_router_default,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_router
   USEMODULE += gnrc_icmpv6
   ifeq (1,$(GNRC_NETIF_NUMOF))
-    ifeq (,$(filter gnrc_sixlowpan_nd_router,$(USEMODULE)))
-      USEMODULE += gnrc_ndp_router
+    ifeq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+      ifeq (,$(filter gnrc_sixlowpan_nd_router,$(USEMODULE)))
+        USEMODULE += gnrc_ndp_router
+      endif
     endif
   else
     USEMODULE += gnrc_ndp_router
@@ -267,7 +271,9 @@ ifneq (,$(filter gnrc_ipv6,$(USEMODULE)))
   USEMODULE += inet_csum
   USEMODULE += ipv6_addr
   USEMODULE += gnrc_ipv6_hdr
-  USEMODULE += gnrc_ipv6_nc
+  ifeq (,$(filter gnrc_rpl_bloom,$(USEMODULE)))
+    USEMODULE += gnrc_ipv6_nc
+  endif
   USEMODULE += gnrc_ipv6_netif
 endif
 
