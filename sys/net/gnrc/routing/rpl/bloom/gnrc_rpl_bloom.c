@@ -19,6 +19,7 @@
 #include "net/gnrc.h"
 #include "hashes.h"
 #include "bloom.h"
+#include "random.h"
 
 #include "net/gnrc/rpl/rpl_bloom.h"
 #include "net/gnrc/rpl/structs.h"
@@ -74,7 +75,8 @@ void gnrc_rpl_bloom_blacklist_reset(void)
     DEBUG("RPL-BLOOM: reseting blacklist bloom filter\n");
     memset(gnrc_rpl_bloom_blacklist_buf, 0,
            sizeof(gnrc_rpl_bloom_blacklist_buf)/sizeof(gnrc_rpl_bloom_blacklist_buf[0]));
-    xtimer_set_msg(&gnrc_rpl_bloom_blacklist_timer, GNRC_RPL_BLOOM_BLACKLIST_LIFETIME * SEC_IN_USEC,
+    xtimer_set_msg(&gnrc_rpl_bloom_blacklist_timer,
+                   (GNRC_RPL_BLOOM_BLACKLIST_LIFETIME + random_uint32_range(0, 10)) * SEC_IN_USEC,
                    &gnrc_rpl_bloom_blacklist_msg, gnrc_rpl_pid);
 }
 
@@ -95,7 +97,7 @@ void gnrc_rpl_bloom_refresh(gnrc_rpl_bloom_inst_ext_t *ext)
 {
     DEBUG("RPL-BLOOM: reseting neighborhood bloom filter\n");
     memset(ext->nhood_bloom_buf, 0, sizeof(ext->nhood_bloom_buf));
-    ext->bloom_lifetime = GNRC_RPL_BLOOM_LIFETIME + (int) (rand() * 5);
+    ext->bloom_lifetime = GNRC_RPL_BLOOM_LIFETIME + random_uint32_range(0, 10);
 }
 
 void gnrc_rpl_bloom_instance_ext_remove(gnrc_rpl_bloom_inst_ext_t *ext)
@@ -238,8 +240,8 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext)
 
         if (++pext->linksym_checks > GNRC_RPL_BLOOM_LINKSYM_RETRIES) {
             bloom_add(&gnrc_rpl_bloom_blacklist, pext->parent->addr.u8, sizeof(ipv6_addr_t));
-            printf("RPL-BLOOM: blacklisted %s\n", ipv6_addr_to_str(addr_str, &pext->parent->addr,
-                                                  sizeof(addr_str)));
+            DEBUG("RPL-BLOOM: blacklisted %s\n", ipv6_addr_to_str(addr_str, &pext->parent->addr,
+                                                                  sizeof(addr_str)));
             gnrc_rpl_parent_remove(pext->parent);
             gnrc_rpl_parent_update(dodag, NULL);
             continue;
@@ -257,7 +259,7 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext)
         gnrc_rpl_send_DIS(dodag->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, (GNRC_RPL_DIS_N | GNRC_RPL_DIS_R),
                           req_na, sizeof(req_na)/sizeof(req_na[0]));
         dodag->dis_opts &= ~GNRC_RPL_REQ_DIS_OPT_PA;
-        xtimer_set_msg(&ext->link_check_timer, GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL * SEC_IN_USEC,
+        xtimer_set_msg(&ext->link_check_timer, GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL * SEC_IN_USEC + random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
                        &ext->link_check_msg, gnrc_rpl_pid);
     }
     else {
@@ -323,10 +325,10 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
             addr_len = sizeof(ipv6_addr_t) - prefix_bytes;
             DEBUG("checking: %s\n", ipv6_addr_to_str(addr_str, &paddr, sizeof(addr_str)));
             if (bloom_check(&parent->bloom_ext.nhood_bloom, &paddr.u8[prefix_bytes], addr_len)) {
-                DEBUG("RPL-BLOOM: bidirectional link with (%s)\n",
-                      ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
-
                 if (!parent->bloom_ext.bidirectional) {
+                    DEBUG("RPL-BLOOM: bidirectional link with (%s)\n",
+                          ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+
                     parent->bloom_ext.bidirectional = true;
                     parent->bloom_ext.linksym_checks = 0;
                     gnrc_rpl_parent_update(dodag, parent);

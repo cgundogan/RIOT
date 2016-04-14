@@ -43,7 +43,7 @@ extern "C" {
 /**
  * @brief Size of the blacklist bloom filter in bytes
  */
-#define GNRC_RPL_BLACKLIST_BLOOM_SIZE       (48)
+#define GNRC_RPL_BLACKLIST_BLOOM_SIZE       (16)
 
 /**
  * @brief MSG Type for the blacklist bloom filter
@@ -53,12 +53,12 @@ extern "C" {
 /**
  * @brief Lifetime of the neighborhood bloom filter in seconds
  */
-#define GNRC_RPL_BLOOM_LIFETIME             (120)
+#define GNRC_RPL_BLOOM_LIFETIME             (90)
 
 /**
  * @brief Lifetime of the blacklist bloom filter in seconds
  */
-#define GNRC_RPL_BLOOM_BLACKLIST_LIFETIME   (120)
+#define GNRC_RPL_BLOOM_BLACKLIST_LIFETIME   (60)
 
 /**
  * @brief Number of hashes for the bloom filter
@@ -96,9 +96,9 @@ extern "C" {
 /** @} */
 
 /**
- * @brief Check interval in micro seconds
+ * @brief MSG type for link symmetry checks
  */
-#define GNRC_RPL_BLOOM_INTERVAL             (120 * SEC_IN_USEC)
+#define GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM     (0x0910)
 
 /**
  * @brief MSG type for delayed DIOs
@@ -113,7 +113,12 @@ extern "C" {
 /**
  * @brief Link symmetry check retry interval in sec
  */
-#define GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL   (5)
+#define GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL   (3)
+
+/**
+ * @brief Delay DIO by this amount of seconds
+ */
+#define GNRC_RPL_BLOOM_DIO_DELAY   (1)
 
 /**
  * @name Bit positions and shifts for gnrc_rpl_dodag_t::dio_opts

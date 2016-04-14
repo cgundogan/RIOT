@@ -22,6 +22,7 @@
 #include "net/gnrc/ipv6.h"
 #include "net/gnrc.h"
 #include "net/eui64.h"
+#include "random.h"
 
 #include "net/gnrc/rpl.h"
 
@@ -445,8 +446,7 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
                 }
 
                 if (opt->length > (GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t))) {
-                    DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) length, "
-                           "expected: 0 < %d <= %d\n",
+                    DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) length, expected: 0 < %d <= %d\n",
                           opt->length, GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t));
                     return false;
                 }
@@ -633,8 +633,10 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
                     case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
                         DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT OPT\n");
                         if (!inst->bloom_ext.delayed_dio) {
+                            inst->bloom_ext.delayed_dio = true;
                             xtimer_set_msg(&inst->bloom_ext.dio_timer,
-                                           GNRC_RPL_BLOOM_DIO_DELAY * SEC_IN_USEC,
+                                           (GNRC_RPL_BLOOM_DIO_DELAY * SEC_IN_USEC) +
+                                           random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
                                            &inst->bloom_ext.dio_msg, gnrc_rpl_pid);
                         }
                         break;

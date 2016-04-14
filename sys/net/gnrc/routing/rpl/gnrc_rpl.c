@@ -19,6 +19,8 @@
 #include "net/gnrc/ipv6/netif.h"
 #include "net/gnrc.h"
 #include "mutex.h"
+#include "periph/cpuid.h"
+#include "random.h"
 
 #include "net/gnrc/rpl.h"
 #ifdef MODULE_GNRC_RPL_P2P
@@ -71,6 +73,13 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
         gnrc_rpl_of_manager_init();
         xtimer_set_msg(&_lt_timer, _lt_time, &_lt_msg, gnrc_rpl_pid);
 #ifdef MODULE_GNRC_RPL_BLOOM
+        uint8_t cpuid[CPUID_LEN];
+        uint32_t seed = 0;
+        cpuid_get(cpuid);
+        for (unsigned int i = 0; i < CPUID_LEN; i++) {
+            seed += cpuid[i];
+        }
+        random_init(seed);
         gnrc_rpl_bloom_init();
 #endif
     }

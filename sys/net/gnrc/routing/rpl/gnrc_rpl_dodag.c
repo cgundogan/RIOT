@@ -252,13 +252,7 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
                           (parent->next->lifetime - now) * SEC_IN_MS);
         }
     }
-#ifdef MODULE_GNRC_RPL_BLOOM
-    if (dodag->parents) {
-#endif
     LL_DELETE(dodag->parents, parent);
-#ifdef MODULE_GNRC_RPL_BLOOM
-    }
-#endif
     memset(parent, 0, sizeof(gnrc_rpl_parent_t));
     return true;
 }
