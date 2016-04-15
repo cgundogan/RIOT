@@ -51,11 +51,11 @@ typedef struct {
 } netstats_t;
 
 /**
- * @brief   Get a string description for @ref netstats_module_t, for debugging
+ * @brief     Get a string description for @ref netstats_module_t, for debugging
  *
  * @param[in] module The netstats module to get a string representation for
  *
- * @return          ptr to string representation for given module or "unknown"
+ * @return           ptr to string representation for given module or "unknown"
  */
 const char *netstats_module_to_str(netstats_module_t module);
 
