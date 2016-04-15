@@ -276,20 +276,15 @@ void gnrc_rpl_bloom_handle_pa(gnrc_rpl_opt_pa_t *opt, ipv6_addr_t *src,
                               gnrc_rpl_bloom_inst_ext_t *ext, uint32_t *included_opts)
 {
     DEBUG("RPL-BLOOM: PARENT ANNOUNCEMENT option parsed\n");
-    ipv6_addr_t me = *src, src_tmp = *src;
+    ipv6_addr_t me = *src;
     uint8_t *suffix = ((uint8_t *) opt) + sizeof(*opt);
-    uint8_t prefix_bytes;
 
     *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PARENT_ANNOUNCEMENT;
     ipv6_addr_init_iid(&me, suffix, IPV6_ADDR_BIT_LEN - opt->prefix_len);
     if (gnrc_ipv6_netif_find_by_addr(NULL, &me) != KERNEL_PID_UNDEF) {
-        prefix_bytes = opt->prefix_len >> 3;
-        /* unset unaligned bits in first byte */
-        src_tmp.u8[prefix_bytes] &= (0xFF >> (opt->prefix_len % 8));
         DEBUG("RPL-BLOOM: add (%s) to neighborhood bloom\n",
               ipv6_addr_to_str(addr_str, &src_tmp, sizeof(addr_str)));
-        bloom_add(&(ext->nhood_bloom), &(src_tmp.u8[prefix_bytes]),
-                  sizeof(ipv6_addr_t) - prefix_bytes);
+        bloom_add(&(ext->nhood_bloom), src->u8, sizeof(ipv6_addr_t));
     }
 }
 
@@ -301,9 +296,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
 
     gnrc_rpl_parent_t *parent;
     gnrc_rpl_dodag_t *dodag = &ext->instance->dodag;
-    ipv6_addr_t *me = NULL, paddr;
-    int prefix_bits;
-    uint8_t prefix_bytes, addr_len;
+    ipv6_addr_t *me = NULL;
 
     LL_FOREACH(dodag->parents, parent) {
         if (ipv6_addr_equal(src, &parent->addr)) {
@@ -317,14 +310,8 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
         *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PARENT_ANNOUNCEMENT;
 
         if (gnrc_ipv6_netif_find_by_prefix(&me, src) != KERNEL_PID_UNDEF) {
-            paddr = *me;
-            prefix_bits = ipv6_addr_match_prefix(&paddr, src);
-            prefix_bytes = prefix_bits >> 3;
-            /* unset unaligned bits in first byte */
-            paddr.u8[prefix_bytes] &= (0xFF >> (prefix_bits % 8));
-            addr_len = sizeof(ipv6_addr_t) - prefix_bytes;
-            DEBUG("checking: %s\n", ipv6_addr_to_str(addr_str, &paddr, sizeof(addr_str)));
-            if (bloom_check(&parent->bloom_ext.nhood_bloom, &paddr.u8[prefix_bytes], addr_len)) {
+            DEBUG("checking: %s\n", ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
+            if (bloom_check(&parent->bloom_ext.nhood_bloom, me->u8, sizeof(ipv6_addr_t))) {
                 if (!parent->bloom_ext.bidirectional) {
                     DEBUG("RPL-BLOOM: bidirectional link with (%s)\n",
                           ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
