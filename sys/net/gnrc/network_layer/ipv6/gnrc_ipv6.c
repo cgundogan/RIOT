@@ -34,6 +34,10 @@
 #include "net/gnrc/ipv6/whitelist.h"
 #include "net/gnrc/ipv6/blacklist.h"
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+#include "net/gnrc/rpl/rpl_bloom.h"
+#endif
+
 #include "net/gnrc/ipv6.h"
 
 #define ENABLE_DEBUG    (0)
@@ -639,6 +643,12 @@ static inline kernel_pid_t _next_hop_l2addr(uint8_t *l2addr, uint8_t *l2addr_len
     (void)dst;
     (void)pkt;
     *l2addr_len = 0;
+#endif
+#ifdef MODULE_GNRC_RPL_BLOOM
+    found_iface = gnrc_rpl_bloom_next_hop_l2addr(l2addr, l2addr_len, iface, dst);
+    if (found_iface > KERNEL_PID_UNDEF) {
+        return found_iface;
+    }
 #endif
     return found_iface;
 }
