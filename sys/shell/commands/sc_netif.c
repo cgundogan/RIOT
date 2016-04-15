@@ -73,7 +73,21 @@ static bool _is_iface(kernel_pid_t dev)
     return false;
 }
 
-#if defined(MODULE_NETSTATS_L2) || defined(MODULE_NETSTATS_IPV6)
+#if defined(MODULE_NETSTATS)
+const char *_netstats_module_to_str(netstats_module_t module)
+{
+    switch (module) {
+        case NETSTATS_LAYER2:
+            return "Layer 2";
+        case NETSTATS_IPV6:
+            return "IPv6";
+        case NETSTATS_ALL:
+            return "all";
+        default:
+            return "Unknown";
+    }
+}
+
 static int _netif_stats(kernel_pid_t dev, unsigned module, bool reset)
 {
     netstats_t *stats;
@@ -94,14 +108,14 @@ static int _netif_stats(kernel_pid_t dev, unsigned module, bool reset)
     }
     else if (reset) {
         memset(stats, 0, sizeof(netstats_t));
-        printf("Reset statistics for module %s!\n", netstats_module_to_str(module));
+        printf("Reset statistics for module %s!\n", _netstats_module_to_str(module));
     }
     else {
         printf("           Statistics for %s\n"
                "            RX packets %u  bytes %u\n"
                "            TX packets %u (Multicast: %u)  bytes %u\n"
                "            TX succeeded %u errors %u\n",
-               netstats_module_to_str(module),
+               _netstats_module_to_str(module),
                (unsigned) stats->rx_count,
                (unsigned) stats->rx_bytes,
                (unsigned) (stats->tx_unicast_count + stats->tx_mcast_count),
@@ -1123,7 +1137,7 @@ int _netif_config(int argc, char **argv)
 
                 return _netif_mtu((kernel_pid_t)dev, argv[3]);
             }
-#ifdef MODULE_NETSTATS_L2
+#ifdef MODULE_NETSTATS
             else if (strcmp(argv[2], "stats") == 0) {
                 netstats_module_t module;
                 bool reset = false;
