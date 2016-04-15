@@ -297,6 +297,19 @@ void gnrc_rpl_bloom_blacklist_reset(void);
  */
 bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr);
 
+/**
+ * @brief   Get l2 address and interface of next_hop
+ *
+ * @param[in,out] l2addr        l2 address of next_hop
+ * @param[in,out] l2addr_len    l2 address length of next_hop
+ * @param[in] iface             interface id that should be checked for
+ * @param[in] dst               destination address to find the next_hop for
+ *
+ * @return interface id of the found link
+ */
+kernel_pid_t gnrc_rpl_bloom_next_hop_l2addr(uint8_t *l2addr, uint8_t *l2addr_len,
+                                            kernel_pid_t iface, ipv6_addr_t *dst);
+
 #ifdef __cplusplus
 }
 #endif

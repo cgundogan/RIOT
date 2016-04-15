@@ -346,6 +346,52 @@ bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr)
     return false;
 }
 
+kernel_pid_t gnrc_rpl_bloom_next_hop_l2addr(uint8_t *l2addr, uint8_t *l2addr_len,
+                                            kernel_pid_t iface, ipv6_addr_t *dst)
+{
+    kernel_pid_t fib_iface;
+    ipv6_addr_t next_hop;
+    size_t next_hop_size = sizeof(ipv6_addr_t);
+    uint32_t next_hop_flags = 0;
+
+    if (!ipv6_addr_is_link_local(dst)) {
+        if (0 < fib_get_next_hop(&gnrc_ipv6_fib_table, &fib_iface, next_hop.u8, &next_hop_size,
+                                 &next_hop_flags, (uint8_t *)dst, sizeof(ipv6_addr_t), 0)) {
+            return KERNEL_PID_UNDEF;
+        }
+    }
+    else {
+        next_hop = *dst;
+    }
+
+    gnrc_rpl_instance_t *inst;
+    gnrc_rpl_parent_t *parent;
+
+    *l2addr_len = sizeof(eui64_t);
+    for (inst = gnrc_rpl_instances; inst < gnrc_rpl_instances + GNRC_RPL_INSTANCES_NUMOF; inst++) {
+        if ((iface == KERNEL_PID_UNDEF) || (inst->dodag.iface == iface)) {
+            /* is next_hop a parent? */
+            LL_FOREACH(inst->dodag.parents, parent) {
+                if (ipv6_addr_equal(&next_hop, &parent->addr)) {
+                    memcpy(l2addr, &next_hop.u8[8], sizeof(eui64_t));
+                    l2addr[0] ^= 0x02;
+                    return inst->dodag.iface;
+                }
+            }
+
+            /* is next_hop a child? */
+            if (bloom_check(&inst->bloom_ext.nhood_bloom, next_hop.u8, sizeof(ipv6_addr_t))) {
+                memcpy(l2addr, &next_hop.u8[8], sizeof(eui64_t));
+                l2addr[0] ^= 0x02;
+                printf("FOUND LINK AS CHILD\n");
+                return inst->dodag.iface;
+            }
+        }
+    }
+
+    return KERNEL_PID_UNDEF;
+}
+
 /**
  * @}
  */
