@@ -33,6 +33,7 @@ extern "C" {
  */
 #define NETSTATS_LAYER2     (0x01)
 #define NETSTATS_IPV6       (0x02)
+#define NETSTATS_RPL        (0x03)
 #define NETSTATS_ALL        (0xFF)
 /** @} */
 
@@ -51,6 +52,28 @@ typedef struct {
     uint32_t rx_count;          /**< received (data) packets */
     uint32_t rx_bytes;          /**< received bytes */
 } netstats_t;
+
+/**
+ * @brief       Global statistics struct for RPL control messages
+ */
+typedef struct {
+    uint32_t dio_rx_count;      /**< DIOs received */
+    uint32_t dio_tx_count;      /**< DIOs sent */
+    uint32_t dis_rx_count;      /**< DISs received */
+    uint32_t dis_tx_count;      /**< DISs sent */
+    uint32_t dao_rx_count;      /**< DAOs received */
+    uint32_t dao_tx_count;      /**< DAOs sent */
+    uint32_t dao_ack_rx_count;  /**< DAO-ACKs received */
+    uint32_t dao_ack_tx_count;  /**< DAO-ACKs sent */
+    uint32_t dio_rx_bytes;      /**< received bytes of DIOs */
+    uint32_t dio_tx_bytes;      /**< sent bytes of DIOs */
+    uint32_t dis_rx_bytes;      /**< received bytes of DISs */
+    uint32_t dis_tx_bytes;      /**< sent bytes of DISs */
+    uint32_t dao_rx_bytes;      /**< received bytes of DAOs */
+    uint32_t dao_tx_bytes;      /**< sent bytes of DAOs */
+    uint32_t dao_ack_rx_bytes;  /**< received bytes of DAO-ACKs */
+    uint32_t dao_ack_tx_bytes;  /**< sent bytes of DAO-ACKs */
+} netstats_rpl_t;
 
 #ifdef __cplusplus
 }

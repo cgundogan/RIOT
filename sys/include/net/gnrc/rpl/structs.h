@@ -31,6 +31,7 @@ extern "C" {
 #include "net/ipv6/addr.h"
 #include "xtimer.h"
 #include "trickle.h"
+#include "net/netstats.h"
 
 /**
  * @anchor GNRC_RPL_REQ_DIO_OPTS
@@ -249,6 +250,9 @@ struct gnrc_rpl_instance {
     uint16_t min_hop_rank_inc;      /**< minimum hop rank increase */
     uint16_t max_rank_inc;          /**< max increase in the rank */
     int8_t cleanup;                 /**< cleanup time in seconds */
+#ifdef MODULE_NETSTATS_RPL
+    netstats_rpl_t stats;
+#endif
 };
 
 #ifdef __cplusplus
