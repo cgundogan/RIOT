@@ -243,6 +243,18 @@ int _gnrc_rpl_dodag_show(void)
                 gnrc_rpl_instances[i].mop, gnrc_rpl_instances[i].of->ocp,
                 gnrc_rpl_instances[i].min_hop_rank_inc, gnrc_rpl_instances[i].max_rank_inc);
 
+#ifdef MODULE_NETSTATS_RPL
+        netstats_rpl_t *stats = &gnrc_rpl_instances[i].stats;
+        printf("\tDIO (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
+               stats->dio_rx_count, stats->dio_tx_count, stats->dio_rx_bytes, stats->dio_tx_bytes);
+        printf("\tDIS (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
+               stats->dis_rx_count, stats->dis_tx_count, stats->dis_rx_bytes, stats->dis_tx_bytes);
+        printf("\tDAO (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
+               stats->dao_rx_count, stats->dao_tx_count, stats->dao_rx_bytes, stats->dao_tx_bytes);
+        printf("\tDAO-ACK (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
+               stats->dao_ack_rx_count, stats->dao_ack_tx_count, stats->dao_ack_rx_bytes,
+               stats->dao_ack_tx_bytes);
+#endif
         tc = (((uint64_t) dodag->trickle.msg_callback_timer.long_target << 32)
                 | dodag->trickle.msg_callback_timer.target) - xnow;
         tc = (int64_t) tc < 0 ? 0 : tc / SEC_IN_USEC;
