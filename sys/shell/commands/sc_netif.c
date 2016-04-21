@@ -74,7 +74,7 @@ static bool _is_iface(kernel_pid_t dev)
 }
 
 #if defined(MODULE_NETSTATS)
-const char *_netstats_module_to_str(netstats_module_t module)
+const char *_netstats_module_to_str(uint8_t module)
 {
     switch (module) {
         case NETSTATS_LAYER2:
@@ -1139,7 +1139,7 @@ int _netif_config(int argc, char **argv)
             }
 #ifdef MODULE_NETSTATS
             else if (strcmp(argv[2], "stats") == 0) {
-                netstats_module_t module;
+                uint8_t module;
                 bool reset = false;
 
                 /* check for requested module */

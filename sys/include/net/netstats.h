@@ -27,12 +27,14 @@
 extern "C" {
 #endif
 
-typedef enum {
-    NETSTATS_LAYER2     = 0x01,
-    NETSTATS_IPV6       = 0x02,
-    NETSTATS_ALL        = 0xFF
-} netstats_module_t;
-
+/**
+ * @name @ref net_netstats module names
+ * @{
+ */
+#define NETSTATS_LAYER2     (0x01)
+#define NETSTATS_IPV6       (0x02)
+#define NETSTATS_ALL        (0xFF)
+/** @} */
 
 /**
  * @brief       Global statistics struct
