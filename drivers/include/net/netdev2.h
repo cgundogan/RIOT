@@ -48,6 +48,7 @@ extern "C" {
 
 #include "net/netstats.h"
 #include "net/netopt.h"
+#include "net/netstats.h"
 
 enum {
     NETDEV2_TYPE_UNKNOWN,
