@@ -93,6 +93,9 @@ bool gnrc_rpl_instance_add(uint8_t instance_id, gnrc_rpl_instance_t **inst)
         (*inst)->bloom_ext.instance = (*inst);
         gnrc_rpl_bloom_instance_ext_init(&(*inst)->bloom_ext);
 #endif
+#ifdef MODULE_NETSTATS_RPL
+        memset(&(*inst)->stats, 0, sizeof((*inst)->stats));
+#endif
         return true;
     }
 

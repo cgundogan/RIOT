@@ -31,6 +31,7 @@ extern "C" {
 #include "net/ipv6/addr.h"
 #include "xtimer.h"
 #include "trickle.h"
+#include "net/netstats.h"
 
 #ifdef MODULE_GNRC_RPL_BLOOM
 #include "net/gnrc/rpl/rpl_bloom.h"
@@ -269,6 +270,9 @@ struct gnrc_rpl_instance {
     int8_t cleanup;                 /**< cleanup time in seconds */
 #ifdef MODULE_GNRC_RPL_BLOOM
     gnrc_rpl_bloom_inst_ext_t bloom_ext;  /**< rpl bloom instance extension */
+#endif
+#ifdef MODULE_NETSTATS_RPL
+    netstats_rpl_t stats;
 #endif
 };
 
