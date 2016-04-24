@@ -974,7 +974,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             dodag->prf = dio->g_mop_prf & GNRC_RPL_PRF_MASK;
         }
         uint32_t included_opts = 0;
-        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), len,
+        if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIO, inst, (gnrc_rpl_opt_t *)(dio + 1), opt_len,
                            src, &included_opts)) {
             DEBUG("RPL: Error encountered during DIO option parsing - remove DODAG\n");
             gnrc_rpl_instance_remove(inst);
