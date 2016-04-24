@@ -774,6 +774,10 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
 
 #ifdef MODULE_GNRC_RPL_BLOOM
     if (gnrc_rpl_bloom_check_blacklist(src)) {
+#ifdef MODULE_NETSTATS_RPL
+        inst->stats.dio_bl_rx_count++;
+        inst->stats.dio_bl_rx_bytes += len - sizeof(icmpv6_hdr_t);
+#endif
         return;
     }
 #endif
