@@ -247,6 +247,10 @@ int _gnrc_rpl_dodag_show(void)
         netstats_rpl_t *stats = &gnrc_rpl_instances[i].stats;
         printf("\tDIO (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
                stats->dio_rx_count, stats->dio_tx_count, stats->dio_rx_bytes, stats->dio_tx_bytes);
+#ifdef MODULE_GNRC_RPL_BLOOM
+        printf("\tDIO Ignored\tpackets %"PRIu32"\tbytes %"PRIu32"\n",
+               stats->dio_bl_rx_count, stats->dio_bl_rx_bytes);
+#endif
         printf("\tDIS (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",
                stats->dis_rx_count, stats->dis_tx_count, stats->dis_rx_bytes, stats->dis_tx_bytes);
         printf("\tDAO (RX/TX)\tpackets %"PRIu32"/%"PRIu32"\tbytes %"PRIu32"/%"PRIu32"\n",

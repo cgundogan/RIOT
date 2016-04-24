@@ -59,6 +59,10 @@ typedef struct {
 typedef struct {
     uint32_t dio_rx_count;      /**< DIOs received */
     uint32_t dio_tx_count;      /**< DIOs sent */
+#ifdef MODULE_GNRC_RPL_BLOOM
+    uint32_t dio_bl_rx_count;   /**< DIOs received */
+    uint32_t dio_bl_rx_bytes;   /**< received bytes of DIOs */
+#endif
     uint32_t dis_rx_count;      /**< DISs received */
     uint32_t dis_tx_count;      /**< DISs sent */
     uint32_t dao_rx_count;      /**< DAOs received */
