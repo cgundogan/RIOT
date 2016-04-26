@@ -34,6 +34,7 @@ extern "C" {
 #define NETSTATS_LAYER2     (0x01)
 #define NETSTATS_IPV6       (0x02)
 #define NETSTATS_RPL        (0x03)
+#define NETSTATS_ND         (0x04)
 #define NETSTATS_ALL        (0xFF)
 /** @} */
 
@@ -52,6 +53,28 @@ typedef struct {
     uint32_t rx_count;          /**< received (data) packets */
     uint32_t rx_bytes;          /**< received bytes */
 } netstats_t;
+
+/**
+ * @brief       Global statistics struct for ND control messages
+ */
+typedef struct {
+    uint32_t ns_rx_count;       /**< NSs received */
+    uint32_t ns_rx_bytes;       /**< NS bytes received */
+    uint32_t ns_tx_count;       /**< NSs sent */
+    uint32_t ns_tx_bytes;       /**< NS bytes sent */
+    uint32_t na_rx_count;       /**< NAs received */
+    uint32_t na_rx_bytes;       /**< NA bytes received */
+    uint32_t na_tx_count;       /**< NAs sent */
+    uint32_t na_tx_bytes;       /**< NA bytes sent */
+    uint32_t rs_rx_count;       /**< RSs received */
+    uint32_t rs_rx_bytes;       /**< RS bytes received */
+    uint32_t rs_tx_count;       /**< RSs sent */
+    uint32_t rs_tx_bytes;       /**< RS bytes sent */
+    uint32_t ra_rx_count;       /**< RAs received */
+    uint32_t ra_rx_bytes;       /**< RA bytes received */
+    uint32_t ra_tx_count;       /**< RAs sent */
+    uint32_t ra_tx_bytes;       /**< RA bytes sent */
+} netstats_nd_t;
 
 /**
  * @brief       Global statistics struct for RPL control messages

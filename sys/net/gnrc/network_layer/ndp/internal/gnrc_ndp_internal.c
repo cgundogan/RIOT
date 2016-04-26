@@ -223,6 +223,11 @@ void gnrc_ndp_internal_send_nbr_adv(kernel_pid_t iface, ipv6_addr_t *tgt, ipv6_a
         DEBUG("ndp internal: unable to send neighbor advertisement\n");
         gnrc_pktbuf_release(hdr);
     }
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->na_tx_count++;
+    nd_stats->na_tx_bytes += gnrc_pkt_len(pkt);
+#endif
 }
 
 void gnrc_ndp_internal_send_nbr_sol(kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *tgt,
@@ -302,6 +307,11 @@ void gnrc_ndp_internal_send_nbr_sol(kernel_pid_t iface, ipv6_addr_t *src, ipv6_a
         DEBUG("ndp internal: unable to send neighbor solicitation\n");
         gnrc_pktbuf_release(hdr);
     }
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->ns_tx_count++;
+    nd_stats->ns_tx_bytes += gnrc_pkt_len(pkt);
+#endif
 }
 
 void gnrc_ndp_internal_send_rtr_sol(kernel_pid_t iface, ipv6_addr_t *dst)
@@ -347,6 +357,11 @@ void gnrc_ndp_internal_send_rtr_sol(kernel_pid_t iface, ipv6_addr_t *dst)
         DEBUG("ndp internal: unable to send router solicitation\n");
         gnrc_pktbuf_release(hdr);
     }
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->rs_tx_count++;
+    nd_stats->rs_tx_bytes += gnrc_pkt_len(pkt);
+#endif
 }
 
 #if (defined(MODULE_GNRC_NDP_ROUTER) || defined(MODULE_GNRC_SIXLOWPAN_ND_ROUTER))
@@ -588,6 +603,11 @@ void gnrc_ndp_internal_send_rtr_adv(kernel_pid_t iface, ipv6_addr_t *src, ipv6_a
         DEBUG("ndp internal: unable to send router advertisement\n");
         gnrc_pktbuf_release(hdr);
     }
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->ra_tx_count++;
+    nd_stats->ra_tx_bytes += gnrc_pkt_len(pkt);
+#endif
 }
 #endif
 

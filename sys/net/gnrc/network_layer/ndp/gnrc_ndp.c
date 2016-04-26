@@ -126,6 +126,13 @@ void gnrc_ndp_nbr_sol_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt,
         /* ipv6 releases */
         return;
     }
+
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->ns_rx_count++;
+    nd_stats->ns_rx_bytes += icmpv6_size;
+#endif
+
     sicmpv6_size -= sizeof(ndp_nbr_sol_t);
     while (sicmpv6_size > 0) {
         ndp_opt_t *opt = (ndp_opt_t *)(buf + opt_offset);
@@ -238,6 +245,12 @@ void gnrc_ndp_nbr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt,
         /* ipv6 releases */
         return;
     }
+
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->na_rx_count++;
+    nd_stats->na_rx_bytes += icmpv6_size;
+#endif
 
     sicmpv6_size -= sizeof(ndp_nbr_adv_t);
 
@@ -392,6 +405,12 @@ void gnrc_ndp_rtr_sol_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt,
             DEBUG("ndp: router solicitation was invalid\n");
             return;
         }
+
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->rs_rx_count++;
+    nd_stats->rs_rx_bytes += icmpv6_size;
+#endif
         sicmpv6_size -= sizeof(ndp_rtr_sol_t);
         while (sicmpv6_size > 0) {
             ndp_opt_t *opt = (ndp_opt_t *)(buf + opt_offset);
@@ -553,6 +572,13 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
         if_entry->retrans_timer = byteorder_ntohl(rtr_adv->retrans_timer);
     }
     mutex_unlock(&if_entry->mutex);
+
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t *nd_stats = &((gnrc_ipv6_netif_get(iface))->nd_stats);
+    nd_stats->ra_rx_count++;
+    nd_stats->ra_rx_bytes += icmpv6_size;
+#endif
+
     sicmpv6_size -= sizeof(ndp_rtr_adv_t);
     /* parse options */
     while (sicmpv6_size > 0) {
