@@ -37,6 +37,7 @@ PSEUDOMODULES += netstats
 PSEUDOMODULES += netstats_l2
 PSEUDOMODULES += netstats_ipv6
 PSEUDOMODULES += netstats_rpl
+PSEUDOMODULES += netstats_nd
 PSEUDOMODULES += newlib
 PSEUDOMODULES += newlib_nano
 PSEUDOMODULES += pktqueue

@@ -348,6 +348,9 @@ typedef struct {
 #ifdef MODULE_NETSTATS_IPV6
     netstats_t stats;                       /**< transceiver's statistics */
 #endif
+#ifdef MODULE_NETSTATS_ND
+    netstats_nd_t nd_stats;                 /**< transceiver's ND statistics */
+#endif
 } gnrc_ipv6_netif_t;
 
 /**
