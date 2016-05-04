@@ -254,18 +254,17 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext)
         }
         else {
             unchecked_parents = true;
+            DEBUG("RPL-BLOOM: requesting NA\n");
+            dodag->dis_opts |= GNRC_RPL_REQ_DIS_OPT_PA;
+            uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
+            gnrc_rpl_send_DIS(dodag->instance, &parent->addr, 0, req_na, sizeof(req_na)/sizeof(req_na[0]));
         }
     }
 
     if (unchecked_parents) {
-        DEBUG("RPL-BLOOM: requesting NA\n");
         ext->na_req_running = true;
-        dodag->dis_opts |= GNRC_RPL_REQ_DIS_OPT_PA;
-        uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
-        gnrc_rpl_send_DIS(dodag->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, (GNRC_RPL_DIS_N | GNRC_RPL_DIS_R),
-                          req_na, sizeof(req_na)/sizeof(req_na[0]));
-        dodag->dis_opts &= ~GNRC_RPL_REQ_DIS_OPT_PA;
-        xtimer_set_msg(&ext->link_check_timer, GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL * SEC_IN_USEC + random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
+        xtimer_set_msg(&ext->link_check_timer, GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL *
+                       SEC_IN_USEC + random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
                        &ext->link_check_msg, gnrc_rpl_pid);
     }
     else {
@@ -350,6 +349,36 @@ bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr)
         return true;
     }
     return false;
+}
+
+bool gnrc_rpl_bloom_parse_options(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *opt, uint16_t len,
+                                  ipv6_addr_t *src, uint32_t *included_opts)
+{
+    uint16_t l = 0;
+    *included_opts = 0;
+
+    while(l < len) {
+        switch(opt[0]) {
+            case (GNRC_RPL_OPT_PAD1):
+                DEBUG("RPL: PAD1 option parsed\n");
+                *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_PAD1;
+                l += 1;
+                opt += 2;
+                continue;
+
+            case (GNRC_RPL_OPT_PARENT_ANNOUNCEMENT):
+                gnrc_rpl_bloom_handle_pa((gnrc_rpl_opt_pa_t *) opt, src, ext, included_opts);
+                break;
+
+            case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
+                gnrc_rpl_bloom_handle_na((gnrc_rpl_opt_na_t *) opt, src, ext, included_opts);
+                break;
+
+        }
+        l += opt[1] + 2;
+        opt += opt[1] + 2;
+    }
+    return true;
 }
 
 /**

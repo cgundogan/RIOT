@@ -297,6 +297,18 @@ void gnrc_rpl_bloom_blacklist_reset(void);
  */
 bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr);
 
+/**
+ * @brief   Parses RPL-Bloom options
+ *
+ * @param[in] ext               RPL-Bloom instance extension
+ * @param[in] opt               Pointer to the options
+ * @param[in] len               Length of the optins
+ * @param[in] src               Pointer to the source address
+ * @param[in,out] included_opts Pointer to the included options
+ */
+bool gnrc_rpl_bloom_parse_options(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *opt, uint16_t len,
+                                  ipv6_addr_t *src, uint32_t *included_opts);
+
 #ifdef __cplusplus
 }
 #endif

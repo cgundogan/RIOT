@@ -309,6 +309,7 @@ void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
         if ((pkt = gnrc_rpl_bloom_dis_pa_build(pkt, &inst->bloom_ext, destination)) == NULL) {
             return;
         }
+        inst->dodag.dis_opts &= ~GNRC_RPL_REQ_DIS_OPT_PA;
     }
 #endif
 
@@ -723,6 +724,12 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                     DEBUG("RPL: Error during DIS option parsing - ignore DIS\n");
                     return;
                 }
+#ifdef MODULE_GNRC_RPL_BLOOM
+                if (included_opts & GNRC_RPL_OPT_DIO_REQ_OPT) {
+                    bloom_add(&(gnrc_rpl_instances[i].bloom_ext.nhood_bloom), src->u8, sizeof(ipv6_addr_t));
+                    continue;
+                }
+#endif
                 gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                 gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
             }
@@ -930,6 +937,10 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             trickle_reset_timer(&dodag->trickle);
             return;
         }
+#ifdef MODULE_GNRC_RPL_BLOOM
+        uint32_t included_opts = 0;
+        gnrc_rpl_bloom_parse_options(&inst->bloom_ext, (uint8_t *)(dio + 1), len, src, &included_opts);
+#endif
     }
 #ifdef MODULE_GNRC_RPL_BLOOM
     else {
