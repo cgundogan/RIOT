@@ -171,11 +171,13 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dis_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
 {
     gnrc_rpl_parent_t *parent;
     bool stop = false, is_unicast = (dest && (!ipv6_addr_is_multicast(dest)));
+    gnrc_pktsnip_t *tmp;
 
     LL_FOREACH(ext->instance->dodag.parents, parent) {
         if (parent->bloom_ext.bidirectional) {
             continue;
         }
+
         if (is_unicast) {
             if (ipv6_addr_equal(dest, &parent->addr)) {
                 stop = true;
@@ -184,9 +186,13 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dis_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
                 continue;
             }
         }
-        if ((pkt = _handle_parents_dis_pa_build(pkt, parent)) == NULL) {
+
+        if ((tmp = _handle_parents_dis_pa_build(pkt, parent)) == NULL) {
+            gnrc_pktbuf_release(pkt);
             return NULL;
         }
+        pkt = tmp;
+
         if (stop) {
             break;
         }
