@@ -132,8 +132,8 @@ extern "C" {
  * @name Bit positions and shifts for gnrc_rpl_dodag_t::dis_opts
  * @{
  */
-#define GNRC_RPL_REQ_DIS_OPT_PA_SHIFT           (7)
-#define GNRC_RPL_REQ_DIS_OPT_PA                 (1 << GNRC_RPL_REQ_DIS_OPT_PA_SHIFT)
+#define GNRC_RPL_REQ_OPT_PA_SHIFT               (6)
+#define GNRC_RPL_REQ_OPT_PA                     (1 << GNRC_RPL_REQ_OPT_PA_SHIFT)
 /** @} */
 
 /**
@@ -237,19 +237,21 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
  *          send a parent announcement and request a neighborhood announcement
  *
  * @param[in] ext       Pointer to the instance rpl bloom extension
+ * @param[in] dio       Send DIO if true, send DIS otherwise
  */
-void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext);
+void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext, bool dio);
 
 /**
  * @brief   Request a neighborhood announcement only if there is currently no
  *          request in progress
  *
  * @param[in] ext       Pointer to the instance rpl bloom extension
+ * @param[in] dio       Send DIO if true, send DIS otherwise
  */
-static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_inst_ext_t *ext)
+static inline void gnrc_rpl_bloom_request_na_safe(gnrc_rpl_bloom_inst_ext_t *ext, bool dio)
 {
     if (!ext->na_req_running) {
-        gnrc_rpl_bloom_request_na(ext);
+        gnrc_rpl_bloom_request_na(ext, dio);
     }
     return;
 }

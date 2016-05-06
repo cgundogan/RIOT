@@ -229,7 +229,7 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
     return pkt;
 }
 
-void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext)
+void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext, bool dio)
 {
     assert(ext->instance && ext->instance->state);
     gnrc_rpl_dodag_t *dodag = &ext->instance->dodag;
@@ -254,15 +254,25 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext)
         }
         else {
             unchecked_parents = true;
-            DEBUG("RPL-BLOOM: requesting NA\n");
-            dodag->dis_opts |= GNRC_RPL_REQ_DIS_OPT_PA;
-            uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
-            gnrc_rpl_send_DIS(dodag->instance, &parent->addr, 0, req_na, sizeof(req_na)/sizeof(req_na[0]));
+            if (!dio) {
+                DEBUG("RPL-BLOOM: requesting NA\n");
+                dodag->dis_opts |= GNRC_RPL_REQ_OPT_PA;
+                uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
+                gnrc_rpl_send_DIS(dodag->instance, &parent->addr, 0, req_na, sizeof(req_na)/sizeof(req_na[0]));
+            }
         }
     }
 
     if (unchecked_parents) {
         ext->na_req_running = true;
+        if (dio) {
+            DEBUG("RPL-BLOOM: requesting NA\n");
+            dodag->dio_opts |= GNRC_RPL_REQ_OPT_PA;
+            uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
+            printf("Send DIO with PAs\n");
+            gnrc_rpl_send_DIO(dodag->instance,(ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, req_na,
+                              sizeof(req_na)/sizeof(req_na[0]));
+        }
         xtimer_set_msg(&ext->link_check_timer, GNRC_RPL_BLOOM_LINKSYM_RETRY_INTERVAL *
                        SEC_IN_USEC + random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
                        &ext->link_check_msg, gnrc_rpl_pid);
@@ -332,7 +342,7 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
                     parent->bloom_ext.bidirectional = false;
                     gnrc_rpl_parent_update(dodag, NULL);
                 }
-                gnrc_rpl_bloom_request_na_safe(ext);
+                gnrc_rpl_bloom_request_na_safe(ext, false);
             }
             if ((dodag->node_status == GNRC_RPL_LEAF_NODE) && dodag->parents->bloom_ext.bidirectional) {
                 dodag->node_status = GNRC_RPL_NORMAL_NODE;

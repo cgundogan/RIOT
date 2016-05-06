@@ -439,6 +439,18 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid);
 gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_id,
                                         bool gen_inst_id, bool local_inst_id);
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+/**
+ * @brief   Send a DIO of the @p instance to the @p destination.
+ *
+ * @param[in] instance          Pointer to the RPL instance.
+ * @param[in] destination       IPv6 addres of the destination.
+ * @param[in] req_opts          DIO options to request
+ * @param[in] req_opts_numof    Number of DIO options to request
+ */
+void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination, uint8_t req_opts[],
+                       uint8_t req_opts_numof);
+#else
 /**
  * @brief   Send a DIO of the @p instance to the @p destination.
  *
@@ -446,6 +458,7 @@ gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_
  * @param[in] destination       IPv6 addres of the destination.
  */
 void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *instance, ipv6_addr_t *destination);
+#endif
 
 /**
  * @brief   Send a DIS of the @p instace to the @p destination.

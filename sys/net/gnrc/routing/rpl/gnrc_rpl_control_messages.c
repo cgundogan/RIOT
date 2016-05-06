@@ -156,7 +156,11 @@ gnrc_pktsnip_t *_dio_prefix_info_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *do
 }
 #endif
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t req_opts[], uint8_t req_opts_numof)
+#else
 void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
+#endif
 {
     if (inst == NULL) {
         DEBUG("RPL: Error - trying to send DIO without being part of a dodag.\n");
@@ -193,6 +197,12 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
             return;
         }
         dodag->dio_opts &= ~GNRC_RPL_REQ_OPT_NA;
+    }
+    if (dodag->dio_opts & GNRC_RPL_REQ_OPT_PA) {
+        if ((pkt = gnrc_rpl_bloom_dis_pa_build(pkt, &dodag->instance->bloom_ext, destination)) == NULL) {
+            return;
+        }
+        inst->dodag.dio_opts &= ~GNRC_RPL_REQ_OPT_PA;
     }
 #endif
 
@@ -305,11 +315,11 @@ void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     }
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-    if (inst && (inst->dodag.dis_opts & GNRC_RPL_REQ_DIS_OPT_PA)) {
+    if (inst && (inst->dodag.dis_opts & GNRC_RPL_REQ_OPT_PA)) {
         if ((pkt = gnrc_rpl_bloom_dis_pa_build(pkt, &inst->bloom_ext, destination)) == NULL) {
             return;
         }
-        inst->dodag.dis_opts &= ~GNRC_RPL_REQ_DIS_OPT_PA;
+        inst->dodag.dis_opts &= ~GNRC_RPL_REQ_OPT_PA;
     }
 #endif
 
@@ -697,7 +707,11 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                 if (dis->flags & GNRC_RPL_DIS_N) {
                     if (dis->flags & GNRC_RPL_DIS_T) {
                         gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src, NULL, 0);
+#else
                         gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
+#endif
                     }
 #ifdef MODULE_GNRC_RPL_BLOOM
                     else if (dis->flags & GNRC_RPL_DIS_R) {
@@ -706,8 +720,12 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
 #endif
                     else {
                         gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes, NULL, 0);
+#else
                         gnrc_rpl_send_DIO(&gnrc_rpl_instances[i],
                                           (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes);
+#endif
                     }
                 }
                 else {
@@ -731,7 +749,11 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                 }
 #endif
                 gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src, NULL, 0);
+#else
                 gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
+#endif
             }
         }
     }
@@ -852,7 +874,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
         gnrc_rpl_parent_update(dodag, parent);
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext, false);
 #endif
 
         return;
@@ -959,7 +981,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
             gnrc_rpl_instance_remove(inst);
             return;
         }
-        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext);
+        gnrc_rpl_bloom_request_na_safe(&inst->bloom_ext, false);
     }
 #else
     /* incoming DIO is from pref. parent */

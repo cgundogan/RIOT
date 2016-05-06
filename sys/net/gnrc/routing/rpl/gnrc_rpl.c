@@ -244,7 +244,7 @@ static void *_event_loop(void *args)
                 if (msg.content.ptr) {
                     inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
                     if (inst_bloom->instance && inst_bloom->instance->state) {
-                        gnrc_rpl_bloom_request_na(inst_bloom);
+                        gnrc_rpl_bloom_request_na(inst_bloom, false);
                     }
                 }
                 break;
@@ -254,7 +254,11 @@ static void *_event_loop(void *args)
                     inst_bloom = (gnrc_rpl_bloom_inst_ext_t *) msg.content.ptr;
                     if (inst_bloom->instance && inst_bloom->instance->state) {
                         inst_bloom->instance->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                        gnrc_rpl_send_DIO(inst_bloom->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, NULL, 0);
+#else
                         gnrc_rpl_send_DIO(inst_bloom->instance, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
+#endif
                         inst_bloom->delayed_dio = false;
                     }
                 }
@@ -304,7 +308,7 @@ void _update_lifetime(void)
 #ifdef MODULE_GNRC_RPL_BLOOM
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 5)) {
                 parent->bloom_ext.bidirectional = false;
-                gnrc_rpl_bloom_request_na_safe(&parent->dodag->instance->bloom_ext);
+                gnrc_rpl_bloom_request_na_safe(&parent->dodag->instance->bloom_ext, false);
 #else
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
@@ -332,7 +336,11 @@ void _update_lifetime(void)
                 gnrc_rpl_bloom_refresh(&inst->bloom_ext);
                 if ((inst->dodag.parents) || (inst->dodag.node_status == GNRC_RPL_ROOT_NODE)) {
                     inst->dodag.dio_opts |= GNRC_RPL_REQ_OPT_NA;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                    gnrc_rpl_send_DIO(inst, NULL, NULL, 0);
+#else
                     gnrc_rpl_send_DIO(inst, NULL);
+#endif
                 }
             }
 #endif
