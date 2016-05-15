@@ -8,7 +8,7 @@
  */
 
 /*
- * @ingroup auto_init_gnrc_rpl
+ * @ingroup gnrc_rpl
  * @{
  *
  * @file
@@ -17,7 +17,7 @@
  * @author  Cenk Gündoğan <mail@cgundogan.de>
  */
 
-#ifdef MODULE_GNRC_RPL
+#ifdef MODULE_AUTO_INIT_GNRC_RPL
 
 #include "net/gnrc.h"
 #include "net/gnrc/rpl.h"
@@ -43,11 +43,12 @@ void auto_init_gnrc_rpl(void)
     DEBUG("auto_init_gnrc_rpl: could not initialize RPL on interface %" PRIkernel_pid" - "
           "interface does not exist\n", GNRC_RPL_DEFAULT_NETIF);
     return;
-#endif
+#else
     DEBUG("auto_init_gnrc_rpl: please specify an interface by setting GNRC_RPL_DEFAULT_NETIF\n");
+#endif
 }
 #else
 typedef int dont_be_pedantic;
-#endif /* MODULE_GNRC_RPL */
+#endif /* MODULE_AUTO_INIT_GNRC_RPL */
 
 /** @} */
