@@ -48,6 +48,44 @@ extern "C" {
 /** @} */
 
 /**
+ * @brief Netstats for RPL
+ */
+typedef struct __attribute__((packed)) {
+    uint32_t dio_rx_ucast_count;    /**< unicast DIOs received */
+    uint32_t dio_rx_mcast_count;    /**< multicast DIOs received */
+    uint32_t dio_tx_ucast_count;    /**< unicast DIOs sent */
+    uint32_t dio_tx_mcast_count;    /**< multicast DIOs sent */
+    uint32_t dis_rx_ucast_count;    /**< unicast DISs received */
+    uint32_t dis_rx_mcast_count;    /**< multicast DISs received */
+    uint32_t dis_tx_ucast_count;    /**< unicast DISs sent */
+    uint32_t dis_tx_mcast_count;    /**< multicast DISs sent */
+    uint32_t dao_rx_ucast_count;    /**< unicast DAOs received */
+    uint32_t dao_rx_mcast_count;    /**< multicast DAOs received */
+    uint32_t dao_tx_ucast_count;    /**< unicast DAOs sent */
+    uint32_t dao_tx_mcast_count;    /**< multicast DAOs sent */
+    uint32_t dao_ack_rx_ucast_count;/**< unicast DAO-ACKs received */
+    uint32_t dao_ack_rx_mcast_count;/**< multicast DAO-ACKs received */
+    uint32_t dao_ack_tx_ucast_count;/**< unicast DAO-ACKs sent */
+    uint32_t dao_ack_tx_mcast_count;/**< multicast DAO-ACKs sent */
+    uint32_t dio_rx_ucast_bytes;    /**< unicast received bytes of DIOs */
+    uint32_t dio_rx_mcast_bytes;    /**< multicast received bytes of DIOs */
+    uint32_t dio_tx_ucast_bytes;    /**< unicast sent bytes of DIOs */
+    uint32_t dio_tx_mcast_bytes;    /**< multicast sent bytes of DIOs */
+    uint32_t dis_rx_ucast_bytes;    /**< unicast received bytes of DISs */
+    uint32_t dis_rx_mcast_bytes;    /**< multicast received bytes of DISs */
+    uint32_t dis_tx_ucast_bytes;    /**< unicast sent bytes of DISs */
+    uint32_t dis_tx_mcast_bytes;    /**< multicast sent bytes of DISs */
+    uint32_t dao_rx_ucast_bytes;    /**< unicast received bytes of DAOs */
+    uint32_t dao_rx_mcast_bytes;    /**< multicast received bytes of DAOs */
+    uint32_t dao_tx_ucast_bytes;    /**< unicast sent bytes of DAOs */
+    uint32_t dao_tx_mcast_bytes;    /**< multicast sent bytes of DAOs */
+    uint32_t dao_ack_rx_ucast_bytes;/**< unicast received bytes of DAO-ACKs */
+    uint32_t dao_ack_rx_mcast_bytes;/**< multicast received bytes of DAO-ACKs */
+    uint32_t dao_ack_tx_ucast_bytes;/**< unicast sent bytes of DAO-ACKs */
+    uint32_t dao_ack_tx_mcast_bytes;/**< multicast sent bytes of DAO-ACKs */
+} netstats_rpl_t;
+
+/**
  * @brief RPL-Option Generic Format
  * @see <a href="https://tools.ietf.org/html/rfc6550#section-6.7.1">
  *          RFC6550, section 6.7.1, RPL Control Message Option Generic Format
@@ -269,6 +307,9 @@ struct gnrc_rpl_instance {
     int8_t cleanup;                 /**< cleanup time in seconds */
 #ifdef MODULE_GNRC_RPL_BLOOM
     gnrc_rpl_bloom_inst_ext_t bloom_ext;  /**< rpl bloom instance extension */
+#endif
+#ifdef MODULE_NETSTATS_RPL
+    netstats_rpl_t stats;           /**< rpl stats */
 #endif
 };
 

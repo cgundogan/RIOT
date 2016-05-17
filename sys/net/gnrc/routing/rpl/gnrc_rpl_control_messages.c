@@ -275,6 +275,19 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     }
     pkt = tmp;
 
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dio_tx_ucast_count++;
+            inst->stats.dio_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dio_tx_mcast_count++;
+            inst->stats.dio_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+ #endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 }
 
@@ -354,6 +367,19 @@ void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
         return;
     }
     pkt = tmp;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dis_tx_ucast_count++;
+            inst->stats.dis_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dis_tx_mcast_count++;
+            inst->stats.dis_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
 
     gnrc_rpl_send(pkt, KERNEL_PID_UNDEF, NULL, destination, (inst? &(inst->dodag.dodag_id) : NULL));
 }
@@ -684,58 +710,64 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
     /* TODO handle Solicited Information Option */
     (void)iface;
     uint32_t included_opts;
+    uint16_t opt_len;
 
     if (!_gnrc_rpl_check_DIS_validity(dis, len)) {
         return;
     }
 
-    len -= (sizeof(gnrc_rpl_dis_t) + sizeof(icmpv6_hdr_t));
+    opt_len = len - (sizeof(gnrc_rpl_dis_t) + sizeof(icmpv6_hdr_t));
 
     gnrc_rpl_opt_t *opts = (gnrc_rpl_opt_t *) (dis + 1);
 
     if (ipv6_addr_is_multicast(dst)) {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
             included_opts = 0;
-            if ((gnrc_rpl_instances[i].state != 0)
+            if (gnrc_rpl_instances[i].state != 0) {
+#ifdef MODULE_NETSTATS_RPL
+                gnrc_rpl_instances[i].stats.dis_rx_mcast_count++;
+                gnrc_rpl_instances[i].stats.dis_rx_mcast_bytes += len;
+#endif
                 /* a leaf node should only react to unicast DIS */
-                 && (gnrc_rpl_instances[i].dodag.node_status != GNRC_RPL_LEAF_NODE)) {
+                if (gnrc_rpl_instances[i].dodag.node_status != GNRC_RPL_LEAF_NODE) {
 #ifdef MODULE_GNRC_RPL_P2P
-                if (gnrc_rpl_instances[i].mop == GNRC_RPL_P2P_MOP) {
-                    DEBUG("RPL: Not responding to DIS for P2P-RPL DODAG\n");
-                    continue;
-                }
+                    if (gnrc_rpl_instances[i].mop == GNRC_RPL_P2P_MOP) {
+                        DEBUG("RPL: Not responding to DIS for P2P-RPL DODAG\n");
+                        continue;
+                    }
 #endif
-                if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIS, &gnrc_rpl_instances[i],
-                                   opts, len, src, &included_opts)) {
-                    DEBUG("RPL: Error during DIS option parsing - ignore DIS\n");
-                    return;
-                }
-                if (dis->flags & GNRC_RPL_DIS_N) {
-                    if (dis->flags & GNRC_RPL_DIS_T) {
-                        gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+                    if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIS, &gnrc_rpl_instances[i],
+                                       opts, opt_len, src, &included_opts)) {
+                        DEBUG("RPL: Error during DIS option parsing - ignore DIS\n");
+                        return;
+                    }
+                    if (dis->flags & GNRC_RPL_DIS_N) {
+                        if (dis->flags & GNRC_RPL_DIS_T) {
+                            gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
 #ifdef MODULE_GNRC_RPL_BLOOM
-                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src, NULL, 0);
+                            gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src, NULL, 0);
 #else
-                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
+                            gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
 #endif
-                    }
+                        }
 #ifdef MODULE_GNRC_RPL_BLOOM
-                    else if (dis->flags & GNRC_RPL_DIS_R) {
-                        /* DO NOTHING */
-                    }
+                        else if (dis->flags & GNRC_RPL_DIS_R) {
+                            /* DO NOTHING */
+                        }
 #endif
+                        else {
+                            gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+#ifdef MODULE_GNRC_RPL_BLOOM
+                            gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes, NULL, 0);
+#else
+                            gnrc_rpl_send_DIO(&gnrc_rpl_instances[i],
+                                              (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes);
+#endif
+                        }
+                    }
                     else {
-                        gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
-#ifdef MODULE_GNRC_RPL_BLOOM
-                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes, NULL, 0);
-#else
-                        gnrc_rpl_send_DIO(&gnrc_rpl_instances[i],
-                                          (ipv6_addr_t *)&ipv6_addr_all_rpl_nodes);
-#endif
+                        trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
                     }
-                }
-                else {
-                    trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
                 }
             }
         }
@@ -743,8 +775,12 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
     else {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
             if (gnrc_rpl_instances[i].state != 0) {
+#ifdef MODULE_NETSTATS_RPL
+                gnrc_rpl_instances[i].stats.dis_rx_ucast_count++;
+                gnrc_rpl_instances[i].stats.dis_rx_ucast_bytes += len;
+#endif
                 if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DIS, &gnrc_rpl_instances[i],
-                                   opts, len, src, &included_opts)) {
+                                   opts, opt_len, src, &included_opts)) {
                     DEBUG("RPL: Error during DIS option parsing - ignore DIS\n");
                     return;
                 }
@@ -779,10 +815,22 @@ static bool _gnrc_rpl_check_DIO_validity(gnrc_rpl_dio_t *dio, uint16_t len)
     return false;
 }
 
-void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src, uint16_t len)
+void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
+                       uint16_t len)
 {
     gnrc_rpl_instance_t *inst = NULL;
     gnrc_rpl_dodag_t *dodag = NULL;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        gnrc_rpl_instances[0].stats.dio_rx_ucast_count++;
+        gnrc_rpl_instances[0].stats.dio_rx_ucast_bytes += len;
+    }
+    else {
+        gnrc_rpl_instances[0].stats.dio_rx_mcast_count++;
+        gnrc_rpl_instances[0].stats.dio_rx_mcast_bytes += len;
+    }
+#endif
 
 #ifdef MODULE_GNRC_RPL_BLOOM
     if (gnrc_rpl_bloom_check_blacklist(src)) {
@@ -1198,6 +1246,19 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     }
     pkt = tmp;
 
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dao_tx_ucast_count++;
+            inst->stats.dao_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dao_tx_mcast_count++;
+            inst->stats.dao_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 
     GNRC_RPL_COUNTER_INCREMENT(dodag->dao_seq);
@@ -1245,6 +1306,19 @@ void gnrc_rpl_send_DAO_ACK(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, 
     dao_ack->dao_sequence = seq;
     dao_ack->status = 0;
 
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dao_ack_tx_ucast_count++;
+            inst->stats.dao_ack_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dao_ack_tx_mcast_count++;
+            inst->stats.dao_ack_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 }
 
@@ -1265,7 +1339,8 @@ static bool _gnrc_rpl_check_DAO_validity(gnrc_rpl_dao_t *dao, uint16_t len)
     return false;
 }
 
-void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, uint16_t len)
+void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
+                       uint16_t len)
 {
     (void)iface;
 
@@ -1284,6 +1359,17 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
     }
 
     dodag = &inst->dodag;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        inst->stats.dao_rx_ucast_count++;
+        inst->stats.dao_rx_ucast_bytes += len;
+    }
+    else {
+        inst->stats.dao_rx_mcast_count++;
+        inst->stats.dao_rx_mcast_bytes += len;
+    }
+#endif
 
     len -= (sizeof(gnrc_rpl_dao_t) + sizeof(icmpv6_hdr_t));
 
@@ -1340,7 +1426,8 @@ static bool _gnrc_rpl_check_DAO_ACK_validity(gnrc_rpl_dao_ack_t *dao_ack, uint16
     return false;
 }
 
-void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, uint16_t len)
+void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *dst,
+                           uint16_t len)
 {
     (void)iface;
 
@@ -1357,6 +1444,17 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, uint
     }
 
     dodag = &inst->dodag;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        inst->stats.dao_ack_rx_ucast_count++;
+        inst->stats.dao_ack_rx_ucast_bytes += len;
+    }
+    else {
+        inst->stats.dao_ack_rx_mcast_count++;
+        inst->stats.dao_ack_rx_mcast_bytes += len;
+    }
+#endif
 
     /* check if the D flag is set before accessing the DODAG id */
     if ((dao_ack->d_reserved & GNRC_RPL_DAO_ACK_D_BIT)) {

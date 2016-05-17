@@ -162,17 +162,17 @@ static void _receive(gnrc_pktsnip_t *icmpv6)
         case GNRC_RPL_ICMPV6_CODE_DIO:
             DEBUG("RPL: DIO received\n");
             gnrc_rpl_recv_DIO((gnrc_rpl_dio_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
-                              byteorder_ntohs(ipv6_hdr->len));
+                               &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
             break;
         case GNRC_RPL_ICMPV6_CODE_DAO:
             DEBUG("RPL: DAO received\n");
             gnrc_rpl_recv_DAO((gnrc_rpl_dao_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
-                              byteorder_ntohs(ipv6_hdr->len));
+                              &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
             break;
         case GNRC_RPL_ICMPV6_CODE_DAO_ACK:
             DEBUG("RPL: DAO-ACK received\n");
             gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1), iface,
-                                  byteorder_ntohs(ipv6_hdr->len));
+                                  &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
             break;
 #ifdef MODULE_GNRC_RPL_P2P
         case GNRC_RPL_P2P_ICMPV6_CODE_DRO:
