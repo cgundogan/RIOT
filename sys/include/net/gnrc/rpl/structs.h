@@ -192,6 +192,13 @@ struct gnrc_rpl_parent {
     uint32_t lifetime;              /**< lifetime of this parent in seconds */
     double  link_metric;            /**< metric of the link */
     uint8_t link_metric_type;       /**< type of the metric */
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    bool bidirectional;             /**< mark parent as bidirectional */
+    uint8_t unicast_checks;         /**< number of unicast checks */
+    uint64_t last_checked;          /**< time of last checked */
+    msg_t unicast_checks_msg;
+    xtimer_t unicast_checks_timer;
+#endif
 };
 
 /**

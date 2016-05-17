@@ -19,8 +19,15 @@
 #include "net/gnrc/ipv6/netif.h"
 #include "net/gnrc.h"
 #include "mutex.h"
+#include "periph/cpuid.h"
+#include "random.h"
 
 #include "net/gnrc/rpl.h"
+
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+#include "net/gnrc/rpl/unicast_checks.h"
+#endif
+
 #ifdef MODULE_GNRC_RPL_P2P
 #include "net/gnrc/rpl/p2p.h"
 #include "net/gnrc/rpl/p2p_dodag.h"
@@ -70,6 +77,14 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
 
         gnrc_rpl_of_manager_init();
         xtimer_set_msg(&_lt_timer, _lt_time, &_lt_msg, gnrc_rpl_pid);
+
+        uint8_t cpuid[CPUID_LEN];
+        uint32_t seed = 0;
+        cpuid_get(cpuid);
+        for (unsigned int i = 0; i < CPUID_LEN; i++) {
+            seed += cpuid[i];
+        }
+        random_init(seed);
     }
 
     /* register all_RPL_nodes multicast address */
@@ -198,6 +213,9 @@ static void *_event_loop(void *args)
     reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
 
     trickle_t *trickle;
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    gnrc_rpl_parent_t *parent;
+#endif
     /* start event loop */
     while (1) {
         DEBUG("RPL: waiting for incoming message.\n");
@@ -222,6 +240,16 @@ static void *_event_loop(void *args)
                     trickle_callback(trickle);
                 }
                 break;
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+            case GNRC_RPL_UNICAST_CHECKS_DIS_MSG_TYPE:
+                DEBUG("RPL: GNRC_RPL_UNICAST_CHECKS_DIS_MSG_TYPE received\n");
+                parent = (gnrc_rpl_parent_t *) msg.content.ptr;
+                if (parent && parent->state) {
+                    gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
+                    parent->unicast_checks++;
+                }
+                break;
+#endif
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 DEBUG("RPL: GNRC_NETAPI_MSG_TYPE_RCV received\n");
                 _receive((gnrc_pktsnip_t *)msg.content.ptr);
@@ -253,15 +281,23 @@ void _update_lifetime(void)
     for (uint8_t i = 0; i < GNRC_RPL_PARENTS_NUMOF; ++i) {
         parent = &gnrc_rpl_parents[i];
         if (parent->state != 0) {
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+            gnrc_rpl_unicast_check_trigger(parent->dodag->instance, parent);
+            if (parent->state == 0) {
+                continue;
+            }
+#endif
             if ((int32_t)(parent->lifetime - now_sec) <= GNRC_RPL_LIFETIME_UPDATE_STEP) {
                 gnrc_rpl_dodag_t *dodag = parent->dodag;
                 gnrc_rpl_parent_remove(parent);
                 gnrc_rpl_parent_update(dodag, NULL);
                 continue;
             }
+#ifndef MODULE_GNRC_RPL_UNICAST_CHECKS
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
             }
+#endif
         }
     }
 

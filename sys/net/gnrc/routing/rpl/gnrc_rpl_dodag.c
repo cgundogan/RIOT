@@ -29,6 +29,10 @@
 #include "net/gnrc/rpl/p2p_dodag.h"
 #endif
 
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+#include "net/gnrc/rpl/unicast_checks.h"
+#endif
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -203,6 +207,10 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
         LL_APPEND(dodag->parents, *parent);
         (*parent)->state = 1;
         (*parent)->addr = *addr;
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+        (*parent)->unicast_checks_msg.type = GNRC_RPL_UNICAST_CHECKS_DIS_MSG_TYPE;
+        (*parent)->unicast_checks_msg.content.ptr = (char *) (*parent);
+#endif
         return true;
     }
 
@@ -290,6 +298,19 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
     if (_gnrc_rpl_find_preferred_parent(dodag) == NULL) {
         gnrc_rpl_local_repair(dodag);
     }
+
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    gnrc_rpl_parent_t *elt;
+    bool bidir_parents = false;
+    LL_FOREACH(dodag->parents, elt) {
+        if ((parent->state != 0) && (parent->bidirectional)) {
+            bidir_parents = true;
+        }
+    }
+    if (!bidir_parents) {
+        dodag->node_status = GNRC_RPL_LEAF_NODE;
+    }
+#endif
 }
 
 /**
@@ -312,7 +333,13 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     }
 
     LL_FOREACH(dodag->parents, elt) {
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+        if (elt->bidirectional) {
+            new_best = elt->rank < new_best->rank ? elt : new_best;
+        }
+#else
         new_best = dodag->instance->of->which_parent(new_best, elt);
+#endif
     }
 
     if (new_best->rank == GNRC_RPL_INFINITE_RANK) {

@@ -24,6 +24,9 @@
 #include "net/eui64.h"
 
 #include "net/gnrc/rpl.h"
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+#include "net/gnrc/rpl/unicast_checks.h"
+#endif
 
 #ifdef MODULE_GNRC_RPL_P2P
 #include "net/gnrc/rpl/p2p_structs.h"
@@ -709,6 +712,15 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
     assert(parent != NULL);
 
     parent->rank = byteorder_ntohs(dio->rank);
+
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    if (!parent->bidirectional && !ipv6_addr_is_multicast(dst)) {
+        parent->bidirectional = true;
+        parent->unicast_checks = 0;
+        dodag->node_status = GNRC_RPL_NORMAL_NODE;
+        trickle_interval(&dodag->trickle);
+    }
+#endif
 
     gnrc_rpl_parent_update(dodag, parent);
 
