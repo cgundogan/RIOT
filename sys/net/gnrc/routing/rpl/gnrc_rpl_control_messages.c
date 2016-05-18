@@ -156,6 +156,30 @@ gnrc_pktsnip_t *_dio_prefix_info_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *do
 }
 #endif
 
+gnrc_pktsnip_t *_dis_dio_opt_req_build(gnrc_pktsnip_t *pkt, uint8_t req_opts[],
+                                       uint8_t req_opts_numof)
+{
+    gnrc_rpl_opt_dio_req_opt_t *req_opt;
+    gnrc_pktsnip_t *opt_snip;
+
+    for (int i = 0; i < req_opts_numof; i++) {
+        if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_dio_req_opt_t),
+                                        GNRC_NETTYPE_UNDEF)) == NULL) {
+            DEBUG("RPL: BUILD DIO OPT REQ OPT - no space left in packet buffer\n");
+            gnrc_pktbuf_release(pkt);
+            return NULL;
+        }
+
+        req_opt = opt_snip->data;
+        req_opt->length = GNRC_RPL_OPT_DIO_REQ_OPT_LEN;
+        req_opt->type = GNRC_RPL_OPT_DIO_REQ_OPT;
+        req_opt->dio_opt = req_opts[i];
+        pkt = opt_snip;
+    }
+
+    return pkt;
+}
+
 #ifdef MODULE_GNRC_RPL_BLOOM
 void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t req_opts[], uint8_t req_opts_numof)
 #else
@@ -192,6 +216,12 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 #endif
 
 #ifdef MODULE_GNRC_RPL_BLOOM
+    if (req_opts_numof) {
+        if ((pkt = _dis_dio_opt_req_build(pkt, req_opts, req_opts_numof)) == NULL) {
+            return;
+        }
+    }
+
     if (dodag->dio_opts & GNRC_RPL_REQ_OPT_NA) {
         if ((pkt = gnrc_rpl_bloom_dio_na_build(pkt, &inst->bloom_ext)) == NULL) {
             return;
@@ -276,30 +306,6 @@ gnrc_pktsnip_t *_dis_padding_build(gnrc_pktsnip_t *pkt, int padding)
     memset(ptr, 0, padding);
 
     return opt_snip;
-}
-
-gnrc_pktsnip_t *_dis_dio_opt_req_build(gnrc_pktsnip_t *pkt, uint8_t req_opts[],
-                                       uint8_t req_opts_numof)
-{
-    gnrc_rpl_opt_dio_req_opt_t *req_opt;
-    gnrc_pktsnip_t *opt_snip;
-
-    for (int i = 0; i < req_opts_numof; i++) {
-        if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_dio_req_opt_t),
-                                        GNRC_NETTYPE_UNDEF)) == NULL) {
-            DEBUG("RPL: BUILD DIO OPT REQ OPT - no space left in packet buffer\n");
-            gnrc_pktbuf_release(pkt);
-            return NULL;
-        }
-
-        req_opt = opt_snip->data;
-        req_opt->length = GNRC_RPL_OPT_DIO_REQ_OPT_LEN;
-        req_opt->type = GNRC_RPL_OPT_DIO_REQ_OPT;
-        req_opt->dio_opt = req_opts[i];
-        pkt = opt_snip;
-    }
-
-    return pkt;
 }
 
 void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t flags,
