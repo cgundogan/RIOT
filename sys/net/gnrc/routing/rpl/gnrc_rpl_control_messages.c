@@ -222,6 +222,20 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     }
     pkt = tmp;
 
+
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dio_tx_ucast_count++;
+            inst->stats.dio_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dio_tx_mcast_count++;
+            inst->stats.dio_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+ #endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 }
 
@@ -253,6 +267,19 @@ void gnrc_rpl_send_DIS(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
     /* TODO add padding may be removed if packet size grows */
     memcpy((dis + 1), padding, sizeof(padding));
 
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dis_tx_ucast_count++;
+            inst->stats.dis_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dis_tx_mcast_count++;
+            inst->stats.dis_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
+
     gnrc_rpl_send(pkt, KERNEL_PID_UNDEF, NULL, destination, (inst? &(inst->dodag.dodag_id) : NULL));
 }
 
@@ -281,22 +308,31 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
 
     if (ipv6_addr_is_multicast(dst)) {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
-            if ((gnrc_rpl_instances[i].state != 0)
-                /* a leaf node should only react to unicast DIS */
-                 && (gnrc_rpl_instances[i].dodag.node_status != GNRC_RPL_LEAF_NODE)) {
-#ifdef MODULE_GNRC_RPL_P2P
-                if (gnrc_rpl_instances[i].mop == GNRC_RPL_P2P_MOP) {
-                    DEBUG("RPL: Not responding to DIS for P2P-RPL DODAG\n");
-                    continue;
-                }
+            if (gnrc_rpl_instances[i].state != 0) {
+#ifdef MODULE_NETSTATS_RPL
+                gnrc_rpl_instances[i].stats.dis_rx_mcast_count++;
+                gnrc_rpl_instances[i].stats.dis_rx_mcast_bytes += len;
 #endif
-                trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
+                /* a leaf node should only react to unicast DIS */
+                 if (gnrc_rpl_instances[i].dodag.node_status != GNRC_RPL_LEAF_NODE) {
+#ifdef MODULE_GNRC_RPL_P2P
+                    if (gnrc_rpl_instances[i].mop == GNRC_RPL_P2P_MOP) {
+                        DEBUG("RPL: Not responding to DIS for P2P-RPL DODAG\n");
+                        continue;
+                    }
+#endif
+                    trickle_reset_timer(&(gnrc_rpl_instances[i].dodag.trickle));
+                }
             }
         }
     }
     else {
         for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i) {
             if (gnrc_rpl_instances[i].state != 0) {
+#ifdef MODULE_NETSTATS_RPL
+                gnrc_rpl_instances[i].stats.dis_rx_ucast_count++;
+                gnrc_rpl_instances[i].stats.dis_rx_ucast_bytes += len;
+#endif
                 gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                 gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
             }
@@ -547,10 +583,22 @@ static bool _gnrc_rpl_check_DIO_validity(gnrc_rpl_dio_t *dio, uint16_t len)
     return false;
 }
 
-void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src, uint16_t len)
+void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
+                       uint16_t len)
 {
     gnrc_rpl_instance_t *inst = NULL;
     gnrc_rpl_dodag_t *dodag = NULL;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        gnrc_rpl_instances[0].stats.dio_rx_ucast_count++;
+        gnrc_rpl_instances[0].stats.dio_rx_ucast_bytes += len;
+    }
+    else {
+        gnrc_rpl_instances[0].stats.dio_rx_mcast_count++;
+        gnrc_rpl_instances[0].stats.dio_rx_mcast_bytes += len;
+    }
+#endif
 
     if (!_gnrc_rpl_check_DIO_validity(dio, len)) {
         return;
@@ -939,6 +987,20 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     }
     pkt = tmp;
 
+
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dao_tx_ucast_count++;
+            inst->stats.dao_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dao_tx_mcast_count++;
+            inst->stats.dao_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 
     GNRC_RPL_COUNTER_INCREMENT(dodag->dao_seq);
@@ -986,6 +1048,19 @@ void gnrc_rpl_send_DAO_ACK(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, 
     dao_ack->dao_sequence = seq;
     dao_ack->status = 0;
 
+#ifdef MODULE_NETSTATS_RPL
+    if (inst) {
+        if (destination && !ipv6_addr_is_multicast(destination)) {
+            inst->stats.dao_ack_tx_ucast_count++;
+            inst->stats.dao_ack_tx_ucast_bytes += gnrc_pkt_len(pkt);
+        }
+        else {
+            inst->stats.dao_ack_tx_mcast_count++;
+            inst->stats.dao_ack_tx_mcast_bytes += gnrc_pkt_len(pkt);
+        }
+    }
+#endif
+
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 }
 
@@ -1006,7 +1081,8 @@ static bool _gnrc_rpl_check_DAO_validity(gnrc_rpl_dao_t *dao, uint16_t len)
     return false;
 }
 
-void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, uint16_t len)
+void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
+                       uint16_t len)
 {
     (void)iface;
 
@@ -1025,6 +1101,17 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
     }
 
     dodag = &inst->dodag;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        inst->stats.dao_rx_ucast_count++;
+        inst->stats.dao_rx_ucast_bytes += len;
+    }
+    else {
+        inst->stats.dao_rx_mcast_count++;
+        inst->stats.dao_rx_mcast_bytes += len;
+    }
+#endif
 
     len -= (sizeof(gnrc_rpl_dao_t) + sizeof(icmpv6_hdr_t));
 
@@ -1081,7 +1168,8 @@ static bool _gnrc_rpl_check_DAO_ACK_validity(gnrc_rpl_dao_ack_t *dao_ack, uint16
     return false;
 }
 
-void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, uint16_t len)
+void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *dst,
+                           uint16_t len)
 {
     (void)iface;
 
@@ -1098,6 +1186,17 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, uint
     }
 
     dodag = &inst->dodag;
+
+#ifdef MODULE_NETSTATS_RPL
+    if (dst && !ipv6_addr_is_multicast(dst)) {
+        inst->stats.dao_ack_rx_ucast_count++;
+        inst->stats.dao_ack_rx_ucast_bytes += len;
+    }
+    else {
+        inst->stats.dao_ack_rx_mcast_count++;
+        inst->stats.dao_ack_rx_mcast_bytes += len;
+    }
+#endif
 
     /* check if the D flag is set before accessing the DODAG id */
     if ((dao_ack->d_reserved & GNRC_RPL_DAO_ACK_D_BIT)) {

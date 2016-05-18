@@ -93,6 +93,9 @@ bool gnrc_rpl_instance_add(uint8_t instance_id, gnrc_rpl_instance_t **inst)
         (*inst)->max_rank_inc = GNRC_RPL_DEFAULT_MAX_RANK_INCREASE;
         (*inst)->min_hop_rank_inc = GNRC_RPL_DEFAULT_MIN_HOP_RANK_INCREASE;
         (*inst)->dodag.parents = NULL;
+#ifdef MODULE_NETSTATS_RPL
+        memset(&(*inst)->stats, 0, sizeof((*inst)->stats));
+#endif
         return true;
     }
 
