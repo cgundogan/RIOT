@@ -247,6 +247,7 @@ static void *_event_loop(void *args)
                 if (parent && parent->state) {
                     gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
                     parent->unicast_checks++;
+                    parent->check_running = false;
                 }
                 break;
 #endif

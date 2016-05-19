@@ -34,6 +34,10 @@ static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 
 void gnrc_rpl_unicast_check_trigger(gnrc_rpl_instance_t *inst, gnrc_rpl_parent_t *parent)
 {
+    if (parent->check_running) {
+        return;
+    }
+
     uint64_t now = xtimer_now64();
 
     if (((now - parent->last_checked) < 110 * SEC_IN_USEC) && parent->bidirectional) {
@@ -44,15 +48,14 @@ void gnrc_rpl_unicast_check_trigger(gnrc_rpl_instance_t *inst, gnrc_rpl_parent_t
     parent->bidirectional = false;
 
     if (parent->unicast_checks >= 3) {
-        puts("REMOVE PARENT");
         gnrc_rpl_parent_remove(parent);
         gnrc_rpl_parent_update(&inst->dodag, NULL);
+        return;
     }
 
-    if (!parent->bidirectional) {
-        xtimer_set_msg(&parent->unicast_checks_timer, random_uint32_range(1 * SEC_IN_MS, 1000 * SEC_IN_MS),
-                       &parent->unicast_checks_msg, gnrc_rpl_pid);
-    }
+    parent->check_running = true;
+    xtimer_set_msg(&parent->unicast_checks_timer, random_uint32_range(1 * SEC_IN_MS, 1000 * SEC_IN_MS),
+                   &parent->unicast_checks_msg, gnrc_rpl_pid);
 }
 
 /**

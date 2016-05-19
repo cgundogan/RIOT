@@ -236,6 +236,7 @@ struct gnrc_rpl_parent {
     uint64_t last_checked;          /**< time of last checked */
     msg_t unicast_checks_msg;
     xtimer_t unicast_checks_timer;
+    bool check_running;
 #endif
 };
 
