@@ -23,6 +23,12 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+
+#define __USE_GNU
+#include <signal.h>
+#undef __USE_GNU
+
 
 #ifdef __MACH__
 #define _XOPEN_SOURCE
@@ -64,6 +70,28 @@ extern netdev2_tap_t netdev2_tap;
 
 ucontext_t end_context;
 char __end_stack[SIGSTKSZ];
+
+/**
+ * make the new context assign `_native_in_isr = 0` before resuming
+ */
+static void _native_mod_ctx_leave_sigh(ucontext_t *ctx)
+{
+#ifdef __MACH__
+    _native_saved_eip = ((ucontext_t *)ctx)->uc_mcontext->__ss.__eip;
+    ((ucontext_t *)ctx)->uc_mcontext->__ss.__eip = (unsigned int)&_native_sig_leave_handler;
+#elif defined(__FreeBSD__)
+    _native_saved_eip = ((struct sigcontext *)ctx)->sc_eip;
+    ((struct sigcontext *)ctx)->sc_eip = (unsigned int)&_native_sig_leave_handler;
+#else /* Linux */
+#if defined(__arm__)
+    _native_saved_eip = ((ucontext_t *)ctx)->uc_mcontext.arm_pc;
+    ((ucontext_t *)ctx)->uc_mcontext.arm_pc = (unsigned int)&_native_sig_leave_handler;
+#else /* Linux/x86 */
+    _native_saved_eip = ctx->uc_mcontext.gregs[REG_EIP];
+    ctx->uc_mcontext.gregs[REG_EIP] = (unsigned int)&_native_sig_leave_handler;
+#endif
+#endif
+}
 
 /**
  * TODO: implement
@@ -120,10 +148,8 @@ void isr_cpu_switch_context_exit(void)
     DEBUG("isr_cpu_switch_context_exit: calling setcontext(%" PRIkernel_pid ")\n\n", sched_active_pid);
     ctx = (ucontext_t *)(sched_active_thread->sp);
 
-    /* the next context will have interrupts enabled due to ucontext */
-    DEBUG("isr_cpu_switch_context_exit: native_interrupts_enabled = 1;\n");
     native_interrupts_enabled = 1;
-    _native_in_isr = 0;
+    _native_mod_ctx_leave_sigh(ctx);
 
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_cpu_switch_context_exit: setcontext");
@@ -144,11 +170,11 @@ void cpu_switch_context_exit(void)
         irq_disable();
         _native_in_isr = 1;
         native_isr_context.uc_stack.ss_sp = __isr_stack;
-        native_isr_context.uc_stack.ss_size = SIGSTKSZ;
+        native_isr_context.uc_stack.ss_size = sizeof(__isr_stack);
         native_isr_context.uc_stack.ss_flags = 0;
         makecontext(&native_isr_context, isr_cpu_switch_context_exit, 0);
         if (setcontext(&native_isr_context) == -1) {
-            err(EXIT_FAILURE, "cpu_switch_context_exit: swapcontext");
+            err(EXIT_FAILURE, "cpu_switch_context_exit: setcontext");
         }
         errx(EXIT_FAILURE, "1 this should have never been reached!!");
     }
@@ -162,12 +188,18 @@ void isr_thread_yield(void)
 {
     DEBUG("isr_thread_yield\n");
 
+    if (_native_sigpend > 0) {
+        DEBUG("isr_thread_yield(): handling signals\n\n");
+        native_irq_handler();
+    }
+
     sched_run();
     ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
     DEBUG("isr_thread_yield: switching to(%" PRIkernel_pid ")\n\n", sched_active_pid);
 
     native_interrupts_enabled = 1;
-    _native_in_isr = 0;
+    _native_mod_ctx_leave_sigh(ctx);
+
     if (setcontext(ctx) == -1) {
         err(EXIT_FAILURE, "isr_thread_yield: setcontext");
     }
@@ -175,9 +207,12 @@ void isr_thread_yield(void)
 
 void thread_yield_higher(void)
 {
-    ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
     if (_native_in_isr == 0) {
+        ucontext_t *ctx = (ucontext_t *)(sched_active_thread->sp);
         _native_in_isr = 1;
+        if (!native_interrupts_enabled) {
+            warnx("thread_yield_higher: interrupts are disabled - this should not be");
+        }
         irq_disable();
         native_isr_context.uc_stack.ss_sp = __isr_stack;
         native_isr_context.uc_stack.ss_size = SIGSTKSZ;
