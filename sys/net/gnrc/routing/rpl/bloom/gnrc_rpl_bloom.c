@@ -256,7 +256,7 @@ void gnrc_rpl_bloom_request_na(gnrc_rpl_bloom_inst_ext_t *ext, bool dio)
             unchecked_parents = true;
             if (!dio) {
                 DEBUG("RPL-BLOOM: requesting NA\n");
-                dodag->dis_opts |= GNRC_RPL_REQ_OPT_PA;
+                //dodag->dis_opts |= GNRC_RPL_REQ_OPT_PA;
                 uint8_t req_na[1] = { GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT };
                 gnrc_rpl_send_DIS(dodag->instance, &parent->addr, 0, req_na, sizeof(req_na)/sizeof(req_na[0]));
             }

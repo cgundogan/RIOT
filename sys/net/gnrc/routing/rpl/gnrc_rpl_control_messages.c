@@ -749,15 +749,16 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                     return;
                 }
 #ifdef MODULE_GNRC_RPL_BLOOM
-                if (included_opts & GNRC_RPL_OPT_DIO_REQ_OPT) {
-                    bloom_add(&(gnrc_rpl_instances[i].bloom_ext.nhood_bloom), src->u8, sizeof(ipv6_addr_t));
-                    continue;
+                bloom_add(&(gnrc_rpl_instances[i].bloom_ext.nhood_bloom), src->u8, sizeof(ipv6_addr_t));
+                if (!gnrc_rpl_instances[i].bloom_ext.delayed_dio) {
+                    gnrc_rpl_instances[i].bloom_ext.delayed_dio = true;
+                    xtimer_set_msg(&gnrc_rpl_instances[i].bloom_ext.dio_timer,
+                                   (GNRC_RPL_BLOOM_DIO_DELAY * SEC_IN_USEC) + random_uint32_range(SEC_IN_MS * 50, SEC_IN_MS * 1000),
+                                   &gnrc_rpl_instances[i].bloom_ext.dio_msg, gnrc_rpl_pid);
                 }
-#endif
                 gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
-#ifdef MODULE_GNRC_RPL_BLOOM
-                gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src, NULL, 0);
 #else
+                gnrc_rpl_instances[i].dodag.dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
                 gnrc_rpl_send_DIO(&gnrc_rpl_instances[i], src);
 #endif
             }
