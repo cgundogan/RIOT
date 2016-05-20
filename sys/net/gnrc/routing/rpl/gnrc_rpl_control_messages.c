@@ -749,7 +749,7 @@ void gnrc_rpl_recv_DIS(gnrc_rpl_dis_t *dis, kernel_pid_t iface, ipv6_addr_t *src
                     return;
                 }
 #ifdef MODULE_GNRC_RPL_BLOOM
-                bloom_add(&(gnrc_rpl_instances[i].bloom_ext.nhood_bloom), src->u8, sizeof(ipv6_addr_t));
+                gnrc_rpl_bloom_add(&(gnrc_rpl_instances[i].bloom_ext), src->u8, sizeof(ipv6_addr_t));
                 if (!gnrc_rpl_instances[i].bloom_ext.delayed_dio) {
                     gnrc_rpl_instances[i].bloom_ext.delayed_dio = true;
                     xtimer_set_msg(&gnrc_rpl_instances[i].bloom_ext.dio_timer,

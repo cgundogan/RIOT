@@ -299,7 +299,7 @@ void gnrc_rpl_bloom_handle_pa(gnrc_rpl_opt_pa_t *opt, ipv6_addr_t *src,
     if (gnrc_ipv6_netif_find_by_addr(NULL, &me) != KERNEL_PID_UNDEF) {
         DEBUG("RPL-BLOOM: add (%s) to neighborhood bloom\n",
               ipv6_addr_to_str(addr_str, &src_tmp, sizeof(addr_str)));
-        bloom_add(&(ext->nhood_bloom), src->u8, sizeof(ipv6_addr_t));
+        gnrc_rpl_bloom_add(ext, src->u8, sizeof(ipv6_addr_t));
     }
 }
 
@@ -350,6 +350,12 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
             }
         }
     }
+}
+
+void gnrc_rpl_bloom_add(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *data, size_t len)
+{
+    bloom_add(&(ext->nhood_bloom), data, len);
+    return;
 }
 
 bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr)

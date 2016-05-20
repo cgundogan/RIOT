@@ -295,6 +295,15 @@ void gnrc_rpl_bloom_refresh(gnrc_rpl_bloom_inst_ext_t *ext);
 void gnrc_rpl_bloom_blacklist_reset(void);
 
 /**
+ * @brief   Add element @p data of the length @p len to the bloom filter of @p ext
+ *
+ * @param[in] ext               RPL-Bloom instance extension
+ * @param[in] data              Data to add to the bloom filter
+ * @param[in] len               Length of the data
+ */
+void gnrc_rpl_bloom_add(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *data, size_t len);
+
+/**
  * @brief   Check if the given IPv6 address is blacklisted
  */
 bool gnrc_rpl_bloom_check_blacklist(ipv6_addr_t *addr);
