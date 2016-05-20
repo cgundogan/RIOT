@@ -178,10 +178,6 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dis_pa_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
     gnrc_pktsnip_t *tmp;
 
     LL_FOREACH(ext->instance->dodag.parents, parent) {
-        if (parent->bloom_ext.bidirectional) {
-            continue;
-        }
-
         if (is_unicast) {
             if (ipv6_addr_equal(dest, &parent->addr)) {
                 stop = true;

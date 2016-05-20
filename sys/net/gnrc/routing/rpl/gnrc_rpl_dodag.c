@@ -61,25 +61,9 @@ static void _rpl_trickle_send_dio(void *args)
 #endif
 
 #ifdef MODULE_GNRC_RPL_BLOOM
-    gnrc_rpl_parent_t *parent;
-    uint32_t now = xtimer_now();
-    uint16_t now_sec = now / SEC_IN_USEC;
-    bool unchecked_parents = false;
-
-    LL_FOREACH(dodag->parents, parent) {
-        if (parent->state != 0) {
-            if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 5)) {
-                unchecked_parents = true;
-                parent->bloom_ext.bidirectional = false;
-                gnrc_rpl_bloom_request_na_safe(&dodag->instance->bloom_ext, true);
-            }
-        }
-    }
-    if (!unchecked_parents) {
-        gnrc_rpl_send_DIO(inst, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, NULL, 0);
-        DEBUG("trickle callback: Instance (%d) | DODAG: (%s)\n", inst->id,
-              ipv6_addr_to_str(addr_str,&dodag->dodag_id, sizeof(addr_str)));
-    }
+    gnrc_rpl_send_DIO(inst, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes, NULL, 0);
+    DEBUG("trickle callback: Instance (%d) | DODAG: (%s)\n", inst->id,
+          ipv6_addr_to_str(addr_str,&dodag->dodag_id, sizeof(addr_str)));
 #else
     gnrc_rpl_send_DIO(inst, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
     DEBUG("trickle callback: Instance (%d) | DODAG: (%s)\n", inst->id,

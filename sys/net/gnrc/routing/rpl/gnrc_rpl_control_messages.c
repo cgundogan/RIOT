@@ -216,6 +216,9 @@ void gnrc_rpl_send_DIO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination)
 #endif
 
 #ifdef MODULE_GNRC_RPL_BLOOM
+    dodag->dio_opts |= GNRC_RPL_REQ_OPT_NA;
+    dodag->dio_opts |= GNRC_RPL_REQ_OPT_PA;
+
     if (req_opts_numof) {
         if ((pkt = _dis_dio_opt_req_build(pkt, req_opts, req_opts_numof)) == NULL) {
             return;
