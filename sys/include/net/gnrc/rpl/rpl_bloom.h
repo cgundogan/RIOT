@@ -160,6 +160,9 @@ typedef struct {
     struct gnrc_rpl_instance *instance;         /**< RPL instance */
     bloom_t nhood_bloom;                        /**< neighborhood bloom filter */
     uint8_t nhood_bloom_buf[GNRC_RPL_BLOOM_SIZE];     /**< buffer for neighborhood bloom filter */
+    uint8_t nhood_bloom_buf2[GNRC_RPL_BLOOM_SIZE];  /**< second buffer for neighborhood bloom filter */
+    uint8_t *warmup_buffer;                     /**< pointer to the warmup buffer */
+    uint8_t *active_buffer;                     /**< pointer to the active buffer */
     int8_t bloom_lifetime;                      /**< seconds til the next bloom filter refresh */
     xtimer_t link_check_timer;                  /**< timer for link symmetry checking */
     msg_t link_check_msg;                       /**< msg for link symmetry checking */
@@ -302,6 +305,13 @@ void gnrc_rpl_bloom_blacklist_reset(void);
  * @param[in] len               Length of the data
  */
 void gnrc_rpl_bloom_add(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *data, size_t len);
+
+/**
+ * @brief   Switch the active and warmup buffer of the bloom filter
+ *
+ * @param[in] ext               RPL-Bloom instance extension
+ */
+void gnrc_rpl_bloom_switch(gnrc_rpl_bloom_inst_ext_t *ext);
 
 /**
  * @brief   Check if the given IPv6 address is blacklisted

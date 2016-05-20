@@ -82,21 +82,25 @@ void gnrc_rpl_bloom_blacklist_reset(void)
 
 void gnrc_rpl_bloom_instance_ext_init(gnrc_rpl_bloom_inst_ext_t *ext)
 {
-    gnrc_rpl_bloom_refresh(ext);
     ext->na_req_running = false;
     ext->link_check_msg.type = GNRC_RPL_BLOOM_MSG_TYPE_LINKSYM;
     ext->link_check_msg.content.ptr = (char *) ext;
     ext->dio_msg.type = GNRC_RPL_BLOOM_MSG_TYPE_DELAYED_DIO;
     ext->dio_msg.content.ptr = (char *) ext;
     ext->delayed_dio = false;
-    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE, ext->nhood_bloom_buf,
+    ext->active_buffer = ext->nhood_bloom_buf;
+    ext->warmup_buffer = ext->nhood_bloom_buf2;
+    ext->bloom_lifetime = GNRC_RPL_BLOOM_LIFETIME + random_uint32_range(0, 10);
+    memset(ext->active_buffer, 0, sizeof(*ext->active_buffer));
+    memset(ext->warmup_buffer, 0, sizeof(*ext->warmup_buffer));
+    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE, ext->active_buffer,
                _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
 }
 
 void gnrc_rpl_bloom_refresh(gnrc_rpl_bloom_inst_ext_t *ext)
 {
     DEBUG("RPL-BLOOM: reseting neighborhood bloom filter\n");
-    memset(ext->nhood_bloom_buf, 0, sizeof(ext->nhood_bloom_buf));
+    gnrc_rpl_bloom_switch(ext);
     ext->bloom_lifetime = GNRC_RPL_BLOOM_LIFETIME + random_uint32_range(0, 10);
 }
 
@@ -212,7 +216,7 @@ gnrc_pktsnip_t *gnrc_rpl_bloom_dio_na_build(gnrc_pktsnip_t *pkt, gnrc_rpl_bloom_
         return NULL;
     }
     pkt = opt_snip;
-    memcpy(pkt->data, ext->nhood_bloom_buf, GNRC_RPL_BLOOM_SIZE);
+    memcpy(pkt->data, ext->active_buffer, GNRC_RPL_BLOOM_SIZE);
 
     if ((opt_snip = gnrc_pktbuf_add(pkt, NULL, sizeof(gnrc_rpl_opt_na_t),
                                     GNRC_NETTYPE_UNDEF)) == NULL) {
@@ -353,7 +357,26 @@ void gnrc_rpl_bloom_handle_na(gnrc_rpl_opt_na_t *opt, ipv6_addr_t *src,
 
 void gnrc_rpl_bloom_add(gnrc_rpl_bloom_inst_ext_t *ext, uint8_t *data, size_t len)
 {
-    bloom_add(&(ext->nhood_bloom), data, len);
+    bloom_t *b = &(ext->nhood_bloom);
+    bloom_add(b, data, len);
+    if (ext->bloom_lifetime <= GNRC_RPL_BLOOM_LIFETIME/2) {
+        b->a = ext->warmup_buffer;
+        bloom_add(b, data, len);
+        b->a = ext->active_buffer;
+    }
+    return;
+}
+
+void gnrc_rpl_bloom_switch(gnrc_rpl_bloom_inst_ext_t *ext)
+{
+    bloom_t *b = &(ext->nhood_bloom);
+    uint8_t *tmp = b->a;
+
+    bloom_del(b);
+    bloom_init(b, GNRC_RPL_BLOOM_SIZE, ext->warmup_buffer, _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
+    ext->active_buffer = ext->warmup_buffer;
+    ext->warmup_buffer = tmp;
+
     return;
 }
 
