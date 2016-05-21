@@ -66,7 +66,7 @@ void gnrc_rpl_bloom_init(void)
 {
     gnrc_rpl_bloom_blacklist_msg.type = GNRC_RPL_BLOOM_MSG_TYPE_BLACKLIST;
     gnrc_rpl_bloom_blacklist_reset();
-    bloom_init(&(gnrc_rpl_bloom_blacklist), GNRC_RPL_BLOOM_SIZE, gnrc_rpl_bloom_blacklist_buf,
+    bloom_init(&(gnrc_rpl_bloom_blacklist), GNRC_RPL_BLOOM_SIZE*8, gnrc_rpl_bloom_blacklist_buf,
                _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
 }
 
@@ -93,7 +93,7 @@ void gnrc_rpl_bloom_instance_ext_init(gnrc_rpl_bloom_inst_ext_t *ext)
     ext->bloom_lifetime = GNRC_RPL_BLOOM_LIFETIME + random_uint32_range(0, 10);
     memset(ext->active_buffer, 0, sizeof(*ext->active_buffer));
     memset(ext->warmup_buffer, 0, sizeof(*ext->warmup_buffer));
-    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE, ext->active_buffer,
+    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE*8, ext->active_buffer,
                _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
 }
 
@@ -116,7 +116,7 @@ void gnrc_rpl_bloom_parent_ext_init(gnrc_rpl_bloom_parent_ext_t *ext)
     ext->bidirectional = false;
     ext->linksym_checks = 0;
     memset(ext->nhood_bloom_buf, 0, sizeof(ext->nhood_bloom_buf));
-    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE, ext->nhood_bloom_buf,
+    bloom_init(&(ext->nhood_bloom), GNRC_RPL_BLOOM_SIZE*8, ext->nhood_bloom_buf,
                _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
 }
 
@@ -369,7 +369,7 @@ void gnrc_rpl_bloom_switch(gnrc_rpl_bloom_inst_ext_t *ext)
     uint8_t *tmp = b->a;
 
     bloom_del(b);
-    bloom_init(b, GNRC_RPL_BLOOM_SIZE, ext->warmup_buffer, _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
+    bloom_init(b, GNRC_RPL_BLOOM_SIZE*8, ext->warmup_buffer, _hashes, GNRC_RPL_BLOOM_HASHES_NUMOF);
     ext->active_buffer = ext->warmup_buffer;
     ext->warmup_buffer = tmp;
 

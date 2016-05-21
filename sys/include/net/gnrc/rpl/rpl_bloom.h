@@ -38,12 +38,16 @@ extern "C" {
 /**
  * @brief Size of the bloom filter in bytes
  */
+#ifndef GNRC_RPL_BLOOM_SIZE
 #define GNRC_RPL_BLOOM_SIZE                 (16)
+#endif
 
 /**
  * @brief Size of the blacklist bloom filter in bytes
  */
+#ifndef GNRC_RPL_BLACKLIST_BLOOM_SIZE
 #define GNRC_RPL_BLACKLIST_BLOOM_SIZE       (16)
+#endif
 
 /**
  * @brief MSG Type for the blacklist bloom filter
