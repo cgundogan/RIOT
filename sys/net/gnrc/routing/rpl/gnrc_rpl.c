@@ -301,6 +301,10 @@ void _update_lifetime(void)
     gnrc_rpl_parent_t *parent;
     gnrc_rpl_instance_t *inst;
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    bool bidir = false;
+#endif
+
     for (uint8_t i = 0; i < GNRC_RPL_PARENTS_NUMOF; ++i) {
         parent = &gnrc_rpl_parents[i];
         if (parent->state != 0) {
@@ -319,6 +323,9 @@ void _update_lifetime(void)
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr, 0, NULL, 0);
 #endif
             }
+#ifdef MODULE_GNRC_RPL_BLOOM
+            bidir |= parent->bloom_ext.bidirectional;
+#endif
         }
     }
 
@@ -350,12 +357,19 @@ void _update_lifetime(void)
             }
 #endif
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+            if (bidir) {
+
+#endif
             if (inst->dodag.dao_time > GNRC_RPL_LIFETIME_UPDATE_STEP) {
                 inst->dodag.dao_time -= GNRC_RPL_LIFETIME_UPDATE_STEP;
             }
             else {
                 _dao_handle_send(&inst->dodag);
             }
+#ifdef MODULE_GNRC_RPL_BLOOM
+            }
+#endif
         }
     }
 
