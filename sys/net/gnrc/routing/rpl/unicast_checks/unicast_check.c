@@ -40,7 +40,8 @@ void gnrc_rpl_unicast_check_trigger(gnrc_rpl_instance_t *inst, gnrc_rpl_parent_t
 
     uint64_t now = xtimer_now64();
 
-    if (((now - parent->last_checked) < 110 * SEC_IN_USEC) && parent->bidirectional) {
+    if (((now - parent->last_checked) < (GNRC_RPL_DEFAULT_LIFETIME * GNRC_RPL_LIFETIME_UNIT - 5) * SEC_IN_USEC)
+        && parent->bidirectional) {
         return;
     }
 

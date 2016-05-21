@@ -333,14 +333,22 @@ void _update_lifetime(void)
 
 void gnrc_rpl_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY + random_uint32_range(0,10);
+#else
     dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY;
+#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
 
 void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL + random_uint32_range(0,10);
+#else
     dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL;
+#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
