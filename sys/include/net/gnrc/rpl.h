@@ -526,6 +526,19 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
 void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
                        uint16_t len);
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+/**
+ * @brief   Parse a DAO-ACK.
+ *
+ * @param[in] dao_ack   Pointer to the DAO-ACK message.
+ * @param[in] iface     Interface PID of the incoming DIO.
+ * @param[in] src       Pointer to the source address of the IPv6 packet.
+ * @param[in] dst       Pointer to the destination address of the IPv6 packet.
+ * @param[in] len       Length of the IPv6 packet.
+ */
+void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *src,
+                           ipv6_addr_t *dst, uint16_t len);
+#else
 /**
  * @brief   Parse a DAO-ACK.
  *
@@ -536,6 +549,7 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
  */
 void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *dst,
                            uint16_t len);
+#endif
 
 /**
  * @brief   Delay the DAO sending interval

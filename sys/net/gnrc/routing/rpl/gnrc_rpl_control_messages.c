@@ -1404,6 +1404,10 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
         return;
     }
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_bloom_add(&(inst->bloom_ext), src->u8, sizeof(ipv6_addr_t));
+#endif
+
     /* send a DAO-ACK if K flag is set */
     if (dao->k_d_flags & GNRC_RPL_DAO_K_BIT) {
         gnrc_rpl_send_DAO_ACK(inst, src, dao->dao_sequence);
@@ -1429,8 +1433,13 @@ static bool _gnrc_rpl_check_DAO_ACK_validity(gnrc_rpl_dao_ack_t *dao_ack, uint16
     return false;
 }
 
+#ifdef MODULE_GNRC_RPL_BLOOM
+void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *src,
+                           ipv6_addr_t *dst, uint16_t len)
+#else
 void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6_addr_t *dst,
                            uint16_t len)
+#endif
 {
     (void)iface;
 
@@ -1475,6 +1484,20 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6
     }
 
     dodag->dao_ack_received = true;
+
+#ifdef MODULE_GNRC_RPL_BLOOM
+    gnrc_rpl_parent_t *parent;
+    LL_FOREACH(dodag->parents, parent) {
+        if (parent->state && ipv6_addr_equal(src, &parent->addr)) {
+            if (!parent->bloom_ext.bidirectional) {
+                parent->bloom_ext.bidirectional = true;
+                parent->bloom_ext.linksym_checks = 0;
+            }
+            gnrc_rpl_parent_update(dodag, parent);
+            break;
+        }
+    }
+#endif
     gnrc_rpl_long_delay_dao(dodag);
 }
 

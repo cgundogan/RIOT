@@ -171,8 +171,13 @@ static void _receive(gnrc_pktsnip_t *icmpv6)
             break;
         case GNRC_RPL_ICMPV6_CODE_DAO_ACK:
             DEBUG("RPL: DAO-ACK received\n");
-            gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1), iface,
+#ifdef MODULE_GNRC_RPL_BLOOM
+            gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
                                   &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
+#else
+            gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->dst,
+                                  byteorder_ntohs(ipv6_hdr->len));
+#endif
             break;
 #ifdef MODULE_GNRC_RPL_P2P
         case GNRC_RPL_P2P_ICMPV6_CODE_DRO:
@@ -363,14 +368,22 @@ void _update_lifetime(void)
 
 void gnrc_rpl_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
+#ifdef MODULE_GNRC_RPL_BLOOM
+    dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY + random_uint32_range(0,10);
+#else
     dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY;
+#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
 
 void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
+#ifdef MODULE_GNRC_RPL_BLOOM
+    dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL + random_uint32_range(0,10);
+#else
     dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL;
+#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
