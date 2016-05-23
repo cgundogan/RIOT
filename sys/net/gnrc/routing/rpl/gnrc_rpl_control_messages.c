@@ -484,11 +484,6 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
 
 #ifdef MODULE_GNRC_RPL_BLOOM
             case (GNRC_RPL_OPT_PARENT_ANNOUNCEMENT):
-                if (msg_type != GNRC_RPL_ICMPV6_CODE_DIS) {
-                    DEBUG("RPL-BLOOM: PARENT ANNOUNCEMENT option not expected\n");
-                    return false;
-                }
-
                 if (opt->length > (GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t))) {
                     DEBUG("RPL: wrong DIS option (PARENT ANNOUNCEMENT) length, expected: 0 < %d <= %d\n",
                           opt->length, GNRC_RPL_OPT_PA_LEN + sizeof(ipv6_addr_t));
@@ -497,11 +492,6 @@ static bool _gnrc_rpl_check_options_validity(int msg_type, gnrc_rpl_instance_t *
                 break;
 
             case (GNRC_RPL_OPT_NHOOD_ANNOUNCEMENT):
-                if (msg_type != GNRC_RPL_ICMPV6_CODE_DIO) {
-                    DEBUG("RPL-BLOOM: NHOOD ANNOUNCEMENT option not expected\n");
-                    return false;
-                }
-
                 if (opt->length != GNRC_RPL_OPT_NA_LEN) {
                     DEBUG("RPL: wrong DIO option (NHOOD ANNOUNCEMENT) len: %d, expected: %d\n",
                           opt->length, GNRC_RPL_OPT_NA_LEN);
