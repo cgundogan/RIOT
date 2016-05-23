@@ -33,6 +33,10 @@
 #include "net/gnrc/rpl/p2p_dodag.h"
 #endif
 
+#ifdef MODULE_GNRC_IPV6_BLACKLIST
+#include "net/gnrc/ipv6/blacklist.h"
+#endif
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -54,6 +58,37 @@ static void _update_lifetime(void);
 static void _dao_handle_send(gnrc_rpl_dodag_t *dodag);
 static void _receive(gnrc_pktsnip_t *pkt);
 static void *_event_loop(void *args);
+
+#ifdef MODULE_GNRC_IPV6_BLACKLIST
+#define BLACKLIST_ARRAY_NUMOF (2)
+#define BLACKLIST_LIFETIME (60)
+int blacklisted_node = -1;
+typedef struct {
+    ipv6_addr_t addr;
+    uint32_t lifetime;
+} blacklist_entry_t;
+static blacklist_entry_t blacklist_array[BLACKLIST_ARRAY_NUMOF];
+
+static void _add_to_blacklist_array(ipv6_addr_t *addr)
+{
+    blacklist_entry_t *tmp = NULL;
+    for (int i = 0; i < BLACKLIST_ARRAY_NUMOF; i++) {
+        if (tmp == NULL && ipv6_addr_equal(&ipv6_addr_unspecified, &blacklist_array[i].addr)) {
+            if (i == 0) {
+                blacklisted_node = 0;
+                gnrc_ipv6_blacklist_add(addr);
+            }
+            tmp = &blacklist_array[i];
+        }
+        if (ipv6_addr_equal(addr, &blacklist_array[i].addr)) {
+            return;
+        }
+    }
+    memcpy(&tmp->addr, addr, sizeof(*addr));
+    tmp->lifetime = BLACKLIST_LIFETIME;
+    return;
+}
+#endif
 
 kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
 {
@@ -158,6 +193,15 @@ static void _receive(gnrc_pktsnip_t *icmpv6)
     switch (icmpv6_hdr->code) {
         case GNRC_RPL_ICMPV6_CODE_DIS:
             DEBUG("RPL: DIS received\n");
+#ifdef MODULE_GNRC_IPV6_BLACKLIST
+            gnrc_rpl_instance_t *inst = &gnrc_rpl_instances[0];
+            if (inst->state && inst->dodag.node_status == GNRC_RPL_ROOT_NODE) {
+                _add_to_blacklist_array(&ipv6_hdr->src);
+                if (gnrc_ipv6_blacklisted(&ipv6_hdr->src)) {
+                    return;
+                }
+            }
+#endif
             gnrc_rpl_recv_DIS((gnrc_rpl_dis_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
                               &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
             break;
