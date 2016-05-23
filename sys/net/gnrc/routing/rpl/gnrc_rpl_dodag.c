@@ -306,7 +306,7 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
     gnrc_rpl_parent_t *elt;
     bool bidir_parents = false;
     LL_FOREACH(dodag->parents, elt) {
-        if ((parent->state != 0) && (parent->bidirectional)) {
+        if ((elt->state != 0) && (elt->bidirectional)) {
             bidir_parents = true;
         }
     }
