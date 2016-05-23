@@ -49,7 +49,7 @@ static void _rpl_trickle_send_dio(void *args)
     gnrc_rpl_dodag_t *dodag = &inst->dodag;
 
     /* a leaf node does not send DIOs periodically */
-    if (dodag->node_status == GNRC_RPL_LEAF_NODE) {
+    if ((dodag->node_status == GNRC_RPL_LEAF_NODE) && (dodag->my_rank != GNRC_RPL_INFINITE_RANK)) {
         trickle_stop(&dodag->trickle);
         return;
     }
@@ -249,6 +249,9 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
         }
     }
     LL_DELETE(dodag->parents, parent);
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    xtimer_remove(&parent->unicast_checks_timer);
+#endif
     memset(parent, 0, sizeof(gnrc_rpl_parent_t));
     return true;
 }
@@ -261,6 +264,7 @@ void gnrc_rpl_local_repair(gnrc_rpl_dodag_t *dodag)
 
     if (dodag->parents) {
         gnrc_rpl_dodag_remove_all_parents(dodag);
+        trickle_reset_timer(&dodag->trickle);
         fib_remove_entry(&gnrc_ipv6_fib_table,
                          (uint8_t *) ipv6_addr_unspecified.u8,
                          sizeof(ipv6_addr_t));

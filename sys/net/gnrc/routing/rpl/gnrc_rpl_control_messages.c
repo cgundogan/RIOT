@@ -1137,6 +1137,22 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
     }
 #endif
 
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    fib_flush(&gnrc_ipv6_fib_table, KERNEL_PID_UNDEF);
+    if (dodag->parents) {
+        uint32_t now = xtimer_now() / SEC_IN_USEC;
+        fib_add_entry(&gnrc_ipv6_fib_table,
+                      dodag->iface,
+                      (uint8_t *) ipv6_addr_unspecified.u8,
+                      sizeof(ipv6_addr_t),
+                      0x0,
+                      dodag->parents->addr.u8,
+                      sizeof(ipv6_addr_t),
+                      FIB_FLAG_RPL_ROUTE,
+                      (dodag->parents->lifetime - now) * SEC_IN_MS);
+    }
+#endif
+
     uint32_t included_opts = 0;
     if(!_parse_options(GNRC_RPL_ICMPV6_CODE_DAO, inst, opts, len, src, &included_opts)) {
         DEBUG("RPL: Error encountered during DAO option parsing - ignore DAO\n");

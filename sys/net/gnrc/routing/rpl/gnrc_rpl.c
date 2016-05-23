@@ -247,8 +247,8 @@ static void *_event_loop(void *args)
                 if (parent && parent->state) {
                     gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
                     parent->unicast_checks++;
-                    parent->check_running = false;
                 }
+                parent->check_running = false;
                 break;
 #endif
             case GNRC_NETAPI_MSG_TYPE_RCV:
@@ -328,27 +328,35 @@ void _update_lifetime(void)
     gnrc_rpl_p2p_update();
 #endif
 
+#ifdef MODULE_GNRC_IPV6_BLACKLIST
+    if ((gnrc_rpl_instances[0].state) &&
+        (gnrc_rpl_instances[0].dodag.node_status == GNRC_RPL_ROOT_NODE) &&
+        (blacklisted_node > -1)) {
+        blacklist_array[blacklisted_node].lifetime -= GNRC_RPL_LIFETIME_UPDATE_STEP;
+        if (blacklist_array[blacklisted_node].lifetime <= 0) {
+            blacklist_array[blacklisted_node].lifetime = BLACKLIST_LIFETIME;
+            gnrc_ipv6_blacklist_del(&blacklist_array[blacklisted_node].addr);
+            do {
+                blacklisted_node = (blacklisted_node + 1) % BLACKLIST_ARRAY_NUMOF;
+            } while (ipv6_addr_equal(&blacklist_array[blacklisted_node].addr, &ipv6_addr_unspecified));
+            gnrc_ipv6_blacklist_add(&blacklist_array[blacklisted_node].addr);
+        }
+    }
+#endif
+
     xtimer_set_msg(&_lt_timer, _lt_time, &_lt_msg, gnrc_rpl_pid);
 }
 
 void gnrc_rpl_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
-#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
-    dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY + random_uint32_range(0,10);
-#else
     dodag->dao_time = GNRC_RPL_DEFAULT_DAO_DELAY;
-#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
 
 void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
 {
-#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
-    dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL + random_uint32_range(0,10);
-#else
     dodag->dao_time = GNRC_RPL_REGULAR_DAO_INTERVAL;
-#endif
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
