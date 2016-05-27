@@ -1,4 +1,5 @@
 PSEUDOMODULES += netstats_rpl
+PSEUDOMODULES += auto_init_gnrc_rpl
 PSEUDOMODULES += conn
 PSEUDOMODULES += conn_ip
 PSEUDOMODULES += conn_tcp

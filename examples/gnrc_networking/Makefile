@@ -23,6 +23,7 @@ USEMODULE += gnrc_udp
 USEMODULE += gnrc_rpl
 USEMODULE += gnrc_rpl_unicast_checks
 USEMODULE += netstats_rpl
+USEMODULE += auto_init_gnrc_rpl
 # This application dumps received packets to STDIO using the pktdump module
 USEMODULE += gnrc_pktdump
 # Additional networking modules that can be dropped if not needed
