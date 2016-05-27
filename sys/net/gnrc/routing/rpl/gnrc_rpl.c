@@ -317,8 +317,10 @@ static void *_event_loop(void *args)
 
 void _update_lifetime(void)
 {
+#ifndef MODULE_GNRC_RPL_UNICAST_CHECKS
     uint32_t now = xtimer_now();
     uint16_t now_sec = now / SEC_IN_USEC;
+#endif
 
     gnrc_rpl_parent_t *parent;
     gnrc_rpl_instance_t *inst;
@@ -331,14 +333,13 @@ void _update_lifetime(void)
             if (parent->state == 0) {
                 continue;
             }
-#endif
+#else
             if ((int32_t)(parent->lifetime - now_sec) <= GNRC_RPL_LIFETIME_UPDATE_STEP) {
                 gnrc_rpl_dodag_t *dodag = parent->dodag;
                 gnrc_rpl_parent_remove(parent);
                 gnrc_rpl_parent_update(dodag, NULL);
                 continue;
             }
-#ifndef MODULE_GNRC_RPL_UNICAST_CHECKS
             else if ((int32_t)(parent->lifetime - now_sec) <= (GNRC_RPL_LIFETIME_UPDATE_STEP * 2)) {
                 gnrc_rpl_send_DIS(parent->dodag->instance, &parent->addr);
             }

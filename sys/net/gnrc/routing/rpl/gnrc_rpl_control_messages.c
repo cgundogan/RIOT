@@ -764,6 +764,7 @@ void gnrc_rpl_recv_DIO(gnrc_rpl_dio_t *dio, kernel_pid_t iface, ipv6_addr_t *src
 #ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
     if (!parent->bidirectional && !ipv6_addr_is_multicast(dst)) {
         parent->bidirectional = true;
+        parent->last_checked = xtimer_now64();
         parent->unicast_checks = 0;
         dodag->node_status = GNRC_RPL_NORMAL_NODE;
         trickle_interval(&dodag->trickle);
@@ -841,6 +842,9 @@ gnrc_pktsnip_t *_dao_transit_build(gnrc_pktsnip_t *pkt, uint8_t lifetime, bool e
 
 void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint8_t lifetime)
 {
+#ifdef MODULE_GNRC_RPL_UNICAST_CHECKS
+    return;
+#endif
     gnrc_rpl_dodag_t *dodag;
 
     if (inst == NULL) {

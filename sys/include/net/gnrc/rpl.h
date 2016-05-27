@@ -247,8 +247,12 @@ static inline bool GNRC_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
  * default lifetime will be multiplied by the lifetime unit to obtain the resulting lifetime
  * @{
  */
+#ifndef GNRC_RPL_DEFAULT_LIFETIME
 #define GNRC_RPL_DEFAULT_LIFETIME (60)
+#endif
+#ifndef GNRC_RPL_LIFETIME_UNIT
 #define GNRC_RPL_LIFETIME_UNIT (2)
+#endif
 /** @} */
 
 /**
