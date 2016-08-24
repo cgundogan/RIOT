@@ -145,7 +145,7 @@ gnrc_pktsnip_t *_dio_prefix_info_build(gnrc_pktsnip_t *pkt, gnrc_rpl_dodag_t *do
     prefix_info->reserved = 0;
 
     memset(&prefix_info->prefix, 0, sizeof(prefix_info->prefix));
-    ipv6_addr_init_prefix(&prefix_info->prefix, &dodag->dodag_id, dodag->netif_addr->prefix_len);
+    ipv6_addr_init_prefix(&prefix_info->prefix, &dodag->netif_addr->addr, dodag->netif_addr->prefix_len);
     return opt_snip;
 }
 #endif
