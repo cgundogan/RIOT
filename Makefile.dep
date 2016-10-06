@@ -8,6 +8,14 @@ OLD_USEPKG := $(sort $(USEPKG))
 # pull dependencies from drivers
 include $(RIOTBASE)/drivers/Makefile.dep
 
+ifneq (,$(filter ndn-riot,$(USEPKG)))
+    USEMODULE += gnrc
+    USEMODULE += xtimer
+    USEMODULE += random
+    USEMODULE += hashes
+    USEPKG += micro-ecc
+endif
+
 ifneq (,$(filter csma_sender,$(USEMODULE)))
   USEMODULE += random
   USEMODULE += xtimer
