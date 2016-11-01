@@ -22,7 +22,21 @@ endif
 $(PKG_BUILDDIR)/.git-downloaded:
 	rm -Rf $(PKG_BUILDDIR)
 	mkdir -p $(PKG_BUILDDIR)
-	$(GITCACHE) clone "$(PKG_URL)" "$(PKG_VERSION)" "$(PKG_BUILDDIR)"
+	$(eval PKG_CACHE := $(RIOTBASE)/.pkgcache/$(PKG_NAME))
+	if [ ! -d $(PKG_CACHE) ] ; \
+	then \
+	    git clone --bare $(PKG_URL) $(PKG_CACHE) ; \
+	    git clone --recursive $(PKG_CACHE) $(PKG_BUILDDIR) ; \
+		git -C $(PKG_BUILDDIR) checkout $(PKG_VERSION) ; \
+		git -C $(PKG_BUILDDIR) submodule update --init ; \
+	    git -C $(PKG_BUILDDIR) submodule foreach 'git clone --bare $$(command git remote get-url origin) $(PKG_CACHE)_$$(echo $${path} | tr '/' '_')' ; \
+	else \
+	    git clone --reference $(PKG_CACHE) $(PKG_URL) $(PKG_BUILDDIR) ; \
+		git -C $(PKG_BUILDDIR) checkout $(PKG_VERSION) ; \
+		git -C $(PKG_BUILDDIR) submodule | while read commit name ref; do \
+		    git -C $(PKG_BUILDDIR) submodule update --init --reference $(PKG_CACHE)_$$(echo $${name} | tr '/' '_') $${name} ; \
+		done; \
+	fi; \
 	$(GIT_APPLY_PATCHES)
 	touch $@
 
