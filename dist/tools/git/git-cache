@@ -62,9 +62,15 @@ clone() {
         git_cache tag commit$SHA1 $SHA1 || true # ignore possibly already existing tag
         git -C "${TARGET_PATH}" fetch --tags --depth=1 "${GIT_CACHE_DIR}" refs/tags/commit$SHA1
         git -C "${TARGET_PATH}" checkout FETCH_HEAD
+        if [ -s "${TARGET_PATH}" ] then
+            git -C "${TARGET_PATH}" config --file "${TARGET_PATH}"/.gitmodules --get-regexp
+            git -C "${TARGET_PATH}" submodule foreach "${0}"' clone "$(command git remote get-url origin)" "${sha1}" "${path}"'
     else
         git clone "${REMOTE}" "${TARGET_PATH}"
         git -C "${TARGET_PATH}" checkout $SHA1
+        add "${REMOTE_NAME}" "${REMOTE}"
+        update "${REMOTE_NAME}"
+        git -C "${TARGET_PATH}" submodule foreach "${0}"' add '"${REMOTE_NAME}"'_"${name}" "$(command git remote get-url origin)"; '"${0}"' update '"${REMOTE_NAME}"'_"${name}"'
     fi
     set +ex
 }
