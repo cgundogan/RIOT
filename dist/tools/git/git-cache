@@ -78,6 +78,12 @@ _remote_name() {
     basename "$*" .git
 }
 
+exists() {
+    set -ex
+    _check_commit $1
+    set +ex
+}
+
 clone() {
     set -ex
     local REMOTE="${1}"
@@ -112,7 +118,7 @@ usage() {
     echo ""
     echo "    git cache init                initialize git cache"
     echo "    git cache add <url> [<name>]  add repository <url> with name <name>"
-    echo "                                  (if no name given, use \"basename $url .git\""
+    echo "    git cache exists <SHA1>       checks whether <SHA1> exists in the cache"
     echo "    git cache list                list cached repositories"
     echo "    git cache drop <name>         drop repo from cache"
     echo "    git cache update [<name>]     fetch repo named <name> (or all)"
@@ -135,6 +141,9 @@ case $ACTION in
         ;;
     add)
         add $*
+        ;;
+    exists)
+        exists $*
         ;;
     update)
         update $*
