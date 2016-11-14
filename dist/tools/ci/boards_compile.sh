@@ -7,11 +7,13 @@
 # directory for more details.
 #
 
+shopt -s extglob
+
 RIOT_BOARD=${RIOT_BOARD:-native}
 RIOTBASE=${RIOTBASE:-.}
 NPROC=${NPROC:-8}
 
-for app in ${RIOTBASE}/{examples,tests}/*; do
+for app in ${RIOTBASE}/$1; do
     if [ -d ${app} ]; then
         if [[ $(make -sC $app info-boards-supported | tr ' ' '\n' | sed -n "/^${RIOT_BOARD}$/p") ]]; then
             echo -n "Building ${app} for board ${RIOT_BOARD}: "
