@@ -24,7 +24,7 @@ $(PKG_BUILDDIR)/.git-downloaded:
 	mkdir -p $(PKG_BUILDDIR)
 	$(GITCACHE) exists "$(PKG_VERSION)" || \
 	( \
-		$(GITCACHE) add "$(PKG_NAME)" "$(PKG_URL)" && \
+		$(GITCACHE) add "$(PKG_URL)" "$(PKG_NAME)" && \
 		$(GITCACHE) update "$(PKG_NAME)" \
 	)
 	$(GITCACHE) clone "$(PKG_URL)" "$(PKG_VERSION)" "$(PKG_BUILDDIR)"
@@ -33,7 +33,7 @@ $(PKG_BUILDDIR)/.git-downloaded:
 		url=$$(git -C $(PKG_BUILDDIR) config -f $(PKG_BUILDDIR)/.gitmodules --get $${submodkey%path}url) ; \
 		$(GITCACHE) exists "$${sha#?}" || \
 		( \
-			$(GITCACHE) add "$(PKG_NAME)_$$(echo $${submodpath} | tr '/' '_')" "$${url}" && \
+			$(GITCACHE) add "$${url}" "$(PKG_NAME)_$$(echo $${submodpath} | tr '/' '_')" && \
 			$(GITCACHE) update "$(PKG_NAME)_$$(echo $${submodpath} | tr '/' '_')" \
 		) ;\
 		$(GITCACHE) clone "$${url}" "$${sha#?}" "$(PKG_BUILDDIR)/$${submodpath}" ;\
