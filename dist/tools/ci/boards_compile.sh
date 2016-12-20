@@ -12,17 +12,25 @@ shopt -s extglob
 RIOT_BOARD=${RIOT_BOARD:-native}
 RIOTBASE=${RIOTBASE:-.}
 NPROC=${NPROC:-8}
+declare -i RESULT=0
 
 for app in ${RIOTBASE}/$1; do
     if [ -d ${app} ]; then
         if [[ $(make -sC $app info-boards-supported | tr ' ' '\n' | sed -n "/^${RIOT_BOARD}$/p") ]]; then
             echo -n "Building ${app} for board ${RIOT_BOARD}: "
-            make -j ${NPROC} -sC $app clean all BOARD=${RIOT_BOARD} > /dev/null
+            make -j ${NPROC} -sC $app clean all BOARD=${RIOT_BOARD}
             if (($? > 0)); then
                 echo "failed!"
+                RESULT+=1
             else
                 echo "success!"
             fi
         fi
     fi
 done
+
+if (($RESULT > 0)); then
+    exit 1
+else
+    exit 0
+fi
