@@ -176,19 +176,15 @@ def make_build(label, board, desc, arg)
                                                 declare -i RESULT=0
                                                 for app in ${apps}; do
                                                     if [[ \$(make -sC \$app info-boards-supported | tr ' ' '\n' | sed -n '/^${board}\$/p') ]]; then
-                                                        echo \"\n\nBuilding \$app for ${board}\" >> success_${board}_${desc}.log
                                                         rm -rf jenkins_bin; mkdir jenkins_bin
-                                                        CFLAGS_DBG=\"\" BINDIR=\$(pwd)/jenkins_bin make -j\${NPROC} -C \$app all >> success_${board}_${desc}.log 2>&1 || RESULT=1
+                                                        output=$(CFLAGS_DBG=\"\" BINDIR=\$(pwd)/jenkins_bin make -j\${NPROC} -C \$app all 2>&1) || (cat ${output} >> error_${board}_${desc}.log ; RESULT=1)
                                                     fi;
                                                 done;
-                                                if ((\$RESULT)); then
-                                                    mv success_${board}_${desc}.log error_${board}_${desc}.log
-                                                fi;
                                                 exit \$RESULT""")
                         if (ret) {
                             currentBuild.result = 'FAILURE'
+                            step([$class: 'ArtifactArchiver', artifacts: "error_${board}_${desc}.log", fingerprint: true, allowEmptyArchive: true])
                         }
-                        step([$class: 'ArtifactArchiver', artifacts: "*_${board}_${desc}.log", fingerprint: true, allowEmptyArchive: true])
                     }
                 }
             }  catch(e) {
