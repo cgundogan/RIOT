@@ -1,3 +1,7 @@
+#!/usr/bin/env groovy
+
+def common = evaluate readTrusted('dist/tools/jenkins/common.groovy')
+
 def boards = []
 def examples = []
 def tests = []
@@ -13,20 +17,16 @@ stage('setup') {
 
         deleteDir()
 
-        fetchPR(env.CHANGE_ID, "--depth=1", "")
+        fetchBranch("--depth=1", "pull/${env.CHANGE_ID}/merge", "pull_${env.CHANGE_ID}")
 
         /* get all boards */
-        boards = sh(returnStdout: true,
-                    script: 'find $(pwd)/boards/* -maxdepth 0 -type d \\! -name "*-common" -exec basename {} \\;'
-                   ).trim().split('\n')
+        boards = common.getBoards()
+
         /* get all examples */
-        examples = sh(returnStdout: true,
-                    script: 'find examples/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
-                   ).trim().split('\n')
+        examples = common.getExamples()
+
         /* get all tests */
-        tests = sh(returnStdout: true,
-                    script: 'find tests/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
-                   ).trim().split('\n')
+        tests = common.getTests()
 
         /* split tests into smaller sets */
         for (int i=0; i < tests.size(); i++) {
@@ -46,6 +46,7 @@ stage('setup') {
                 other_tests << tests[i]
             }
         }
+
         deleteDir()
     }
 }
@@ -54,7 +55,7 @@ stage('static-tests') {
     node('linux && boards') {
         deleteDir()
 
-        fetchPR(env.CHANGE_ID, "", "master:master")
+        fetchBranch("", "master:master pull/${env.CHANGE_ID}/merge", "pull_${env.CHANGE_ID}")
 
         def ret = sh(returnStatus: true,
                      script: """#!/bin/bash +x
@@ -154,7 +155,7 @@ def make_build(label, board, desc, arg)
         node(label) {
             try {
                 deleteDir()
-                fetchPR(env.CHANGE_ID, "--depth=1", "")
+                fetchBranch("--depth=1", "pull/${env.CHANGE_ID}/merge", "pull_${env.CHANGE_ID})
                 def build_dir = pwd()
                 sh "./dist/tools/git/git-cache init"
                 timestamps {
@@ -199,16 +200,4 @@ def abortOnError(msg)
     if ((currentBuild.result != null) && (currentBuild.result == 'FAILURE')) {
         error msg
     }
-}
-
-def fetchPR(prNum, fetchArgs, extraRefSpec)
-{
-    sh """git init
-    if (( "\${RIOT_MIRROR}" )); then RIOT_URL="\${RIOT_MIRROR_URL}"; else RIOT_URL="https://github.com/RIOT-OS/RIOT"; fi
-    git remote add origin "\${RIOT_URL}"
-    for RETRIES in {1..3}; do
-        timeout 30 git fetch -u -n ${fetchArgs} origin ${extraRefSpec} pull/${prNum}/merge:pull_${prNum} && break
-    done
-    [[ "\$RETRIES" -eq 3 ]] && exit 1
-    git checkout pull_${prNum}"""
 }
