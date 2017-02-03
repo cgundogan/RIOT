@@ -15,26 +15,29 @@ def fetchBranch(fetchArgs, refSpecRemote, refSpecLocal)
 
 def stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
 {
-    sh '(( "\${RIOT_MIRROR}" )) && git -C "\${RIOT_MIRROR_DIR}" fetch --all'
+    node ('master') {
+        sh '(( "\${RIOT_MIRROR}" )) && git -C "\${RIOT_MIRROR_DIR}" fetch --all'
 
-    deleteDir()
+        deleteDir()
 
-    fetchBranch("--depth=1", refSpecRemote, refSpecLocal)
+        fetchBranch("--depth=1", refSpecRemote, refSpecLocal)
 
-    /* get all boards */
-    boards.addAll(sh(returnStdout: true,
-                     script: 'find $(pwd)/boards/* -maxdepth 0 -type d \\! -name "*-common" -exec basename {} \\;'
-                    ).trim().split('\n'))
+        /* get all boards */
+        boards.addAll(sh(returnStdout: true,
+                         script: 'find $(pwd)/boards/* -maxdepth 0 -type d \\! -name "*-common" -exec basename {} \\;'
+                        ).trim().split('\n'))
 
-    /* get all examples */
-    examples.addAll(sh(returnStdout: true,
-                       script: 'find examples/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
-                      ).trim().split('\n'))
+        /* get all examples */
+        examples.addAll(sh(returnStdout: true,
+                           script: 'find examples/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
+                          ).trim().split('\n'))
 
-    /* get all tests */
-    tests.addAll(sh(returnStdout: true,
-                    script: 'find tests/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
-                   ).trim().split('\n'))
+        /* get all tests */
+        tests.addAll(sh(returnStdout: true,
+                        script: 'find tests/* -maxdepth 1 -name Makefile -print0 | xargs -0 -n1 dirname'
+                       ).trim().split('\n'))
+        deleteDir()
+    }
 }
 
 def stageStaticTests(refSpecRemote, refSpecLocal)
@@ -170,7 +173,6 @@ def abortOnError(msg)
     }
 }
 
-/* create a job */
 def make_build(label, board, desc, arg, refSpecRemote, refSpecLocal)
 {
     return {
@@ -178,15 +180,11 @@ def make_build(label, board, desc, arg, refSpecRemote, refSpecLocal)
             try {
                 deleteDir()
                 fetchBranch("--depth=1", refSpecRemote, refSpecLocal)
-                def build_dir = pwd()
                 sh "./dist/tools/git/git-cache init"
                 timestamps {
                     def apps = arg.join(' ')
                     echo "building ${apps} for ${board} on nodes with ${label}"
-                    withEnv([
-                      "BOARD=${board}",
-                      "CCACHE_BASEDIR=${build_dir}",
-                      "RIOT_CI_BUILD=1"]) {
+                    withEnv(["BOARD=${board}", "CCACHE_BASEDIR=" + pwd(), "RIOT_CI_BUILD=1"]) {
                         def ret = sh(returnStatus: true,
                                      script: """#!/bin/bash +ex
                                                 declare -i RESULT=0

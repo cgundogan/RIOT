@@ -14,10 +14,7 @@ def refSpecRemote = env.BRANCH_NAME
 def refSpecLocal = env.BRANCH_NAME
 
 stage('setup') {
-    node ('master') {
-        common.stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
-        deleteDir()
-    }
+    common.stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
 }
 
 stage('static-tests') {

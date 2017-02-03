@@ -9,10 +9,7 @@ def refSpecRemote = "pull/${env.CHANGE_ID}/merge"
 def refSpecLocal = "pull_${env.CHANGE_ID}"
 
 stage('setup') {
-    node ('master') {
-        common.stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
-        deleteDir()
-    }
+    common.stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
 }
 
 stage('static-tests') {
