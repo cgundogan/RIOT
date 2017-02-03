@@ -74,9 +74,16 @@ def stageUnitTests(boards, refSpecRemote, refSpecLocal)
 
     /* setup all concurrent builds */
     def boardName = ""
+    def target = ""
     for (int i=0; i < boards.size(); i++) {
         boardName = boards[i]
-        builds['linux_unittests_' + boardName] = make_build("linux && boards && native", boardName, "linux_unittests", unittests, refSpecRemote, refSpecLocal)
+        if (boardName == "native") {
+            target = "all test"
+        }
+        else {
+            target = "all"
+        }
+        builds['linux_unittests_' + boardName] = make_build("linux && boards && native", boardName, "linux_unittests", unittests, target, refSpecRemote, refSpecLocal)
     }
     /* distribute all builds to the slaves */
     parallel (builds)
@@ -116,10 +123,10 @@ def stageTests(boards, tests, refSpecRemote, refSpecLocal)
     def boardName = ""
     for (int i=0; i < boards.size(); i++) {
         boardName = boards[i]
-        builds['linux_driver_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_driver_tests", driver_tests, refSpecRemote, refSpecLocal)
-        builds['linux_pkg_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_pkg_tests", pkg_tests, refSpecRemote, refSpecLocal)
-        builds['linux_periph_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_periph_tests", periph_tests, refSpecRemote, refSpecLocal)
-        builds['linux_other_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_other_tests", other_tests, refSpecRemote, refSpecLocal)
+        builds['linux_driver_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_driver_tests", driver_tests, "all", refSpecRemote, refSpecLocal)
+        builds['linux_pkg_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_pkg_tests", pkg_tests, "all", refSpecRemote, refSpecLocal)
+        builds['linux_periph_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_periph_tests", periph_tests, "all", refSpecRemote, refSpecLocal)
+        builds['linux_other_tests_' + boardName] = make_build("linux && boards && native", boardName, "linux_other_tests", other_tests, "all", refSpecRemote, refSpecLocal)
     }
 
 
@@ -150,7 +157,7 @@ def stageExamples(boards, examples, refSpecRemote, refSpecLocal)
     def boardName = ""
     for (int i=0; i < boards.size(); i++) {
         boardName = boards[i]
-        builds['linux_examples_' + boardName] = make_build("linux && boards && native", boardName, "linux_examples", examples, refSpecRemote, refSpecLocal)
+        builds['linux_examples_' + boardName] = make_build("linux && boards && native", boardName, "linux_examples", examples, "all", refSpecRemote, refSpecLocal)
     }
 
 /*  ignore macOS builds for now - macOS is currently broken for native
@@ -173,7 +180,7 @@ def abortOnError(msg)
     }
 }
 
-def make_build(label, board, desc, arg, refSpecRemote, refSpecLocal)
+def make_build(label, board, desc, arg, target, refSpecRemote, refSpecLocal)
 {
     return {
         node(label) {
@@ -192,7 +199,7 @@ def make_build(label, board, desc, arg, refSpecRemote, refSpecLocal)
                                                     if [[ \$(make -sC \$app info-boards-supported | tr ' ' '\n' | sed -n '/^${board}\$/p') ]]; then
                                                         echo \"\n\nBuilding \$app for ${board}\" >> success_${board}_${desc}.log
                                                         rm -rf jenkins_bin; mkdir jenkins_bin
-                                                        CFLAGS_DBG=\"\" BINDIR=\$(pwd)/jenkins_bin make -j\${NPROC} -C \$app all >> success_${board}_${desc}.log 2>&1 || RESULT=1
+                                                        CFLAGS_DBG=\"\" BINDIR=\$(pwd)/jenkins_bin make -j\${NPROC} -C \$app ${target} >> success_${board}_${desc}.log 2>&1 || RESULT=1
                                                     fi;
                                                 done;
                                                 if ((\$RESULT)); then
