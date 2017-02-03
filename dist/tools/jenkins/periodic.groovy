@@ -2,7 +2,7 @@
 
 properties([[$class: 'BuildDiscarderProperty',
              strategy: [$class: 'LogRotator', numToKeepStr: '7']],
-             pipelineTriggers([cron('H 0 * * *')]),
+             pipelineTriggers([cron('H H(0-2) * * *')]),
 ])
 
 def common = evaluate readTrusted('dist/tools/jenkins/common.groovy')
@@ -10,48 +10,32 @@ def common = evaluate readTrusted('dist/tools/jenkins/common.groovy')
 def boards = []
 def examples = []
 def tests = []
-def driver_tests = []
-def pkg_tests = []
-def periph_tests = []
-def other_tests = []
-def unittests = []
+def refSpecRemote = env.BRANCH_NAME
+def refSpecLocal = env.BRANCH_NAME
 
 stage('setup') {
     node ('master') {
-        sh '(( "\${RIOT_MIRROR}" )) && git -C "\${RIOT_MIRROR_DIR}" fetch --all'
-
-        deleteDir()
-
-        common.fetchBranch("--depth=1", "master:master ${env.BRANCH_NAME}", env.BRANCH_NAME)
-
-        /* get all boards */
-        boards = common.getBoards()
-
-        /* get all examples */
-        examples = common.getExamples()
-
-        /* get all tests */
-        tests = common.getTests()
-
-        /* split tests into smaller sets */
-        for (int i=0; i < tests.size(); i++) {
-            if (tests[i].startsWith("tests/driver_")) {
-                driver_tests << tests[i]
-            }
-            else if (tests[i].startsWith("tests/pkg_")) {
-                pkg_tests << tests[i]
-            }
-            else if (tests[i].startsWith("tests/periph_")) {
-                periph_tests << tests[i]
-            }
-            else if (tests[i].startsWith("tests/unittests")) {
-                unittests << tests[i]
-            }
-            else {
-                other_tests << tests[i]
-            }
-        }
-
+        common.stageSetup(boards, examples, tests, refSpecRemote, refSpecLocal)
         deleteDir()
     }
+}
+
+stage('static-tests') {
+    common.stageStaticTests("master:master " + refSpecRemote, refSpecLocal)
+}
+
+stage("unittests") {
+    common.stageUnitTests(boards, refSpecRemote, refSpecLocal)
+}
+
+stage("tests") {
+    common.stageTests(boards, tests, refSpecRemote, refSpecLocal)
+}
+
+stage("examples") {
+    common.stageExamples(boards, examples, refSpecRemote, refSpecLocal)
+}
+
+if (currentBuild.result == null) {
+    currentBuild.result = 'SUCCESS'
 }
