@@ -1,13 +1,15 @@
 PKG_NAME=ccn-lite
-PKG_URL=https://github.com/cn-uofbasel/ccn-lite/
-PKG_VERSION=7b973a737dba47fe6c1ee2d58e06dd9a22209fde
+PKG_URL=https://github.com/cgundogan/ccn-lite/
+PKG_VERSION=
 PKG_LICENSE=ISC
 
 .PHONY: all
 
 export RIOT_CFLAGS = ${CFLAGS} ${INCLUDES}
 
-all: git-download
+all:
+	rm -rf $(PKG_BUILDDIR)
+	git clone --depth=1 -b compas $(PKG_URL) $(PKG_BUILDDIR)
 	"$(MAKE)" -BC $(PKG_BUILDDIR)/src lib-ccn-lite.a
 	"$(MAKE)" -BC $(PKG_BUILDDIR)/src lib-ccn-lite-utils.a
 	cp $(PKG_BUILDDIR)/src/lib-ccn-lite.a ${BINDIR}/ccn-lite.a
