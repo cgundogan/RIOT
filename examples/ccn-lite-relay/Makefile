@@ -32,6 +32,8 @@ USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_minstd
 
+CFLAGS += -DCOMPAS_DEBUG=1
+
 USEPKG += tlsf
 
 USEPKG += ccn-lite

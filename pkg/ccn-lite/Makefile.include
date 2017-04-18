@@ -1,4 +1,5 @@
 INCLUDES += -I$(RIOTPKG)/ccn-lite -I$(PKGDIRBASE)/ccn-lite/src
+INCLUDES += -I$(PKGDIRBASE)/ccn-lite/src/COMPAS/include
 INCLUDES += -I$(RIOTBASE)/sys/posix/include
 
 CFLAGS += -DCCNL_RIOT
