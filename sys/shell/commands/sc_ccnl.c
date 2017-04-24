@@ -23,6 +23,8 @@
 #include "net/gnrc/netif.h"
 #include "ccn-lite-riot.h"
 #include "ccnl-pkt-ndntlv.h"
+#include "compas/routing/dodag.h"
+#include "compas/routing/nam.h"
 
 #define BUF_SIZE (64)
 
@@ -33,6 +35,8 @@ static unsigned char _cont_buf[BUF_SIZE];
 
 static const char *_default_content = "Start the RIOT!";
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
+
+extern kernel_pid_t ccnl_pid;
 
 /* usage for open command */
 static void _open_usage(void)
@@ -87,10 +91,15 @@ int _ccnl_content(int argc, char **argv)
     char *body = (char*) _default_content;
     int arg_len = strlen(_default_content) + 1;
     int offs = CCNL_MAX_PACKET_SIZE;
+    char name[COMPAS_NAME_LEN];
+
     if (argc < 2) {
         _content_usage(argv[0]);
         return -1;
     }
+
+    size_t name_len = strlen(argv[1]);
+    memcpy(name, argv[1], name_len);
 
     if (argc > 2) {
         char buf[BUF_SIZE];
@@ -135,6 +144,8 @@ int _ccnl_content(int argc, char **argv)
     c = ccnl_content_new(&ccnl_relay, &pk);
     ccnl_content_add2cache(&ccnl_relay, c);
     c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+
+    compas_send_nam(&ccnl_relay, name, name_len);
 
     return 0;
 }
@@ -244,6 +255,16 @@ static void _ccnl_fib_usage(char *argv)
            "            %s del /riot/peter/schmerzl\n"
            "            %s del ab:cd:ef:01:23:45:67:89\n",
             argv, argv, argv, argv, argv);
+}
+
+int _ccnl_compas_root(int argc, char **argv)
+{
+    (void) argc;
+
+    compas_dodag_init_root(&ccnl_relay.dodag, argv[1], strlen(argv[1]));
+    xtimer_set_msg(&ccnl_relay.compas_pam_timer, COMPAS_PAM_PERIOD, &ccnl_relay.compas_pam_msg, ccnl_pid);
+
+    return 0;
 }
 
 int _ccnl_fib(int argc, char **argv)

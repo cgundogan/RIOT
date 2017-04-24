@@ -121,6 +121,7 @@ extern int _ccnl_open(int argc, char **argv);
 extern int _ccnl_content(int argc, char **argv);
 extern int _ccnl_interest(int argc, char **argv);
 extern int _ccnl_fib(int argc, char **argv);
+extern int _ccnl_compas_root(int argc, char **argv);
 #endif
 
 #ifdef MODULE_SNTP
@@ -213,6 +214,7 @@ const shell_command_t _shell_command_list[] = {
     { "ccnl_int", "sends an interest", _ccnl_interest },
     { "ccnl_cont", "create content and populated it", _ccnl_content },
     { "ccnl_fib", "shows or modifies the CCN-Lite FIB", _ccnl_fib },
+    { "ccnl_compas_root", "initialize compas root", _ccnl_compas_root },
 #endif
 #ifdef MODULE_SNTP
     { "ntpdate", "synchronizes with a remote time server", _ntpdate },
