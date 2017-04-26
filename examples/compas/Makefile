@@ -1,4 +1,4 @@
-APPLICATION = ccn-lite-relay
+APPLICATION = compas
 
 # If no BOARD is found in the environment, use this default:
 BOARD ?= native
@@ -11,7 +11,7 @@ RIOTBASE ?= $(CURDIR)/../..
 
 CFLAGS += -DDEVELHELP
 CFLAGS += -DUSE_LINKLAYER
-CFLAGS += -DUSE_RONR
+# CFLAGS += -DUSE_RONR
 CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
@@ -31,6 +31,9 @@ USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_minstd
+USEMODULE += luid
+
+#CFLAGS += -DCOMPAS_DEBUG=1
 
 USEPKG += tlsf
 
