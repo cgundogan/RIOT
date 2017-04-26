@@ -273,6 +273,11 @@ int _ccnl_fib(int argc, char **argv)
         ccnl_fib_show(&ccnl_relay);
         ccnl_cs_dump(&ccnl_relay);
     }
+#ifdef USE_SUITE_COMPAS
+    else if ((argc == 2) && (strncmp(argv[1], "dodag", 5) == 0)) {
+        printf("DODAG Rank: %u\n", ccnl_relay.dodag.rank);
+    }
+#endif
     else if ((argc == 3) && (strncmp(argv[1], "del", 3) == 0)) {
         int suite = CCNL_SUITE_NDNTLV;
         if (strchr(argv[2], '/')) {
