@@ -25,6 +25,7 @@
 #include "shell.h"
 #include "ccn-lite-riot.h"
 #include "net/gnrc/netif.h"
+#include "net/gnrc/netapi.h"
 
 #include "luid.h"
 #include "random.h"
@@ -39,15 +40,12 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 kernel_pid_t ccnl_pid;
 
+#define MAX_ADDR_LEN            (8U)
+
 int main(void)
 {
     tlsf_create_with_pool(_tlsf_heap, sizeof(_tlsf_heap));
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
-
-    uint32_t seed;
-    luid_get(&seed, sizeof(seed));
-    printf("SEED: %u\n", (unsigned) seed);
-    random_init(seed);
 
     ccnl_core_init();
 
@@ -60,6 +58,16 @@ int main(void)
     if ((gnrc_netif_get(ifs) == 0) || (ccnl_open_netif(ifs[0], GNRC_NETTYPE_CCN) < 0)) {
         return -1;
     }
+
+    uint32_t seed;
+    luid_get(&seed, sizeof(seed));
+    random_init(seed);
+
+
+    uint8_t hwaddr[MAX_ADDR_LEN];
+    int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS, 0, hwaddr, sizeof(hwaddr));
+    char hwaddr_str[res * 3];
+    printf("seed:%u;hwaddr=%s\n", (unsigned) seed, gnrc_netif_addr_to_str(hwaddr_str, sizeof(hwaddr_str), hwaddr, res));
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);

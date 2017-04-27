@@ -261,6 +261,7 @@ int _ccnl_compas_root(int argc, char **argv)
 {
     (void) argc;
 
+    puts("compas_s");
     compas_dodag_init_root(&ccnl_relay.dodag, argv[1], strlen(argv[1]));
     xtimer_set_msg(&ccnl_relay.compas_pam_timer, COMPAS_PAM_PERIOD, &ccnl_relay.compas_pam_msg, ccnl_pid);
 
