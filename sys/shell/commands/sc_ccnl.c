@@ -273,7 +273,7 @@ int _ccnl_compas_start(int argc, char **argv)
     (void) argc;
     (void) argv;
 
-    ccnl_relay.compas_started = 1;
+    ccnl_relay.compas_started = xtimer_now_usec64();
 
     return 0;
 }
