@@ -21,6 +21,7 @@
 #include "random.h"
 #include "sched.h"
 #include "net/gnrc/netif.h"
+#include "net/gnrc/netapi.h"
 #include "ccn-lite-riot.h"
 #include "ccnl-pkt-ndntlv.h"
 #include "compas/routing/dodag.h"
@@ -78,6 +79,7 @@ int _ccnl_open(int argc, char **argv)
 }
 
 
+/*
 static void _content_usage(char *argv)
 {
     printf("usage: %s <URI> [content]\n"
@@ -85,6 +87,7 @@ static void _content_usage(char *argv)
             "%% %s /riot/peter/schmerzl RIOT\n",
             argv, argv, argv);
 }
+*/
 
 int _ccnl_content(int argc, char **argv)
 {
@@ -92,13 +95,32 @@ int _ccnl_content(int argc, char **argv)
     int arg_len = strlen(_default_content) + 1;
     int offs = CCNL_MAX_PACKET_SIZE;
     char name[COMPAS_NAME_LEN];
+    size_t name_len;
+    char argv1[COMPAS_NAME_LEN];
 
     if (argc < 2) {
+        /*
         _content_usage(argv[0]);
         return -1;
-    }
+        */
+        char buf[BUF_SIZE];
+        uint8_t hwaddr[8];
+        kernel_pid_t ifs[GNRC_NETIF_NUMOF];
+        gnrc_netif_get(ifs);
+        int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS, 0, hwaddr, sizeof(hwaddr));
 
-    size_t name_len = strlen(argv[1]);
+        char hwaddr_str[res * 3];
+        gnrc_netif_addr_to_str(hwaddr_str, sizeof(hwaddr_str), hwaddr, res);
+        name_len = sprintf(name, "%.*s/%s/%lu", ccnl_relay.dodag.prefix_len, ccnl_relay.dodag.prefix, hwaddr_str, (unsigned long) xtimer_now_usec64());
+        memcpy(buf, name, name_len);
+        buf[name_len] = '\0';
+        body = buf;
+        memcpy(argv1, name, name_len);
+        argv1[name_len] = '\0';
+    }
+    else {
+
+    name_len = strlen(argv[1]);
     memcpy(name, argv[1], name_len);
 
     if (argc > 2) {
@@ -120,9 +142,11 @@ int _ccnl_content(int argc, char **argv)
         arg_len = strlen(body);
     }
 
+    }
+
     int suite = CCNL_SUITE_NDNTLV;
 
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], suite, NULL, NULL);
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv1, suite, NULL, NULL);
 
     arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) body, arg_len, NULL, NULL, &offs, _out);
 
@@ -142,10 +166,12 @@ int _ccnl_content(int argc, char **argv)
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
     c = ccnl_content_new(&ccnl_relay, &pk);
-    ccnl_content_add2cache(&ccnl_relay, c);
-    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+    if (c) {
+        ccnl_content_add2cache(&ccnl_relay, c);
+        //c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 
-    compas_send_nam(&ccnl_relay, name, name_len);
+        compas_send_nam(&ccnl_relay, name, name_len);
+    }
 
     return 0;
 }
