@@ -63,6 +63,8 @@ int main(void)
     luid_get(&seed, sizeof(seed));
     random_init(seed);
 
+    uint16_t src_len = 8;
+    gnrc_netapi_set(ifs[0], NETOPT_SRC_LEN, 0, (uint16_t *)&src_len, sizeof(uint16_t));
 
     uint8_t hwaddr[MAX_ADDR_LEN];
     int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS, 0, hwaddr, sizeof(hwaddr));
