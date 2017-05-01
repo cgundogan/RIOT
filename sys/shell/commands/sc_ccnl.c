@@ -107,7 +107,7 @@ int _ccnl_content(int argc, char **argv)
         uint8_t hwaddr[8];
         kernel_pid_t ifs[GNRC_NETIF_NUMOF];
         gnrc_netif_get(ifs);
-        int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS, 0, hwaddr, sizeof(hwaddr));
+        int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
 
         char hwaddr_str[res * 3];
         gnrc_netif_addr_to_str(hwaddr_str, sizeof(hwaddr_str), hwaddr, res);

@@ -67,7 +67,7 @@ int main(void)
     gnrc_netapi_set(ifs[0], NETOPT_SRC_LEN, 0, (uint16_t *)&src_len, sizeof(uint16_t));
 
     uint8_t hwaddr[MAX_ADDR_LEN];
-    int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS, 0, hwaddr, sizeof(hwaddr));
+    int res = gnrc_netapi_get(ifs[0], NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
     char hwaddr_str[res * 3];
     printf("seed:%u;hwaddr=%s\n", (unsigned) seed, gnrc_netif_addr_to_str(hwaddr_str, sizeof(hwaddr_str), hwaddr, res));
 
