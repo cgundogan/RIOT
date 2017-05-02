@@ -111,7 +111,7 @@ int _ccnl_content(int argc, char **argv)
 
         char hwaddr_str[res * 3];
         gnrc_netif_addr_to_str(hwaddr_str, sizeof(hwaddr_str), hwaddr, res);
-        name_len = sprintf(name, "%.*s/%s/%lu", ccnl_relay.dodag.prefix_len, ccnl_relay.dodag.prefix, hwaddr_str, (unsigned long) xtimer_now_usec64());
+        name_len = sprintf(name, "/HAW/%s/%lu", hwaddr_str, (unsigned long) xtimer_now_usec64());
         memcpy(buf, name, name_len);
         buf[name_len] = '\0';
         body = buf;
@@ -168,6 +168,10 @@ int _ccnl_content(int argc, char **argv)
     c = ccnl_content_new(&ccnl_relay, &pk);
     if (c) {
         ccnl_content_add2cache(&ccnl_relay, c);
+        printf("pub;%u;%u;%lu;%lu;%s\n", ccnl_relay.dodag.rank, ccnl_relay.compas_dodag_parent_timeout,
+                                 (unsigned long) (xtimer_now_usec64() - ccnl_relay.compas_started),
+                                 (unsigned long) (xtimer_now_usec64()),
+                                 name);
         //c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 
         if (!ccnl_relay.compas_nam_timer_running) {
