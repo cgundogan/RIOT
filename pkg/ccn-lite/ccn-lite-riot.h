@@ -163,7 +163,7 @@ typedef struct {
  * Maximum number of elements that can be cached
  */
 #ifndef CCNL_CACHE_SIZE
-#define CCNL_CACHE_SIZE     (5)
+#define CCNL_CACHE_SIZE     (10)
 #endif
 #ifdef DOXYGEN
 #define CCNL_CACHE_SIZE
@@ -293,8 +293,6 @@ void ccnl_set_local_producer(ccnl_producer_func func);
  *                  the cache is full.
  */
 void ccnl_set_cache_strategy_remove(ccnl_cache_strategy_func func);
-
-bool compas_send_nam(struct ccnl_relay_s *ccnl, const char *name, uint16_t name_len);
 
 #ifdef __cplusplus
 }

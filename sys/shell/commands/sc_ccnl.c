@@ -172,12 +172,13 @@ int _ccnl_content(int argc, char **argv)
                                  (unsigned long) (xtimer_now_usec64() - ccnl_relay.compas_started),
                                  (unsigned long) (xtimer_now_usec64()),
                                  name);
-        //c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 
+        compas_name_t cname;
+        compas_name_init(&cname, name, name_len);
+        compas_nam_cache_add(&ccnl_relay.dodag, &cname, NULL);
         if (!ccnl_relay.compas_nam_timer_running) {
-            xtimer_set_msg(&ccnl_relay.compas_nam_timer, 100 * US_PER_MS, &ccnl_relay.compas_nam_msg, ccnl_pid);
+            xtimer_set_msg(&ccnl_relay.compas_nam_timer, COMPAS_NAM_PERIOD, &ccnl_relay.compas_nam_msg, ccnl_relay.pid);
         }
-        //compas_send_nam(&ccnl_relay, name, name_len);
     }
 
     return 0;
