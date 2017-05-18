@@ -274,6 +274,7 @@ int _ccnl_fib(int argc, char **argv)
     if (argc < 2) {
         ccnl_fib_show(&ccnl_relay);
         ccnl_cs_dump(&ccnl_relay);
+        printf("dodag;%u;%u;%u\n", ccnl_relay.dodag.rank, ccnl_relay.compas_dodag_parent_timeout, ccnl_relay.dodag.flags);
     }
 #ifdef USE_SUITE_COMPAS
     else if ((argc == 2) && (strncmp(argv[1], "dodag", 5) == 0)) {
