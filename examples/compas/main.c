@@ -38,8 +38,6 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 #define TLSF_BUFFER     (20480 / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 
-kernel_pid_t ccnl_pid;
-
 #define MAX_ADDR_LEN            (8U)
 
 int main(void)
@@ -49,7 +47,7 @@ int main(void)
 
     ccnl_core_init();
 
-    ccnl_pid = ccnl_start();
+    ccnl_start();
 
     /* get the default interface */
     kernel_pid_t ifs[GNRC_NETIF_NUMOF];
