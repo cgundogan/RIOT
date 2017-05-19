@@ -37,8 +37,6 @@ static unsigned char _cont_buf[BUF_SIZE];
 static const char *_default_content = "Start the RIOT!";
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
-extern kernel_pid_t ccnl_pid;
-
 /* usage for open command */
 static void _open_usage(void)
 {
@@ -297,7 +295,7 @@ int _ccnl_compas_root(int argc, char **argv)
 
     puts("compas_begin");
     compas_dodag_init_root(&ccnl_relay.dodag, argv[1], strlen(argv[1]));
-    xtimer_set_msg(&ccnl_relay.compas_pam_timer, COMPAS_PAM_PERIOD, &ccnl_relay.compas_pam_msg, ccnl_pid);
+    xtimer_set_msg(&ccnl_relay.compas_pam_timer, COMPAS_PAM_PERIOD, &ccnl_relay.compas_pam_msg, ccnl_relay.pid);
 
     return 0;
 }
