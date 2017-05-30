@@ -41,6 +41,7 @@
         [ "modifyvm", "{{.Name}}", "--ioapic", "on"],
         [ "modifyvm", "{{.Name}}", "--rtcuseutc", "on"],
         [ "modifyvm", "{{.Name}}", "--clipboard", "bidirectional"],
+        [ "modifyvm", "{{.Name}}", "--cableconnected1", "on"],
         ["usbfilter", "add", "0", "--target", "{{.Name}}", "--name", "FTDI USB-TTL", "--vendorid", "0x0403", "--productid",  "0x6001"],
         ["usbfilter", "add", "0", "--target", "{{.Name}}", "--name", "CP2102 USB to UART", "--vendorid", "0x10c4", "--productid",  "0xea60"],
         ["usbfilter", "add", "0", "--target", "{{.Name}}", "--name", "STM32 STLink", "--vendorid", "0x0483", "--productid",  "0x3748"],
