@@ -652,6 +652,10 @@ USEPKG += nanocoap
 USEMODULE += gnrc_sock_udp
 endif
 
+ifneq (,$(filter ccn-lite,$(USEPKG)))
+  USEMODULE += ccn-lite-utils
+endif
+
 # include package dependencies
 -include $(USEPKG:%=$(RIOTPKG)/%/Makefile.dep)
 
