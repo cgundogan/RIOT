@@ -31,6 +31,7 @@ USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_minstd
+USEMODULE += saul_default
 
 USEPKG += tlsf
 
