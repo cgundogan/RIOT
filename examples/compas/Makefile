@@ -39,5 +39,6 @@ USEPKG += tlsf
 
 USEPKG += ccn-lite
 USEMODULE += ccn-lite-utils
+CFLAGS += -DCOMPAS_DEBUG=1
 
 include $(RIOTBASE)/Makefile.include
