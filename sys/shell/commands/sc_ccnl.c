@@ -252,7 +252,10 @@ int _ccnl_compas_root(int argc, char **argv)
 
     puts("compas_begin");
     compas_dodag_init_root(&ccnl_relay.dodag, argv[1], strlen(argv[1]));
-    xtimer_set_msg(&ccnl_relay.compas_pam_timer, COMPAS_PAM_PERIOD, &ccnl_relay.compas_pam_msg, ccnl_relay.pid);
+    trickle_init(&ccnl_relay.pam_trickle, TRICKLE_IMIN, TRICKLE_IMAX, TRICKLE_REDCONST);
+    uint64_t trickle_int = trickle_next(&ccnl_relay.pam_trickle);
+    xtimer_set_msg64(&ccnl_relay.compas_pam_timer, trickle_int * 1000,
+                     &ccnl_relay.compas_pam_msg, ccnl_relay.pid);
 
     return 0;
 }
