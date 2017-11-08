@@ -16,6 +16,12 @@ CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
+CFLAGS += -DUSE_HMAC256
+ifeq (,$(filter native,$(BOARD)))
+CFLAGS += -DTHREAD_STACKSIZE_MAIN=2048
+endif
+CFLAGS += -DCCNL_MAX_PACKET_SIZE=256
+CFLAGS += -DCCNL_CACHE_SIZE=1
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
@@ -31,7 +37,6 @@ USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_minstd
-USEMODULE += saul_default
 
 USEPKG += tlsf
 
