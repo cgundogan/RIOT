@@ -31,10 +31,9 @@
 #include "net/gnrc/netapi.h"
 
 #include "xtimer.h"
-#include "ps.h"
 
 /* main thread's message queue */
-#define MAIN_QUEUE_SIZE     (8)
+#define MAIN_QUEUE_SIZE     (1)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 /* 10kB buffer for the heap should be enough for everyone */
@@ -48,20 +47,43 @@ static const char *secret_key = "some secret secret secret secret";
 static unsigned char keyval[64];
 static unsigned char keyid[32];
 
-static char name[512];
-static const char content[512] = { 0x41 };
+static char name[8];
+static const char *original = "/HAW/sensor/temp";
+static const unsigned char content[512] = { 0x41 };
 
-void measure(unsigned name_len, unsigned content_len)
+static unsigned char md[32];
+static int mdlength = 32;
+
+void ccnl_hmac256_sign(unsigned char *keyval, int kvlen,
+                  unsigned char *data, int dlen,
+                  unsigned char *md, int *mlen);
+
+void measure(unsigned content_len)
 {
     for (int i=0; i < 1000; ++i) {
-        memset(name, 0x41, sizeof(name)/sizeof(name[0]));
-        name[name_len] = '\0';
+        memcpy(name, original, strlen(original));
+        uint64_t diff = xtimer_now_usec64();
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
         struct ccnl_content_s *c = ccnl_mkContentObject(prefix, (unsigned char *)content, content_len, keyval, keyid);
-        free_prefix(prefix);
-        if (c) {
-            ccnl_content_add2cache(&ccnl_relay, c);
+        diff = xtimer_now_usec64() - diff;
+        printf("0,%u,%lu\n", content_len, (unsigned long) diff);
+        diff = xtimer_now_usec64();
+        ccnl_hmac256_sign(keyval, 64, c->pkt->hmacStart, c->pkt->hmacLen, md, &mdlength);
+        int res = memcmp(&md, c->pkt->hmacSignature, sizeof(md));
+        diff = xtimer_now_usec64() - diff;
+        if (res) {
+            printf("2,%u,%lu\n", content_len, (unsigned long) diff);
         }
+        else {
+            printf("1,%u,%lu\n", content_len, (unsigned long) diff);
+        }
+        ccnl_prefix_free(prefix);
+        if (c->pkt) {
+            ccnl_prefix_free(c->pkt->pfx);
+            ccnl_free(c->pkt->buf);
+            ccnl_free(c->pkt);
+        }
+        ccnl_free(c);
     }
 }
 
@@ -94,15 +116,9 @@ int main(void)
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
 
-    for (unsigned i=0; i < 129; i+=8) {
-        printf("3,%u,", i);
-        uint32_t time = xtimer_now_usec();
-        measure(3,i);
-        time = xtimer_now_usec() - time;
-        printf("%" PRIu32 "\n", time);
-        //ps();
+    for (unsigned i=0; i <= 512; i+=1) {
+        measure(i);
     }
-    ccnl_cs_dump(&ccnl_relay);
 
     shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
     return 0;

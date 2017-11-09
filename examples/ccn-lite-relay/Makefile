@@ -20,8 +20,8 @@ CFLAGS += -DUSE_HMAC256
 ifeq (,$(filter native,$(BOARD)))
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=2048
 endif
-CFLAGS += -DCCNL_MAX_PACKET_SIZE=256
-CFLAGS += -DCCNL_CACHE_SIZE=1
+CFLAGS += -DCCNL_MAX_PACKET_SIZE=1024
+#CFLAGS += -DCCNL_CACHE_SIZE=1
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
