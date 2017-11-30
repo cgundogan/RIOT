@@ -332,17 +332,19 @@ static inline bool GNRC_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #define GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK (3)
 #endif
 #ifndef GNRC_RPL_REGULAR_DAO_INTERVAL
-#define GNRC_RPL_REGULAR_DAO_INTERVAL (60)
+#define GNRC_RPL_REGULAR_DAO_INTERVAL (60000)
 #endif
 #ifndef GNRC_RPL_DEFAULT_DAO_DELAY
-#define GNRC_RPL_DEFAULT_DAO_DELAY (1)
+#define GNRC_RPL_DEFAULT_DAO_DELAY (1000)
 #endif
 /** @} */
 
 /**
- * @brief Cleanup timeout in seconds
+ * @brief Cleanup interval in milliseconds.
  */
-#define GNRC_RPL_CLEANUP_TIME (5)
+#ifndef GNRC_RPL_CLEANUP_TIME
+#define GNRC_RPL_CLEANUP_TIME (5 * MS_PER_SEC)
+#endif
 
 /**
  * @name Node Status
@@ -451,6 +453,13 @@ extern const ipv6_addr_t ipv6_addr_all_rpl_nodes;
  * @brief Statistics for RPL control messages
  */
 extern netstats_rpl_t gnrc_rpl_netstats;
+#endif
+
+/**
+ * @brief Number of DIS retries before parent times out
+ */
+#ifndef GNRC_RPL_PARENT_TIMEOUT_DIS_RETRIES
+#define GNRC_RPL_PARENT_TIMEOUT_DIS_RETRIES (3)
 #endif
 
 /**
