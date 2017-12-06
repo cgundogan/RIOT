@@ -85,7 +85,7 @@ static void _handle_raw_sixlowpan(ble_mac_inbuf_t *inbuf)
 {
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, inbuf->payload,
             inbuf->len,
-            GNRC_NETTYPE_SIXLOWPAN);
+            GNRC_NETTYPE_LOWPAN);
 
     if(!pkt) {
         DEBUG("_handle_raw_sixlowpan(): no space left in packet buffer.\n");
