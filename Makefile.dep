@@ -154,7 +154,7 @@ ifneq (,$(filter gnrc_sixlowpan_default,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_default
   USEMODULE += gnrc_ipv6_nib_6ln
   USEMODULE += gnrc_sixlowpan
-  USEMODULE += gnrc_sixlowpan_frag
+  USEMODULE += gnrc_lowpan_frag
   USEMODULE += gnrc_sixlowpan_iphc
 endif
 
@@ -162,7 +162,7 @@ ifneq (,$(filter gnrc_sixlowpan_router_default,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_router_default
   USEMODULE += gnrc_ipv6_nib_6lr
   USEMODULE += gnrc_sixlowpan_router
-  USEMODULE += gnrc_sixlowpan_frag
+  USEMODULE += gnrc_lowpan_frag
   USEMODULE += gnrc_sixlowpan_iphc
 endif
 
@@ -170,7 +170,7 @@ ifneq (,$(filter gnrc_sixlowpan_border_router_default,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_nib_6lbr
   USEMODULE += gnrc_ipv6_router_default
   USEMODULE += gnrc_sixlowpan_router
-  USEMODULE += gnrc_sixlowpan_frag
+  USEMODULE += gnrc_lowpan_frag
   USEMODULE += gnrc_sixlowpan_iphc
 endif
 
@@ -178,8 +178,8 @@ ifneq (,$(filter gnrc_sixlowpan_router,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_router
 endif
 
-ifneq (,$(filter gnrc_sixlowpan_frag,$(USEMODULE)))
-  USEMODULE += gnrc_sixlowpan
+ifneq (,$(filter gnrc_lowpan_frag,$(USEMODULE)))
+  USEMODULE += gnrc_lowpan
   USEMODULE += xtimer
 endif
 
@@ -191,7 +191,15 @@ endif
 
 ifneq (,$(filter gnrc_sixlowpan,$(USEMODULE)))
   USEMODULE += gnrc_ipv6
-  USEMODULE += sixlowpan
+  USEMODULE += gnrc_lowpan
+endif
+
+ifneq (,$(filter gnrc_lowpan,$(USEMODULE)))
+  USEMODULE += lowpan
+endif
+
+ifneq (,$(filter lowpan,$(USEMODULE)))
+  USEMODULE += ipv6_hdr
 endif
 
 ifneq (,$(filter gnrc_sixlowpan_ctx,$(USEMODULE)))
@@ -264,10 +272,6 @@ endif
 ifneq (,$(filter gnrc_ipv6_hdr,$(USEMODULE)))
   USEMODULE += ipv6_hdr
   USEMODULE += gnrc_pktbuf
-endif
-
-ifneq (,$(filter sixlowpan,$(USEMODULE)))
-  USEMODULE += ipv6_hdr
 endif
 
 ifneq (,$(filter ipv6_hdr,$(USEMODULE)))
