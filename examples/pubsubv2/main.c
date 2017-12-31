@@ -40,6 +40,7 @@ static kernel_pid_t pubsub_pid;
 #define PUBSUB_QSZ  (8)
 static msg_t _pubsub_q[PUBSUB_QSZ];
 static gnrc_netif_t *pubsub_netif;
+static struct ccnl_face_s *loopback_face;
 #define CCNL_ENC_PUBSUB                 (0x08)
 #define PUBSUB_SOL_PERIOD_BASE          (2000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
@@ -271,23 +272,30 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             compas_name_t cname;
             compas_name_init(&cname, (const char *) (tlv + 1), tlv->length);
 
-            int nonce = rand();
+            int nonce = rand(), len, typ, int_len;
             char name[COMPAS_NAME_LEN + 1];
             memcpy(name, cname.name, cname.name_len);
             name[cname.name_len] = '\0';
             struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
-            struct ccnl_interest_s *i = ccnl_mkInterestObject(prefix, &nonce);
+            struct ccnl_buf_s *interest = ccnl_mkSimpleInterest(prefix, &nonce);
             ccnl_prefix_free(prefix);
+            unsigned char *start = interest->data;
+            unsigned char *data = interest->data;
+            len = interest->datalen;
+            ccnl_ndntlv_dehead(&data, &len, (int*) &typ, &int_len);
+            struct ccnl_pkt_s *pkt = ccnl_ndntlv_bytes2pkt(NDN_TLV_Interest, start, &data, &len);
             sockunion su;
             memset(&su, 0, sizeof(su));
             su.sa.sa_family = AF_PACKET;
             su.linklayer.sll_halen = src_addr_len;
             memcpy(su.linklayer.sll_addr, src_addr, src_addr_len);
             struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
+            struct ccnl_interest_s* i = ccnl_interest_new(relay, loopback_face, &pkt);
+            i->retries = CCNL_MAX_INTEREST_RETRANSMIT;
+            ccnl_interest_append_pending(i, loopback_face);
             ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
             puts("--- SENT INT ---");
-            ccnl_pkt_free(i->pkt);
-            ccnl_free(i);
+            ccnl_free(interest);
 
             compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
             if (!n) {
@@ -360,6 +368,8 @@ void *pubsub(void *arg)
     gnrc_netreg_entry_t _ne = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, sched_active_pid);
     gnrc_netreg_register(GNRC_NETTYPE_CCN, &_ne);
 
+    loopback_face = ccnl_get_face_or_create(&ccnl_relay, -1, NULL, 0);
+
     while (1) {
         msg_t msg;
         msg_receive(&msg);
@@ -413,6 +423,19 @@ void *pubsub(void *arg)
     }
 }
 
+int pubsub_show(int argc, char **argv)
+{
+    (void) argv;
+    if (argc == 1) {
+        ccnl_cs_dump(&ccnl_relay);
+    }
+    else {
+        puts("error");
+        return -1;
+    }
+    return 0;
+}
+
 int pubsub_root(int argc, char **argv)
 {
     if (argc == 2) {
@@ -457,6 +480,7 @@ int pubsub_publish_cmd(int argc, char **argv)
 static const shell_command_t shell_commands[] = {
     { "pubsub_root", "start pubsub root", pubsub_root },
     { "pubsub_publish", "publish content", pubsub_publish_cmd },
+    { "pubsub_show", "show content", pubsub_show },
     { NULL, NULL, NULL }
 };
 
