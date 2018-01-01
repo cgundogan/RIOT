@@ -209,12 +209,14 @@ void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
         return;
     }
 
-    pubsub_send_nam(dodag, nce);
-    publish_reqs[pos].msg.type = PUBSUB_NAM_MSG;
-    publish_reqs[pos].msg.content.ptr = (void *) nce;
-    ((evtimer_event_t *)&(publish_reqs[pos]))->offset = offset;
-    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
-    evtimer_add_msg(&evtimer, &publish_reqs[pos], pubsub_pid);
+    if (dodag->parent.alive) {
+        pubsub_send_nam(dodag, nce);
+        publish_reqs[pos].msg.type = PUBSUB_NAM_MSG;
+        publish_reqs[pos].msg.content.ptr = (void *) nce;
+        ((evtimer_event_t *)&(publish_reqs[pos]))->offset = offset;
+        evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
+        evtimer_add_msg(&evtimer, &publish_reqs[pos], pubsub_pid);
+    }
 }
 
 void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_pam_t *pam,
@@ -298,6 +300,14 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             char name[COMPAS_NAME_LEN + 1];
             memcpy(name, cname.name, cname.name_len);
             name[cname.name_len] = '\0';
+            compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
+            if (!n) {
+                n = compas_nam_cache_add(dodag, &cname, NULL);
+                if (!n) {
+                    puts("NAM: NO SPACE LEFT");
+                    continue;
+                }
+            }
             struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
             struct ccnl_buf_s *interest = ccnl_mkSimpleInterest(prefix, &nonce);
             ccnl_prefix_free(prefix);
@@ -319,14 +329,9 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                     //ccnl_interest_append_pending(i, loopback_face);
                     ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
                     ccnl_interest_remove(relay, i);
-
-                    compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
-                    if (!n) {
-                        n = compas_nam_cache_add(dodag, &cname, NULL);
-                    }
                 }
+                ccnl_free(interest);
             }
-            ccnl_free(interest);
         }
     }
 
@@ -480,7 +485,7 @@ void *pubsub(void *arg)
                 }
                 break;
             case PUBSUB_NAM_MSG:
-                if ((dodag.rank != COMPAS_DODAG_UNDEF) && (!compas_dodag_floating(dodag.flags))) {
+                if ((dodag.rank != COMPAS_DODAG_UNDEF) && (dodag.parent.alive)) {
                     nce = (compas_nam_cache_entry_t *) msg.content.ptr;
                     if (nce->retries > 0 && compas_nam_cache_requested(nce->flags)) {
                         nce->retries--;
@@ -563,6 +568,9 @@ int pubsub_publish_cmd(int argc, char **argv)
             ccnl_content_add2cache(&ccnl_relay, c);
             nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
             pubsub_publish(&ccnl_relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+        }
+        else {
+            puts("NAM CACHE: NO SPACE");
         }
     }
     else {
