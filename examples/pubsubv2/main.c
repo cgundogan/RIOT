@@ -188,9 +188,27 @@ void pubsub_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_addr_
     pubsub_send(pkt, dst_addr, dst_addr_len);
 }
 
-void pubsub_publish(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce, uint32_t offset)
+void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_nam_cache_entry_t *nce, uint32_t offset)
 {
     size_t pos = nce - dodag->nam_cache;
+    bool found = false;
+    for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
+        char *spref = ccnl_prefix_to_path(c->pkt->pfx);
+        if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
+            ccnl_free(spref);
+            found = true;
+            break;
+        }
+        ccnl_free(spref);
+    }
+
+    if (!found) {
+        evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
+        printf("DELETE NAM: %.*s\n", nce->name.name_len, nce->name.name);
+        memset(nce, 0, sizeof(*nce));
+        return;
+    }
+
     pubsub_send_nam(dodag, nce);
     publish_reqs[pos].msg.type = PUBSUB_NAM_MSG;
     publish_reqs[pos].msg.content.ptr = (void *) nce;
@@ -243,7 +261,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                 printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
-                    pubsub_publish(dodag, nce, PUBSUB_PUBLISH_TIMEOUT + 50);
+                    pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + 50);
                 }
             }
             xtimer_remove(&pubsub_sol_timer);
@@ -364,11 +382,13 @@ void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_
                         compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
                         if (n) {
                             if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
+                                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[n - dodag->nam_cache]);
+                                printf("ROOT: DELETE NAM: %.*s\n", n->name.name_len, n->name.name);
                                 memset(n, 0, sizeof(*n));
                             }
                             else {
                                 n->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
-                                pubsub_publish(dodag, n, PUBSUB_PUBLISH_TIMEOUT);
+                                pubsub_publish(relay, dodag, n, PUBSUB_PUBLISH_TIMEOUT);
                             }
                         }
                     }
@@ -464,7 +484,10 @@ void *pubsub(void *arg)
                     nce = (compas_nam_cache_entry_t *) msg.content.ptr;
                     if (nce->retries > 0 && compas_nam_cache_requested(nce->flags)) {
                         nce->retries--;
-                        pubsub_publish(&dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+                        pubsub_publish(relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+                    }
+                    else if ((nce->retries == 0) && (dodag.parent.alive)) {
+                        pubsub_parent_timeout(&dodag);
                     }
                 }
                 break;
@@ -473,6 +496,8 @@ void *pubsub(void *arg)
                 break;
             case PUBSUB_NCACHE_DEL_MSG:
                 nce = (compas_nam_cache_entry_t *) msg.content.ptr;
+                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag.nam_cache]);
+                printf("DELETE NAM RECD INT: %.*s\n", nce->name.name_len, nce->name.name);
                 memset(nce, 0, sizeof(*nce));
                 break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
@@ -537,7 +562,7 @@ int pubsub_publish_cmd(int argc, char **argv)
             ccnl_prefix_free(prefix);
             ccnl_content_add2cache(&ccnl_relay, c);
             nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
-            pubsub_publish(&dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+            pubsub_publish(&ccnl_relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
         }
     }
     else {
