@@ -31,7 +31,7 @@
 #define MAIN_QSZ (8)
 static msg_t _main_q[MAIN_QSZ];
 
-#define TLSF_BUFFER     (10240 / sizeof(uint32_t))
+#define TLSF_BUFFER     ((15 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #define PUBSUB_STACKSZ (THREAD_STACKSIZE_DEFAULT + THREAD_EXTRA_STACKSIZE_PRINTF)
@@ -45,11 +45,12 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_SOL_PERIOD_BASE          (2000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
 #define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (rand() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
-#define PUBSUB_PARENT_TIMEOUT_PERIOD    (10 * US_PER_SEC)
+#define PUBSUB_PARENT_TIMEOUT_PERIOD    (30 * US_PER_SEC)
 #define PUBSUB_SOL_MSG                  (0xBEF0)
 #define PUBSUB_PAM_MSG                  (0xBEF1)
 #define PUBSUB_NAM_MSG                  (0xBEF2)
-#define PUBSUB_PARENT_TIMEOUT_MSG       (0xBFFF)
+#define PUBSUB_PARENT_TIMEOUT_MSG       (0xBFF3)
+#define PUBSUB_NCACHE_DEL_MSG           (0xBFF4)
 #define TRICKLE_IMIN                    (8)
 #define TRICKLE_IMAX                    (20)
 #define TRICKLE_REDCONST                (10)
@@ -71,7 +72,6 @@ void pubsub_parent_timeout(compas_dodag_t *dodag)
 {
     puts("TIMEOUT");
     dodag->parent.alive = false;
-    dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
     xtimer_remove(&pubsub_sol_timer);
     xtimer_set_msg(&pubsub_sol_timer, PUBSUB_SOL_PERIOD, &pubsub_sol_msg, sched_active_pid);
     xtimer_remove(&pubsub_parent_timeout_timer);
@@ -119,11 +119,20 @@ void pubsub_send_sol(compas_dodag_t *dodag)
     uint8_t flags = 0;
 
 
-    if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < 3)) {
+    if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < 4)) {
         addr = dodag->parent.face.face_addr;
         addr_len = dodag->parent.face.face_addr_len;
+        if (dodag->sol_num == 3) {
+            dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
+            trickle_init(&dodag->trickle, TRICKLE_IMIN, TRICKLE_IMAX, TRICKLE_REDCONST);
+            uint64_t trickle_int = trickle_next(&dodag->trickle);
+            xtimer_remove(&pubsub_pam_timer);
+            xtimer_set_msg64(&pubsub_pam_timer, trickle_int * MS_PER_SEC,
+                             &pubsub_pam_msg, sched_active_pid);
+        }
     }
     else {
+        dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
         flags = COMPAS_SOL_FLAGS_TRICKLE;
         if (dodag->parent.alive) {
             pubsub_parent_timeout(dodag);
@@ -182,11 +191,11 @@ void pubsub_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_addr_
 void pubsub_publish(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce, uint32_t offset)
 {
     size_t pos = nce - dodag->nam_cache;
-    printf("pos: %u\n", pos);
     pubsub_send_nam(dodag, nce);
     publish_reqs[pos].msg.type = PUBSUB_NAM_MSG;
     publish_reqs[pos].msg.content.ptr = (void *) nce;
     ((evtimer_event_t *)&(publish_reqs[pos]))->offset = offset;
+    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
     evtimer_add_msg(&evtimer, &publish_reqs[pos], pubsub_pid);
 }
 
@@ -197,8 +206,6 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
     (void) dst_addr_len;
     puts("RX PAM");
     int state = compas_pam_parse(dodag, pam, src_addr, src_addr_len);
-    printf("state: %d\n", state);
-    printf("NUMBERS: %d, %d\n", dodag->rank, pam->rank);
     compas_dodag_print(dodag);
 
     if ((state == COMPAS_PAM_RET_CODE_CURRPARENT) ||
@@ -233,7 +240,8 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
-                if (nce->in_use) {
+                printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
+                if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
                     pubsub_publish(dodag, nce, PUBSUB_PUBLISH_TIMEOUT + 50);
                 }
@@ -260,10 +268,6 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
     (void) dst_addr;
     (void) dst_addr_len;
 
-    if ((dodag->rank == COMPAS_DODAG_UNDEF) || (compas_dodag_floating(dodag->flags))) {
-        return;
-    }
-
     uint16_t offset = 0;
     compas_tlv_t *tlv;
 
@@ -279,31 +283,32 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
             struct ccnl_buf_s *interest = ccnl_mkSimpleInterest(prefix, &nonce);
             ccnl_prefix_free(prefix);
-            unsigned char *start = interest->data;
-            unsigned char *data = interest->data;
-            len = interest->datalen;
-            ccnl_ndntlv_dehead(&data, &len, (int*) &typ, &int_len);
-            struct ccnl_pkt_s *pkt = ccnl_ndntlv_bytes2pkt(NDN_TLV_Interest, start, &data, &len);
-            sockunion su;
-            memset(&su, 0, sizeof(su));
-            su.sa.sa_family = AF_PACKET;
-            su.linklayer.sll_halen = src_addr_len;
-            memcpy(su.linklayer.sll_addr, src_addr, src_addr_len);
-            struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
-            struct ccnl_interest_s* i = ccnl_interest_new(relay, loopback_face, &pkt);
-            i->retries = CCNL_MAX_INTEREST_RETRANSMIT;
-            ccnl_interest_append_pending(i, loopback_face);
-            ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
-            puts("--- SENT INT ---");
-            ccnl_free(interest);
+            if (interest) {
+                unsigned char *start = interest->data;
+                unsigned char *data = interest->data;
+                len = interest->datalen;
+                ccnl_ndntlv_dehead(&data, &len, (int*) &typ, &int_len);
+                struct ccnl_pkt_s *pkt = ccnl_ndntlv_bytes2pkt(NDN_TLV_Interest, start, &data, &len);
+                if (pkt) {
+                    sockunion su;
+                    memset(&su, 0, sizeof(su));
+                    su.sa.sa_family = AF_PACKET;
+                    su.linklayer.sll_halen = src_addr_len;
+                    memcpy(su.linklayer.sll_addr, src_addr, src_addr_len);
+                    struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
+                    struct ccnl_interest_s* i = ccnl_interest_new(relay, loopback_face, &pkt);
+                    i->retries = CCNL_MAX_INTEREST_RETRANSMIT;
+                    //ccnl_interest_append_pending(i, loopback_face);
+                    ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
+                    ccnl_interest_remove(relay, i);
 
-            compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
-            if (!n) {
-                n = compas_nam_cache_add(dodag, &cname, NULL);
-                if (n) {
-                    pubsub_publish(dodag, n, PUBSUB_PUBLISH_TIMEOUT);
+                    compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
+                    if (!n) {
+                        n = compas_nam_cache_add(dodag, &cname, NULL);
+                    }
                 }
             }
+            ccnl_free(interest);
         }
     }
 
@@ -331,11 +336,51 @@ void pubsub_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol, uint8_t *dst_ad
     return;
 }
 
-void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_t *data,
+void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_t *data, size_t data_len,
                        uint8_t *src_addr, uint8_t src_addr_len, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
     if (!((data[0] == 0x80) && (data[1] == 0x08))) {
-        puts("No PUBSUB msg");
+        int len, datalen = data_len, enc;
+        unsigned int typ;
+        unsigned char *start = data;
+        unsigned char *dat = data;
+        ccnl_switch_dehead(&dat, &datalen, &enc);
+        ccnl_ndntlv_dehead(&dat, &datalen, (int*) &typ, &len);
+        struct ccnl_pkt_s *p = ccnl_ndntlv_bytes2pkt(typ, start, &dat, &datalen);
+        if (p) {
+            p->type = typ;
+            char *s;
+            struct ccnl_content_s *c;
+            switch (typ) {
+                case NDN_TLV_Data:
+                    c = ccnl_content_new(&p);
+                    if (c) {
+                        ccnl_content_add2cache(relay, c);
+                        s = ccnl_prefix_to_path(c->pkt->pfx);
+                        printf("added: %s\n", s);
+                        compas_name_t cname;
+                        compas_name_init(&cname, s, strlen(s));
+                        ccnl_free(s);
+                        compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
+                        if (n) {
+                            if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
+                                memset(n, 0, sizeof(*n));
+                            }
+                            else {
+                                n->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
+                                pubsub_publish(dodag, n, PUBSUB_PUBLISH_TIMEOUT);
+                            }
+                        }
+                    }
+                    else {
+                        ccnl_pkt_free(p);
+                    }
+                    break;
+                default:
+                    ccnl_pkt_free(p);
+                    break;
+            }
+        }
         return;
     }
 
@@ -350,8 +395,24 @@ void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_
             pubsub_handle_sol(dodag, (compas_sol_t *) (data + 2), src_addr, src_addr_len);
             break;
         default:
-            puts("unknown PUBSUB msg");
+            break;
     }
+}
+
+int handle_int(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
+               struct ccnl_pkt_s *pkt) {
+    (void) relay;
+    (void) from;
+    compas_name_t cname;
+    char *s = ccnl_prefix_to_path(pkt->pfx);
+    compas_name_init(&cname, s, strlen(s));
+    ccnl_free(s);
+    compas_nam_cache_entry_t *n = compas_nam_cache_find(&dodag, &cname);
+    if (n) {
+        msg_t m = { .type = PUBSUB_NCACHE_DEL_MSG, .content.ptr = (void *) n };
+        msg_send(&m, pubsub_pid);
+    }
+    return 0;
 }
 
 void *pubsub(void *arg)
@@ -366,9 +427,13 @@ void *pubsub(void *arg)
                    &pubsub_sol_msg, sched_active_pid);
 
     gnrc_netreg_entry_t _ne = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, sched_active_pid);
+    gnrc_netreg_entry_t _nedata = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, sched_active_pid);
     gnrc_netreg_register(GNRC_NETTYPE_CCN, &_ne);
+    gnrc_netreg_register(GNRC_NETTYPE_CCN_CHUNK, &_nedata);
 
     loopback_face = ccnl_get_face_or_create(&ccnl_relay, -1, NULL, 0);
+
+    ccnl_set_local_producer(handle_int);
 
     while (1) {
         msg_t msg;
@@ -376,7 +441,6 @@ void *pubsub(void *arg)
         gnrc_pktsnip_t *pkt, *netif_snip;
         gnrc_netif_hdr_t *netif_hdr;
         compas_nam_cache_entry_t *nce;
-        printf("TYPE: %d\n", msg.type);
 
         switch (msg.type) {
             case PUBSUB_SOL_MSG:
@@ -398,7 +462,7 @@ void *pubsub(void *arg)
             case PUBSUB_NAM_MSG:
                 if ((dodag.rank != COMPAS_DODAG_UNDEF) && (!compas_dodag_floating(dodag.flags))) {
                     nce = (compas_nam_cache_entry_t *) msg.content.ptr;
-                    if (nce->retries > 0) {
+                    if (nce->retries > 0 && compas_nam_cache_requested(nce->flags)) {
                         nce->retries--;
                         pubsub_publish(&dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
                     }
@@ -407,13 +471,18 @@ void *pubsub(void *arg)
             case PUBSUB_PARENT_TIMEOUT_MSG:
                 pubsub_parent_timeout(&dodag);
                 break;
+            case PUBSUB_NCACHE_DEL_MSG:
+                nce = (compas_nam_cache_entry_t *) msg.content.ptr;
+                memset(nce, 0, sizeof(*nce));
+                break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *)msg.content.ptr;
-                printf("Type is: %i\n", pkt->type);
                 netif_snip = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
                 if (netif_snip) {
                     netif_hdr = (gnrc_netif_hdr_t *) netif_snip->data;
-                    pubsub_dispatcher(relay, &dodag, (uint8_t *) pkt->data,
+                    uint8_t data[128];
+                    memcpy(data, pkt->data, pkt->size);
+                    pubsub_dispatcher(relay, &dodag, data, pkt->size,
                                       gnrc_netif_hdr_get_src_addr(netif_hdr), netif_hdr->src_l2addr_len,
                                       gnrc_netif_hdr_get_dst_addr(netif_hdr), netif_hdr->dst_l2addr_len);
                 }
@@ -467,6 +536,7 @@ int pubsub_publish_cmd(int argc, char **argv)
             struct ccnl_content_s *c = ccnl_mkContentObject(prefix, (unsigned char *)argv[2], strlen(argv[2]));
             ccnl_prefix_free(prefix);
             ccnl_content_add2cache(&ccnl_relay, c);
+            nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
             pubsub_publish(&dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
         }
     }
