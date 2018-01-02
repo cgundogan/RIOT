@@ -5,8 +5,9 @@ PKG_LICENSE="LGPL 2.1"
 
 .PHONY: all
 
+all: TARGET_ARCH:=
 all: git-download
-	make -C $(PKG_BUILDDIR)
+	$(MAKE) -C $(PKG_BUILDDIR)
 	cp $(PKG_BUILDDIR)/libcompas.a ${BINDIR}/compas.a
 
 include $(RIOTBASE)/pkg/pkg.mk
