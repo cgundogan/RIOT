@@ -16,6 +16,7 @@ CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
+CFLAGS += -DCOMPAS_DEBUG=0
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1

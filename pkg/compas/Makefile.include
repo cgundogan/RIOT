@@ -1,2 +1,1 @@
 INCLUDES += -I$(PKGDIRBASE)/compas/include
-CFLAGS += -DCOMPAS_DEBUG=1

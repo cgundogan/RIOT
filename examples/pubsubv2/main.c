@@ -31,6 +31,10 @@
 #define MAIN_QSZ (8)
 static msg_t _main_q[MAIN_QSZ];
 
+uint8_t hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
+char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
+char parent_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
+
 #define TLSF_BUFFER     ((15 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 
@@ -45,7 +49,7 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_SOL_PERIOD_BASE          (2000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
 #define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (rand() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
-#define PUBSUB_PARENT_TIMEOUT_PERIOD    (90 * US_PER_SEC)
+#define PUBSUB_PARENT_TIMEOUT_PERIOD    ((90 + (rand() % 15)) * US_PER_SEC)
 #define PUBSUB_SOL_MSG                  (0xBEF0)
 #define PUBSUB_PAM_MSG                  (0xBEF1)
 #define PUBSUB_NAM_MSG                  (0xBEF2)
@@ -70,7 +74,8 @@ compas_dodag_t dodag;
 
 void pubsub_parent_timeout(compas_dodag_t *dodag)
 {
-    puts("TIMEOUT");
+    gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+    printf("ps;to;%d;%s\n", dodag->rank, parent_str);
     dodag->parent.alive = false;
     xtimer_remove(&pubsub_sol_timer);
     xtimer_set_msg(&pubsub_sol_timer, PUBSUB_SOL_PERIOD, &pubsub_sol_msg, sched_active_pid);
@@ -104,7 +109,7 @@ bool pubsub_send(gnrc_pktsnip_t *pkt, uint8_t *addr, uint8_t addr_len)
 
 void pubsub_send_sol(compas_dodag_t *dodag)
 {
-    puts("TX SOL");
+    //puts("TX SOL");
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, compas_sol_len() + 2, GNRC_NETTYPE_CCN);
     if (pkt == NULL) {
         puts("send_sol: packet buffer full");
@@ -148,7 +153,7 @@ void pubsub_send_sol(compas_dodag_t *dodag)
 
 void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
-    puts("TX NAM");
+    //puts("TX NAM");
     if (dodag->rank == COMPAS_DODAG_UNDEF) {
         puts("send_nam: not part of a DODAG");
         return;
@@ -169,12 +174,14 @@ void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     compas_nam_create(nam);
     compas_nam_tlv_add_name(nam, &nce->name);
 
+    gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+    printf("ps;pub;%d;%s;%.*s\n", dodag->rank, parent_str, nce->name.name_len, nce->name.name);
     pubsub_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
 }
 
 void pubsub_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
-    puts("TX PAM");
+    //puts("TX PAM");
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, compas_pam_len(dodag) + 2, GNRC_NETTYPE_CCN);
 
     if (pkt == NULL) {
@@ -224,9 +231,9 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 {
     (void) dst_addr;
     (void) dst_addr_len;
-    puts("RX PAM");
+    //puts("RX PAM");
     int state = compas_pam_parse(dodag, pam, src_addr, src_addr_len);
-    compas_dodag_print(dodag);
+    //compas_dodag_print(dodag);
 
     if ((state == COMPAS_PAM_RET_CODE_CURRPARENT) ||
         (state == COMPAS_PAM_RET_CODE_NEWPARENT)  ||
@@ -257,6 +264,8 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         ccnl_fib_add_entry(relay, prefix, from);
 
         if (!dodag->parent.alive) {
+            gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+            printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
@@ -284,7 +293,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
 void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_nam_t *nam, uint8_t *src_addr, uint8_t src_addr_len, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
-    puts("RX NAM");
+    //puts("RX NAM");
     (void) dst_addr;
     (void) dst_addr_len;
 
@@ -363,7 +372,7 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
 void pubsub_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
-    puts("RX SOL");
+    //puts("RX SOL");
     if ((dodag->rank == COMPAS_DODAG_UNDEF) || (compas_dodag_floating(dodag->flags))) {
         return;
     }
@@ -403,7 +412,8 @@ void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_
                     if (c) {
                         ccnl_content_add2cache(relay, c);
                         s = ccnl_prefix_to_path(c->pkt->pfx);
-                        printf("added: %s\n", s);
+                        gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+                        printf("ps;added;%d;%s;%s\n", dodag->rank, parent_str, s);
                         compas_name_t cname;
                         compas_name_init(&cname, s, strlen(s));
                         ccnl_free(s);
@@ -626,6 +636,12 @@ int main(void)
         puts("Error registering at network interface!");
         return -1;
     }
+
+    uint16_t src_len = 8U;
+    gnrc_netapi_set(pubsub_netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
+    gnrc_netapi_get(pubsub_netif->pid, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
+    gnrc_netif_addr_to_str(hwaddr, sizeof(hwaddr), hwaddr_str);
+    printf("ps;addr;%s\n", hwaddr_str);
 
     pubsub_pid = thread_create(pubsub_stack, sizeof(pubsub_stack), THREAD_PRIORITY_MAIN - 1,
                               THREAD_CREATE_STACKTEST, pubsub, &ccnl_relay,
