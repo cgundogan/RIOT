@@ -75,7 +75,7 @@ compas_dodag_t dodag;
 void pubsub_parent_timeout(compas_dodag_t *dodag)
 {
     gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-    printf("ps;to;%d;%s\n", dodag->rank, parent_str);
+    //printf("ps;to;%d;%s\n", dodag->rank, parent_str);
     dodag->parent.alive = false;
     xtimer_remove(&pubsub_sol_timer);
     xtimer_set_msg(&pubsub_sol_timer, PUBSUB_SOL_PERIOD, &pubsub_sol_msg, sched_active_pid);
@@ -174,8 +174,9 @@ void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     compas_nam_create(nam);
     compas_nam_tlv_add_name(nam, &nce->name);
 
-    gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-    printf("ps;pub;%d;%s;%.*s\n", dodag->rank, parent_str, nce->name.name_len, nce->name.name);
+    //gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+    //printf("ps;pub;%d;%s;%.*s\n\n", dodag->rank, parent_str, nce->name.name_len, nce->name.name);
+    printf("\nps;pub;%d;%.*s\n", dodag->rank, nce->name.name_len, nce->name.name);
     pubsub_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
 }
 
@@ -265,7 +266,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
         if (!dodag->parent.alive) {
             gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-            printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
+            //printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
@@ -412,8 +413,9 @@ void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_
                     if (c) {
                         ccnl_content_add2cache(relay, c);
                         s = ccnl_prefix_to_path(c->pkt->pfx);
-                        gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-                        printf("ps;added;%d;%s;%s\n", dodag->rank, parent_str, s);
+                        //gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+                        //printf("ps;added;%d;%s;%s\n", dodag->rank, parent_str, s);
+                        printf("\nps;added;%d;%s\n", dodag->rank, s);
                         compas_name_t cname;
                         compas_name_init(&cname, s, strlen(s));
                         ccnl_free(s);
