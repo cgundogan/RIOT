@@ -45,7 +45,7 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_SOL_PERIOD_BASE          (2000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
 #define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (rand() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
-#define PUBSUB_PARENT_TIMEOUT_PERIOD    (30 * US_PER_SEC)
+#define PUBSUB_PARENT_TIMEOUT_PERIOD    (90 * US_PER_SEC)
 #define PUBSUB_SOL_MSG                  (0xBEF0)
 #define PUBSUB_PAM_MSG                  (0xBEF1)
 #define PUBSUB_NAM_MSG                  (0xBEF2)
@@ -204,7 +204,7 @@ void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
 
     if (!found) {
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
-        printf("DELETE NAM: %.*s\n", nce->name.name_len, nce->name.name);
+        //printf("DELETE NAM: %.*s\n", nce->name.name_len, nce->name.name);
         memset(nce, 0, sizeof(*nce));
         return;
     }
@@ -260,7 +260,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
-                printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
+                //printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
                     pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + 50);
@@ -275,7 +275,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                        &pubsub_parent_timeout_msg, sched_active_pid);
     }
     else if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
-        printf("WORSE RANK PARENT\n");
+        //printf("WORSE RANK PARENT\n");
         pubsub_parent_timeout(dodag);
     }
 
@@ -304,8 +304,31 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             if (!n) {
                 n = compas_nam_cache_add(dodag, &cname, NULL);
                 if (!n) {
-                    puts("NAM: NO SPACE LEFT");
-                    continue;
+                    for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
+                        compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
+                        if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
+                            bool found = false;
+                            for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
+                                char *spref = ccnl_prefix_to_path(c->pkt->pfx);
+                                if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
+                                    ccnl_free(spref);
+                                    found = true;
+                                    break;
+                                }
+                                ccnl_free(spref);
+                            }
+                            if (!found) {
+                                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag->nam_cache]);
+                                //printf("DELETE NAM - MAKE ROOM: %.*s\n", nce->name.name_len, nce->name.name);
+                                memset(nce, 0, sizeof(*nce));
+                                n = compas_nam_cache_add(dodag, &cname, NULL);
+                            }
+                        }
+                    }
+                    if (!n) {
+                        puts("NAM: NO SPACE LEFT");
+                        continue;
+                    }
                 }
             }
             struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
@@ -388,7 +411,7 @@ void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_
                         if (n) {
                             if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
                                 evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[n - dodag->nam_cache]);
-                                printf("ROOT: DELETE NAM: %.*s\n", n->name.name_len, n->name.name);
+                                //printf("ROOT: DELETE NAM: %.*s\n", n->name.name_len, n->name.name);
                                 memset(n, 0, sizeof(*n));
                             }
                             else {
@@ -502,7 +525,7 @@ void *pubsub(void *arg)
             case PUBSUB_NCACHE_DEL_MSG:
                 nce = (compas_nam_cache_entry_t *) msg.content.ptr;
                 evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag.nam_cache]);
-                printf("DELETE NAM RECD INT: %.*s\n", nce->name.name_len, nce->name.name);
+                //printf("DELETE NAM RECD INT: %.*s\n", nce->name.name_len, nce->name.name);
                 memset(nce, 0, sizeof(*nce));
                 break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
