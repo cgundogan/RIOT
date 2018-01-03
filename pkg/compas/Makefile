@@ -1,6 +1,6 @@
 PKG_NAME=compas
 PKG_URL=https://github.com/cgundogan/compas
-PKG_VERSION=d61777014964114770aedf6d90db1594b22a4197
+PKG_VERSION=8475eb94df981f41d68cc91251f8ba6623dba8ac
 PKG_LICENSE="LGPL 2.1"
 
 .PHONY: all
