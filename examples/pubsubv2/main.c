@@ -34,6 +34,7 @@ static msg_t _main_q[MAIN_QSZ];
 uint8_t hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 char parent_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
+char src_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 
 #define TLSF_BUFFER     ((15 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
@@ -41,12 +42,12 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define PUBSUB_STACKSZ (THREAD_STACKSIZE_DEFAULT + THREAD_EXTRA_STACKSIZE_PRINTF)
 static char pubsub_stack[PUBSUB_STACKSZ];
 static kernel_pid_t pubsub_pid;
-#define PUBSUB_QSZ  (8)
+#define PUBSUB_QSZ  (16)
 static msg_t _pubsub_q[PUBSUB_QSZ];
 static gnrc_netif_t *pubsub_netif;
 static struct ccnl_face_s *loopback_face;
 #define CCNL_ENC_PUBSUB                 (0x08)
-#define PUBSUB_SOL_PERIOD_BASE          (2000 * 1000)
+#define PUBSUB_SOL_PERIOD_BASE          (1000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
 #define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (rand() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
 #define PUBSUB_PARENT_TIMEOUT_PERIOD    ((90 + (rand() % 15)) * US_PER_SEC)
@@ -55,6 +56,7 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_NAM_MSG                  (0xBEF2)
 #define PUBSUB_PARENT_TIMEOUT_MSG       (0xBFF3)
 #define PUBSUB_NCACHE_DEL_MSG           (0xBFF4)
+#define PUBSUB_REQ_MSG                  (0xBFF5)
 #define TRICKLE_IMIN                    (8)
 #define TRICKLE_IMAX                    (20)
 #define TRICKLE_REDCONST                (10)
@@ -67,8 +69,12 @@ static msg_t pubsub_parent_timeout_msg = { .type = PUBSUB_PARENT_TIMEOUT_MSG };
 
 evtimer_msg_t evtimer;
 
-#define PUBSUB_PUBLISH_TIMEOUT          (250)
+#define PUBSUB_PUBLISH_TIMEOUT          (10 + (rand() % 50))
+#define PUBSUB_INT_REQ_PERIOD           (50 + (rand() % 10))
 evtimer_msg_event_t publish_reqs[COMPAS_NAM_CACHE_LEN];
+evtimer_msg_event_t int_reqs[COMPAS_NAM_CACHE_LEN];
+uint32_t nce_times[COMPAS_NAM_CACHE_LEN];
+uint8_t nce_req_count[COMPAS_NAM_CACHE_LEN];
 
 compas_dodag_t dodag;
 
@@ -141,7 +147,7 @@ void pubsub_send_sol(compas_dodag_t *dodag)
         flags = COMPAS_SOL_FLAGS_TRICKLE;
         if (dodag->parent.alive) {
             pubsub_parent_timeout(dodag);
-            puts("SOL: TIMEOUT");
+            //puts("SOL: TIMEOUT");
         }
     }
 
@@ -174,9 +180,9 @@ void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     compas_nam_create(nam);
     compas_nam_tlv_add_name(nam, &nce->name);
 
-    //gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+    gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
     //printf("ps;pub;%d;%s;%.*s\n\n", dodag->rank, parent_str, nce->name.name_len, nce->name.name);
-    printf("\nps;pub;%d;%.*s\n", dodag->rank, nce->name.name_len, nce->name.name);
+    printf("\nps;pub;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name,parent_str,dodag->parent.alive);
     pubsub_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
 }
 
@@ -202,6 +208,7 @@ void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
     bool found = false;
     for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
         char *spref = ccnl_prefix_to_path(c->pkt->pfx);
+        //printf("COMPARE: %.*s;%s\n", nce->name.name_len, nce->name.name, spref);
         if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
             ccnl_free(spref);
             found = true;
@@ -213,6 +220,7 @@ void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
     if (!found) {
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[pos]);
         //printf("DELETE NAM: %.*s\n", nce->name.name_len, nce->name.name);
+        evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[pos]);
         memset(nce, 0, sizeof(*nce));
         return;
     }
@@ -266,14 +274,15 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
         if (!dodag->parent.alive) {
             gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-            //printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
+            printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
             dodag->parent.alive = true;
+            int j = 0;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                 //printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
-                    pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + 50);
+                    pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + ((j++) * 10));
                 }
             }
             xtimer_remove(&pubsub_sol_timer);
@@ -292,47 +301,73 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
     return;
 }
 
+void pubsub_request(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
+{
+    int nonce = rand(), len, typ, int_len;
+    char name[COMPAS_NAME_LEN + 1];
+    memcpy(name, nce->name.name, nce->name.name_len);
+    name[nce->name.name_len] = '\0';
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+    struct ccnl_buf_s *interest = ccnl_mkSimpleInterest(prefix, &nonce);
+    ccnl_prefix_free(prefix);
+    if (interest) {
+        unsigned char *start = interest->data;
+        unsigned char *data = interest->data;
+        len = interest->datalen;
+        ccnl_ndntlv_dehead(&data, &len, (int*) &typ, &int_len);
+        struct ccnl_pkt_s *pkt = ccnl_ndntlv_bytes2pkt(NDN_TLV_Interest, start, &data, &len);
+        if (pkt) {
+            sockunion su;
+            memset(&su, 0, sizeof(su));
+            su.sa.sa_family = AF_PACKET;
+            su.linklayer.sll_halen = nce->face.face_addr_len;
+            memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
+            struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
+            struct ccnl_interest_s* i = ccnl_interest_new(relay, loopback_face, &pkt);
+            i->retries = CCNL_MAX_INTEREST_RETRANSMIT;
+            //ccnl_interest_append_pending(i, loopback_face);
+            ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
+            ccnl_interest_remove(relay, i);
+            gnrc_netif_addr_to_str(nce->face.face_addr, nce->face.face_addr_len, src_str);
+            printf("\nps;requested;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name, src_str, dodag->parent.alive);
+        }
+        ccnl_free(interest);
+    }
+}
+
 void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_nam_t *nam, uint8_t *src_addr, uint8_t src_addr_len, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
     //puts("RX NAM");
     (void) dst_addr;
     (void) dst_addr_len;
+    (void) relay;
 
     uint16_t offset = 0;
     compas_tlv_t *tlv;
 
+    compas_face_t face;
+    compas_face_init(&face, src_addr, src_addr_len);
     while(compas_nam_tlv_iter(nam, &offset, &tlv)) {
         if (tlv->type == COMPAS_TLV_NAME) {
             compas_name_t cname;
             compas_name_init(&cname, (const char *) (tlv + 1), tlv->length);
 
-            int nonce = rand(), len, typ, int_len;
             char name[COMPAS_NAME_LEN + 1];
             memcpy(name, cname.name, cname.name_len);
             name[cname.name_len] = '\0';
             compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
             if (!n) {
-                n = compas_nam_cache_add(dodag, &cname, NULL);
+                n = compas_nam_cache_add(dodag, &cname, &face);
                 if (!n) {
+                    uint32_t now = xtimer_now_usec();
                     for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                         compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
-                        if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
-                            bool found = false;
-                            for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
-                                char *spref = ccnl_prefix_to_path(c->pkt->pfx);
-                                if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
-                                    ccnl_free(spref);
-                                    found = true;
-                                    break;
-                                }
-                                ccnl_free(spref);
-                            }
-                            if (!found) {
-                                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag->nam_cache]);
-                                //printf("DELETE NAM - MAKE ROOM: %.*s\n", nce->name.name_len, nce->name.name);
-                                memset(nce, 0, sizeof(*nce));
-                                n = compas_nam_cache_add(dodag, &cname, NULL);
-                            }
+                        if (nce->in_use && !compas_nam_cache_requested(nce->flags) && (now - nce_times[nce - dodag->nam_cache] > 1000 * MS_PER_SEC)) {
+                            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag->nam_cache]);
+                            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[nce - dodag->nam_cache]);
+                            //printf("DELETE NAM - MAKE ROOM: %.*s\n", nce->name.name_len, nce->name.name);
+                            memset(nce, 0, sizeof(*nce));
+                            n = compas_nam_cache_add(dodag, &cname, &face);
                         }
                     }
                     if (!n) {
@@ -341,29 +376,16 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                     }
                 }
             }
-            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
-            struct ccnl_buf_s *interest = ccnl_mkSimpleInterest(prefix, &nonce);
-            ccnl_prefix_free(prefix);
-            if (interest) {
-                unsigned char *start = interest->data;
-                unsigned char *data = interest->data;
-                len = interest->datalen;
-                ccnl_ndntlv_dehead(&data, &len, (int*) &typ, &int_len);
-                struct ccnl_pkt_s *pkt = ccnl_ndntlv_bytes2pkt(NDN_TLV_Interest, start, &data, &len);
-                if (pkt) {
-                    sockunion su;
-                    memset(&su, 0, sizeof(su));
-                    su.sa.sa_family = AF_PACKET;
-                    su.linklayer.sll_halen = src_addr_len;
-                    memcpy(su.linklayer.sll_addr, src_addr, src_addr_len);
-                    struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
-                    struct ccnl_interest_s* i = ccnl_interest_new(relay, loopback_face, &pkt);
-                    i->retries = CCNL_MAX_INTEREST_RETRANSMIT;
-                    //ccnl_interest_append_pending(i, loopback_face);
-                    ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
-                    ccnl_interest_remove(relay, i);
-                }
-                ccnl_free(interest);
+            if (n) {
+                size_t pos = n - dodag->nam_cache;
+                nce_times[pos] = xtimer_now_usec();
+                nce_req_count[pos] = 0;
+                int_reqs[pos].msg.type = PUBSUB_REQ_MSG;
+                int_reqs[pos].msg.content.ptr = (void *) n;
+                ((evtimer_event_t *)&(int_reqs[pos]))->offset = PUBSUB_INT_REQ_PERIOD;
+                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[pos]);
+                evtimer_add_msg(&evtimer, &int_reqs[pos], pubsub_pid);
+                pubsub_request(relay, dodag, n);
             }
         }
     }
@@ -392,58 +414,42 @@ void pubsub_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol, uint8_t *dst_ad
     return;
 }
 
+int content_added(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
+{
+    (void) relay;
+    char *s = ccnl_prefix_to_path(c->pkt->pfx);
+
+    compas_name_t cname;
+    compas_name_init(&cname, s, strlen(s));
+    compas_nam_cache_entry_t *n = compas_nam_cache_find(&dodag, &cname);
+    if (n) {
+        gnrc_netif_addr_to_str(dodag.parent.face.face_addr, dodag.parent.face.face_addr_len, parent_str);
+        ccnl_content_add2cache(relay, c);
+        printf("\nps;added;%d;%s;%s;%d\n", dodag.rank, s, parent_str, dodag.parent.alive);
+        if (dodag.rank == COMPAS_DODAG_ROOT_RANK) {
+            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[n - dodag.nam_cache]);
+            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[n - dodag.nam_cache]);
+            //printf("ROOT: DELETE NAM: %.*s\n", n->name.name_len, n->name.name);
+            memset(n, 0, sizeof(*n));
+        }
+        else {
+            n->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
+            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[n - dodag.nam_cache]);
+            pubsub_publish(relay, &dodag, n, PUBSUB_PUBLISH_TIMEOUT);
+        }
+    }
+
+    ccnl_free(s);
+    return 1;
+}
+
 void pubsub_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag, uint8_t *data, size_t data_len,
                        uint8_t *src_addr, uint8_t src_addr_len, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
+    (void) data_len;
     if (!((data[0] == 0x80) && (data[1] == 0x08))) {
-        int len, datalen = data_len, enc;
-        unsigned int typ;
-        unsigned char *start = data;
-        unsigned char *dat = data;
-        ccnl_switch_dehead(&dat, &datalen, &enc);
-        ccnl_ndntlv_dehead(&dat, &datalen, (int*) &typ, &len);
-        struct ccnl_pkt_s *p = ccnl_ndntlv_bytes2pkt(typ, start, &dat, &datalen);
-        if (p) {
-            p->type = typ;
-            char *s;
-            struct ccnl_content_s *c;
-            switch (typ) {
-                case NDN_TLV_Data:
-                    c = ccnl_content_new(&p);
-                    if (c) {
-                        ccnl_content_add2cache(relay, c);
-                        s = ccnl_prefix_to_path(c->pkt->pfx);
-                        //gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-                        //printf("ps;added;%d;%s;%s\n", dodag->rank, parent_str, s);
-                        printf("\nps;added;%d;%s\n", dodag->rank, s);
-                        compas_name_t cname;
-                        compas_name_init(&cname, s, strlen(s));
-                        ccnl_free(s);
-                        compas_nam_cache_entry_t *n = compas_nam_cache_find(dodag, &cname);
-                        if (n) {
-                            if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
-                                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[n - dodag->nam_cache]);
-                                //printf("ROOT: DELETE NAM: %.*s\n", n->name.name_len, n->name.name);
-                                memset(n, 0, sizeof(*n));
-                            }
-                            else {
-                                n->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
-                                pubsub_publish(relay, dodag, n, PUBSUB_PUBLISH_TIMEOUT);
-                            }
-                        }
-                    }
-                    else {
-                        ccnl_pkt_free(p);
-                    }
-                    break;
-                default:
-                    ccnl_pkt_free(p);
-                    break;
-            }
-        }
         return;
     }
-
     switch (data[2]) {
         case COMPAS_MSG_TYPE_PAM:
             pubsub_handle_pam(relay, dodag, (compas_pam_t *) (data + 2), src_addr, src_addr_len, dst_addr, dst_addr_len);
@@ -487,13 +493,11 @@ void *pubsub(void *arg)
                    &pubsub_sol_msg, sched_active_pid);
 
     gnrc_netreg_entry_t _ne = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, sched_active_pid);
-    gnrc_netreg_entry_t _nedata = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, sched_active_pid);
     gnrc_netreg_register(GNRC_NETTYPE_CCN, &_ne);
-    gnrc_netreg_register(GNRC_NETTYPE_CCN_CHUNK, &_nedata);
-
     loopback_face = ccnl_get_face_or_create(&ccnl_relay, -1, NULL, 0);
 
     ccnl_set_local_producer(handle_int);
+    ccnl_set_callback_content_add(content_added);
 
     while (1) {
         msg_t msg;
@@ -522,13 +526,30 @@ void *pubsub(void *arg)
             case PUBSUB_NAM_MSG:
                 if ((dodag.rank != COMPAS_DODAG_UNDEF) && (dodag.parent.alive)) {
                     nce = (compas_nam_cache_entry_t *) msg.content.ptr;
-                    if (nce->retries > 0 && compas_nam_cache_requested(nce->flags)) {
-                        nce->retries--;
-                        pubsub_publish(relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+                    if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
+                        if (nce->retries > 0) {
+                            nce->retries--;
+                            pubsub_publish(relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+                        }
+                        else if ((nce->retries == 0) && (dodag.parent.alive)) {
+                            pubsub_parent_timeout(&dodag);
+                        }
                     }
-                    else if ((nce->retries == 0) && (dodag.parent.alive)) {
-                        pubsub_parent_timeout(&dodag);
-                    }
+                }
+                break;
+            case PUBSUB_REQ_MSG:
+                nce = (compas_nam_cache_entry_t *) msg.content.ptr;
+                size_t pos = nce - dodag.nam_cache;
+                if (nce->in_use && !compas_nam_cache_requested(nce->flags) && nce_req_count[pos] < 3) {
+                    gnrc_netif_addr_to_str(nce->face.face_addr, nce->face.face_addr_len, src_str);
+                    printf("\nps;requestedcount;%d;%.*s;%s;%d;%d\n", dodag.rank, nce->name.name_len, nce->name.name, src_str, dodag.parent.alive, nce_req_count[0]);
+                    pubsub_request(relay, &dodag, nce);
+                    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[pos]);
+                    int_reqs[pos].msg.type = PUBSUB_REQ_MSG;
+                    int_reqs[pos].msg.content.ptr = (void *) nce;
+                    nce_req_count[pos]++;
+                    ((evtimer_event_t *)&(int_reqs[pos]))->offset = PUBSUB_INT_REQ_PERIOD;
+                    evtimer_add_msg(&evtimer, &int_reqs[pos], pubsub_pid);
                 }
                 break;
             case PUBSUB_PARENT_TIMEOUT_MSG:
@@ -537,6 +558,7 @@ void *pubsub(void *arg)
             case PUBSUB_NCACHE_DEL_MSG:
                 nce = (compas_nam_cache_entry_t *) msg.content.ptr;
                 evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag.nam_cache]);
+                evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[nce - dodag.nam_cache]);
                 //printf("DELETE NAM RECD INT: %.*s\n", nce->name.name_len, nce->name.name);
                 memset(nce, 0, sizeof(*nce));
                 break;
@@ -545,9 +567,7 @@ void *pubsub(void *arg)
                 netif_snip = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
                 if (netif_snip) {
                     netif_hdr = (gnrc_netif_hdr_t *) netif_snip->data;
-                    uint8_t data[128];
-                    memcpy(data, pkt->data, pkt->size);
-                    pubsub_dispatcher(relay, &dodag, data, pkt->size,
+                    pubsub_dispatcher(relay, &dodag, pkt->data, pkt->size,
                                       gnrc_netif_hdr_get_src_addr(netif_hdr), netif_hdr->src_l2addr_len,
                                       gnrc_netif_hdr_get_dst_addr(netif_hdr), netif_hdr->dst_l2addr_len);
                 }
@@ -638,6 +658,13 @@ int main(void)
         puts("Error registering at network interface!");
         return -1;
     }
+
+    uint16_t chan = 17;
+    uint16_t tx_power = 1024;
+    //netopt_enable_t cca = NETOPT_DISABLE;
+    gnrc_netapi_set(pubsub_netif->pid, NETOPT_CHANNEL, 0, &chan, sizeof(chan));
+    gnrc_netapi_set(pubsub_netif->pid, NETOPT_TX_POWER, 0, &tx_power, sizeof(tx_power));
+    //gnrc_netapi_set(pubsub_netif->pid, NETOPT_AUTOCCA, 0, &cca, sizeof(netopt_enable_t));
 
     uint16_t src_len = 8U;
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
