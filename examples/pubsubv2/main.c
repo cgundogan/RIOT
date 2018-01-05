@@ -18,6 +18,7 @@
 
 #include "thread.h"
 #include "xtimer.h"
+#include "random.h"
 
 #include "compas/routing/dodag.h"
 #include "compas/routing/nam.h"
@@ -36,7 +37,7 @@ char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 char parent_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 char src_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 
-#define TLSF_BUFFER     ((15 * 1024) / sizeof(uint32_t))
+#define TLSF_BUFFER     ((20 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #define PUBSUB_STACKSZ (THREAD_STACKSIZE_DEFAULT + THREAD_EXTRA_STACKSIZE_PRINTF)
@@ -49,14 +50,15 @@ static struct ccnl_face_s *loopback_face;
 #define CCNL_ENC_PUBSUB                 (0x08)
 #define PUBSUB_SOL_PERIOD_BASE          (1000 * 1000)
 #define PUBSUB_SOL_PERIOD_JITTER        (500)
-#define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (rand() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
-#define PUBSUB_PARENT_TIMEOUT_PERIOD    ((90 + (rand() % 15)) * US_PER_SEC)
+#define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (random_uint32() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
+#define PUBSUB_PARENT_TIMEOUT_PERIOD    ((120 + (random_uint32() % 15)) * US_PER_SEC)
 #define PUBSUB_SOL_MSG                  (0xBEF0)
 #define PUBSUB_PAM_MSG                  (0xBEF1)
 #define PUBSUB_NAM_MSG                  (0xBEF2)
 #define PUBSUB_PARENT_TIMEOUT_MSG       (0xBFF3)
 #define PUBSUB_NCACHE_DEL_MSG           (0xBFF4)
 #define PUBSUB_REQ_MSG                  (0xBFF5)
+#define PUBSUB_PUB_MSG                  (0xBFF6)
 #define TRICKLE_IMIN                    (8)
 #define TRICKLE_IMAX                    (20)
 #define TRICKLE_REDCONST                (10)
@@ -69,12 +71,16 @@ static msg_t pubsub_parent_timeout_msg = { .type = PUBSUB_PARENT_TIMEOUT_MSG };
 
 evtimer_msg_t evtimer;
 
-#define PUBSUB_PUBLISH_TIMEOUT          (10 + (rand() % 50))
-#define PUBSUB_INT_REQ_PERIOD           (50 + (rand() % 10))
+#define PUBSUB_PUBLISH_TIMEOUT          (400 + (random_uint32() % 400))
+#define PUBSUB_INT_REQ_PERIOD           (400 + (random_uint32() % 400))
+#define PUBSUB_INT_REQ_COUNT            (5)
+#define PUBSUB_PUBLISH_TIME             (random_uint32() % 10000)
 evtimer_msg_event_t publish_reqs[COMPAS_NAM_CACHE_LEN];
 evtimer_msg_event_t int_reqs[COMPAS_NAM_CACHE_LEN];
+evtimer_msg_event_t publisher;
 uint32_t nce_times[COMPAS_NAM_CACHE_LEN];
 uint8_t nce_req_count[COMPAS_NAM_CACHE_LEN];
+static bool publish = false;
 
 compas_dodag_t dodag;
 
@@ -182,7 +188,7 @@ void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 
     gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
     //printf("ps;pub;%d;%s;%.*s\n\n", dodag->rank, parent_str, nce->name.name_len, nce->name.name);
-    printf("\nps;pub;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name,parent_str,dodag->parent.alive);
+    printf("\np;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name,parent_str,dodag->parent.alive);
     pubsub_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
 }
 
@@ -235,6 +241,27 @@ void pubsub_publish(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
     }
 }
 
+void pubsub_pub(char *pubname)
+{
+    compas_name_t name;
+    compas_name_init(&name, pubname, strlen(pubname));
+    compas_nam_cache_entry_t *nce = compas_nam_cache_add(&dodag, &name, NULL);
+    if (nce) {
+        char prefix_n[COMPAS_NAME_LEN + 1];
+        memcpy(prefix_n, name.name, name.name_len);
+        prefix_n[name.name_len] = '\0';
+        struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
+        struct ccnl_content_s *c = ccnl_mkContentObject(prefix, NULL, 0);
+        ccnl_prefix_free(prefix);
+        ccnl_content_add2cache(&ccnl_relay, c);
+        nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
+        pubsub_publish(&ccnl_relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
+    }
+    else {
+        puts("NAM CACHE: NO SPACE");
+    }
+}
+
 void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_pam_t *pam,
                        uint8_t *src_addr, uint8_t src_addr_len, uint8_t *dst_addr, uint8_t dst_addr_len)
 {
@@ -274,7 +301,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
         if (!dodag->parent.alive) {
             gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-            printf("ps;refresh;%d;%s\n", dodag->rank, parent_str);
+            printf("\nr;%d;%s\n", dodag->rank, parent_str);
             dodag->parent.alive = true;
             int j = 0;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
@@ -282,7 +309,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                 //printf("----- nce->in_use: %d , requested: %d\n", nce->in_use, compas_nam_cache_requested(nce->flags));
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
-                    pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + ((j++) * 10));
+                    pubsub_publish(relay, dodag, nce, PUBSUB_PUBLISH_TIMEOUT + ((j++) * 300));
                 }
             }
             xtimer_remove(&pubsub_sol_timer);
@@ -298,12 +325,19 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         pubsub_parent_timeout(dodag);
     }
 
+    if (!publish) {
+        publish = true;
+        publisher.msg.type = PUBSUB_PUB_MSG;
+        ((evtimer_event_t *)&publisher)->offset = PUBSUB_PUBLISH_TIME;
+        evtimer_add_msg(&evtimer, &publisher, pubsub_pid);
+    }
+
     return;
 }
 
 void pubsub_request(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
-    int nonce = rand(), len, typ, int_len;
+    int nonce = random_uint32(), len, typ, int_len;
     char name[COMPAS_NAME_LEN + 1];
     memcpy(name, nce->name.name, nce->name.name_len);
     name[nce->name.name_len] = '\0';
@@ -329,7 +363,7 @@ void pubsub_request(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas_na
             ccnl_face_enqueue(relay, to, buf_dup(i->pkt->buf));
             ccnl_interest_remove(relay, i);
             gnrc_netif_addr_to_str(nce->face.face_addr, nce->face.face_addr_len, src_str);
-            printf("\nps;requested;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name, src_str, dodag->parent.alive);
+            printf("\nq;%d;%.*s;%s;%d\n", dodag->rank, nce->name.name_len, nce->name.name, src_str, dodag->parent.alive);
         }
         ccnl_free(interest);
     }
@@ -359,6 +393,7 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             if (!n) {
                 n = compas_nam_cache_add(dodag, &cname, &face);
                 if (!n) {
+                    /*
                     uint32_t now = xtimer_now_usec();
                     for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                         compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
@@ -370,6 +405,7 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                             n = compas_nam_cache_add(dodag, &cname, &face);
                         }
                     }
+                    */
                     if (!n) {
                         puts("NAM: NO SPACE LEFT");
                         continue;
@@ -425,7 +461,7 @@ int content_added(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
     if (n) {
         gnrc_netif_addr_to_str(dodag.parent.face.face_addr, dodag.parent.face.face_addr_len, parent_str);
         ccnl_content_add2cache(relay, c);
-        printf("\nps;added;%d;%s;%s;%d\n", dodag.rank, s, parent_str, dodag.parent.alive);
+        printf("\na;%d;%s;%s;%d\n", dodag.rank, s, parent_str, dodag.parent.alive);
         if (dodag.rank == COMPAS_DODAG_ROOT_RANK) {
             evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[n - dodag.nam_cache]);
             evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[n - dodag.nam_cache]);
@@ -474,11 +510,23 @@ int handle_int(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
     compas_name_init(&cname, s, strlen(s));
     ccnl_free(s);
     compas_nam_cache_entry_t *n = compas_nam_cache_find(&dodag, &cname);
+
+    struct ccnl_content_s *c = NULL;
+    for (c = relay->contents; c; c = c->next) {
+        char *spref = ccnl_prefix_to_path(c->pkt->pfx);
+        if (memcmp(cname.name, spref, strlen(spref)) == 0) {
+            ccnl_free(spref);
+            ccnl_send_pkt(relay, from, c->pkt);
+            break;
+        }
+        ccnl_free(spref);
+    }
+
     if (n) {
         msg_t m = { .type = PUBSUB_NCACHE_DEL_MSG, .content.ptr = (void *) n };
         msg_send(&m, pubsub_pid);
     }
-    return 0;
+    return 1;
 }
 
 void *pubsub(void *arg)
@@ -505,6 +553,7 @@ void *pubsub(void *arg)
         gnrc_pktsnip_t *pkt, *netif_snip;
         gnrc_netif_hdr_t *netif_hdr;
         compas_nam_cache_entry_t *nce;
+        char pubname[COMPAS_NAME_LEN];
 
         switch (msg.type) {
             case PUBSUB_SOL_MSG:
@@ -540,9 +589,9 @@ void *pubsub(void *arg)
             case PUBSUB_REQ_MSG:
                 nce = (compas_nam_cache_entry_t *) msg.content.ptr;
                 size_t pos = nce - dodag.nam_cache;
-                if (nce->in_use && !compas_nam_cache_requested(nce->flags) && nce_req_count[pos] < 3) {
+                if (nce->in_use && !compas_nam_cache_requested(nce->flags) && nce_req_count[pos] < PUBSUB_INT_REQ_COUNT) {
                     gnrc_netif_addr_to_str(nce->face.face_addr, nce->face.face_addr_len, src_str);
-                    printf("\nps;requestedcount;%d;%.*s;%s;%d;%d\n", dodag.rank, nce->name.name_len, nce->name.name, src_str, dodag.parent.alive, nce_req_count[0]);
+                    printf("\nc;%d;%.*s;%s;%d;%d\n", dodag.rank, nce->name.name_len, nce->name.name, src_str, dodag.parent.alive, nce_req_count[0]);
                     pubsub_request(relay, &dodag, nce);
                     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[pos]);
                     int_reqs[pos].msg.type = PUBSUB_REQ_MSG;
@@ -561,6 +610,12 @@ void *pubsub(void *arg)
                 evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[nce - dodag.nam_cache]);
                 //printf("DELETE NAM RECD INT: %.*s\n", nce->name.name_len, nce->name.name);
                 memset(nce, 0, sizeof(*nce));
+                break;
+            case PUBSUB_PUB_MSG:
+                sprintf(pubname, "/HAW/%s/%lu", hwaddr_str, xtimer_now_usec());
+                pubsub_pub(pubname);
+                ((evtimer_event_t *)&publisher)->offset = PUBSUB_PUBLISH_TIME;
+                //evtimer_add_msg(&evtimer, &publisher, pubsub_pid);
                 break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *)msg.content.ptr;
@@ -610,23 +665,7 @@ int pubsub_root(int argc, char **argv)
 int pubsub_publish_cmd(int argc, char **argv)
 {
     if (argc == 3) {
-        compas_name_t name;
-        compas_name_init(&name, argv[1], strlen(argv[1]));
-        compas_nam_cache_entry_t *nce = compas_nam_cache_add(&dodag, &name, NULL);
-        if (nce) {
-            char prefix_n[COMPAS_NAME_LEN + 1];
-            memcpy(prefix_n, name.name, name.name_len);
-            prefix_n[name.name_len] = '\0';
-            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
-            struct ccnl_content_s *c = ccnl_mkContentObject(prefix, (unsigned char *)argv[2], strlen(argv[2]));
-            ccnl_prefix_free(prefix);
-            ccnl_content_add2cache(&ccnl_relay, c);
-            nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
-            pubsub_publish(&ccnl_relay, &dodag, nce, PUBSUB_PUBLISH_TIMEOUT);
-        }
-        else {
-            puts("NAM CACHE: NO SPACE");
-        }
+        pubsub_pub(argv[1]);
     }
     else {
         puts("error");
@@ -636,9 +675,9 @@ int pubsub_publish_cmd(int argc, char **argv)
 }
 
 static const shell_command_t shell_commands[] = {
-    { "pubsub_root", "start pubsub root", pubsub_root },
-    { "pubsub_publish", "publish content", pubsub_publish_cmd },
-    { "pubsub_show", "show content", pubsub_show },
+    { "pr", "start pubsub root", pubsub_root },
+    { "pp", "publish content", pubsub_publish_cmd },
+    { "ps", "show content", pubsub_show },
     { NULL, NULL, NULL }
 };
 
@@ -670,7 +709,7 @@ int main(void)
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
     gnrc_netapi_get(pubsub_netif->pid, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
     gnrc_netif_addr_to_str(hwaddr, sizeof(hwaddr), hwaddr_str);
-    printf("ps;addr;%s\n", hwaddr_str);
+    printf("d;%s\n", hwaddr_str);
 
     pubsub_pid = thread_create(pubsub_stack, sizeof(pubsub_stack), THREAD_PRIORITY_MAIN - 1,
                               THREAD_CREATE_STACKTEST, pubsub, &ccnl_relay,
@@ -680,6 +719,8 @@ int main(void)
         puts("Creation of pubsub thread failed");
         return 1;
     }
+
+    random_init(*(uint32_t *)(hwaddr+4));
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
