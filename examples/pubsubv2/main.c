@@ -48,9 +48,9 @@ static msg_t _pubsub_q[PUBSUB_QSZ];
 static gnrc_netif_t *pubsub_netif;
 static struct ccnl_face_s *loopback_face;
 #define CCNL_ENC_PUBSUB                 (0x08)
-#define PUBSUB_SOL_PERIOD_BASE          (1000 * 1000)
-#define PUBSUB_SOL_PERIOD_JITTER        (500)
-#define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (random_uint32() % (PUBSUB_SOL_PERIOD_JITTER * 1000)))
+#define PUBSUB_SOL_PERIOD_BASE          (2 * US_PER_SEC)
+#define PUBSUB_SOL_PERIOD_JITTER        (1 * US_PER_SEC)
+#define PUBSUB_SOL_PERIOD               (PUBSUB_SOL_PERIOD_BASE + (random_uint32() % PUBSUB_SOL_PERIOD_JITTER))
 #define PUBSUB_PARENT_TIMEOUT_PERIOD    ((120 + (random_uint32() % 15)) * US_PER_SEC)
 #define PUBSUB_SOL_MSG                  (0xBEF0)
 #define PUBSUB_PAM_MSG                  (0xBEF1)
@@ -60,9 +60,10 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_REQ_MSG                  (0xBFF5)
 #define PUBSUB_PUB_MSG                  (0xBFF6)
 #define PUBSUB_UNBLOCK_MSG              (0xBFF7)
-#define TRICKLE_IMIN                    (8)
-#define TRICKLE_IMAX                    (20)
-#define TRICKLE_REDCONST                (10)
+#define PUBSUB_PUB_AUTOMATED_MSG        (0xBFF8)
+#define TRICKLE_IMIN                    (512)
+#define TRICKLE_IMAX                    (16)
+#define TRICKLE_REDCONST                (5)
 static msg_t pubsub_sol_msg = { .type = PUBSUB_SOL_MSG };
 static xtimer_t pubsub_sol_timer;
 static msg_t pubsub_pam_msg = { .type = PUBSUB_PAM_MSG };
@@ -72,21 +73,25 @@ static msg_t pubsub_parent_timeout_msg = { .type = PUBSUB_PARENT_TIMEOUT_MSG };
 
 evtimer_msg_t evtimer;
 
-#define PUBSUB_PUBLISH_TIMEOUT          (500 + (random_uint32() % 500))
+#define PUBSUB_PUBLISH_TIMEOUT          (400 + (random_uint32() % 400))
 #define PUBSUB_INT_REQ_PERIOD           (400 + (random_uint32() % 400))
-#define PUBSUB_INT_REQ_COUNT            (5)
-#define PUBSUB_PUBLISH_TIME             (random_uint32() % 15000)
-#define PUBSUB_BLOCK_TIME               (1000)
+#define PUBSUB_INT_REQ_COUNT            (8)
+#define PUBSUB_PUBLISH_TIME             ((random_uint32() % 30000))
+#define PUBSUB_BLOCK_TIME               (8000)
+#define PUBSUB_PUBLISH_NUMBERS          (1)
+#define PUBSUB_MAX_PUBLISHES            (2)
+#define PUBSUB_PUB_AUTOMATED_TIME       (10000 + (random_uint32() % (10 * MS_PER_SEC)))
 evtimer_msg_event_t publish_reqs;
 static bool nam_running = false;
 evtimer_msg_event_t int_reqs[COMPAS_NAM_CACHE_LEN];
 evtimer_msg_event_t nam_dels[COMPAS_NAM_CACHE_LEN];
 static evtimer_msg_event_t publisher;
+static evtimer_msg_event_t publisher_automated;
 static evtimer_msg_event_t blocker;
 uint32_t nce_times[COMPAS_NAM_CACHE_LEN];
 uint8_t nce_req_count[COMPAS_NAM_CACHE_LEN];
-static bool publish = false;
-uint8_t block = 0;
+//static bool publish = false;
+static unsigned publish_numbers = 0;
 
 compas_dodag_t dodag;
 
@@ -156,7 +161,9 @@ void pubsub_send_sol(compas_dodag_t *dodag)
     }
     else {
         dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
-        flags = COMPAS_SOL_FLAGS_TRICKLE;
+        if (dodag->rank != COMPAS_DODAG_UNDEF) {
+            flags = COMPAS_SOL_FLAGS_TRICKLE;
+        }
         if (dodag->parent.alive) {
             pubsub_parent_timeout(dodag);
             //puts("SOL: TIMEOUT");
@@ -290,6 +297,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         (state == COMPAS_PAM_RET_CODE_NEWPARENT)  ||
         (state == COMPAS_PAM_RET_CODE_NONFLOATINGDODAG_WORSERANK)) {
 
+        /*
         if ((state == COMPAS_PAM_RET_CODE_NEWPARENT) ||
             ((state == COMPAS_PAM_RET_CODE_CURRPARENT) && (dodag->sol_num > 3))) {
             trickle_init(&dodag->trickle, TRICKLE_IMIN, TRICKLE_IMAX, TRICKLE_REDCONST);
@@ -298,6 +306,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             xtimer_set_msg64(&pubsub_pam_timer, trickle_int * MS_PER_SEC,
                              &pubsub_pam_msg, sched_active_pid);
         }
+        */
 
         char dodag_prfx[COMPAS_PREFIX_LEN + 1];
         memcpy(dodag_prfx, dodag->prefix.prefix, dodag->prefix.prefix_len);
@@ -330,9 +339,10 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                 ((evtimer_event_t *)&publish_reqs)->offset = PUBSUB_PUBLISH_TIMEOUT;
                 evtimer_add_msg(&evtimer, &publish_reqs, pubsub_pid);
             }
-            xtimer_remove(&pubsub_sol_timer);
-            dodag->sol_num = 0;
         }
+
+        dodag->sol_num = 0;
+        xtimer_remove(&pubsub_sol_timer);
 
         xtimer_remove(&pubsub_parent_timeout_timer);
         xtimer_set_msg(&pubsub_parent_timeout_timer, PUBSUB_PARENT_TIMEOUT_PERIOD,
@@ -343,12 +353,14 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         pubsub_parent_timeout(dodag);
     }
 
+    /*
     if (!publish) {
         publish = true;
         publisher.msg.type = PUBSUB_PUB_MSG;
         ((evtimer_event_t *)&publisher)->offset = PUBSUB_PUBLISH_TIME;
         evtimer_add_msg(&evtimer, &publisher, pubsub_pid);
     }
+    */
 
     return;
 }
@@ -427,7 +439,7 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                         }
                         if (nce->in_use && (!compas_nam_cache_requested(nce->flags) || !found) && (now - nce_times[nce - dodag->nam_cache] > 2000 * MS_PER_SEC)) {
                             //evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&publish_reqs[nce - dodag->nam_cache]);
-                            //evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[nce - dodag->nam_cache]);
+                            evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[nce - dodag->nam_cache]);
                             //printf("DELETE NAM - MAKE ROOM: %.*s\n", nce->name.name_len, nce->name.name);
                             memset(nce, 0, sizeof(*nce));
                             n = compas_nam_cache_add(dodag, &cname, &face);
@@ -448,7 +460,7 @@ void pubsub_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
                 int_reqs[pos].msg.content.ptr = (void *) n;
                 ((evtimer_event_t *)&(int_reqs[pos]))->offset = PUBSUB_INT_REQ_PERIOD;
                 evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&int_reqs[pos]);
-                //evtimer_add_msg(&evtimer, &int_reqs[pos], pubsub_pid);
+                evtimer_add_msg(&evtimer, &int_reqs[pos], pubsub_pid);
             }
         }
     }
@@ -664,6 +676,7 @@ void *pubsub(void *arg)
                         }
                     }
                     if (restart) {
+                        nam_running = true;
                         publish_reqs.msg.type = PUBSUB_NAM_MSG;
                         ((evtimer_event_t *)&publish_reqs)->offset = PUBSUB_PUBLISH_TIMEOUT;
                         evtimer_add_msg(&evtimer, &publish_reqs, pubsub_pid);
@@ -706,13 +719,24 @@ void *pubsub(void *arg)
                 memset(nce, 0, sizeof(*nce));
                 break;
             case PUBSUB_PUB_MSG:
-                sprintf(pubname, "/HAW/%s/%lu", hwaddr_str, xtimer_now_usec());
+                sprintf(pubname, "/HAW/%s/%"PRIu32, hwaddr_str, xtimer_now_usec());
                 pubsub_pub(pubname);
                 ((evtimer_event_t *)&publisher)->offset = PUBSUB_PUBLISH_TIME;
-                //evtimer_add_msg(&evtimer, &publisher, pubsub_pid);
+                if (++publish_numbers < PUBSUB_PUBLISH_NUMBERS) {
+                    evtimer_add_msg(&evtimer, &publisher, pubsub_pid);
+                }
                 break;
             case PUBSUB_UNBLOCK_MSG:
-                gnrc_netapi_set(pubsub_netif->pid, NETOPT_L2FILTER, 0, 0, 0);
+                gnrc_netapi_set(pubsub_netif->pid, NETOPT_L2FILTER_RM, 0, dodag.parent.face.face_addr, dodag.parent.face.face_addr_len);
+                break;
+            case PUBSUB_PUB_AUTOMATED_MSG:
+                if (publish_numbers++ < PUBSUB_MAX_PUBLISHES) {
+                    sprintf(pubname, "/HAW/%s/%"PRIu32, hwaddr_str, xtimer_now_usec());
+                    pubsub_pub(pubname);
+                    publisher_automated.msg.type = PUBSUB_PUB_AUTOMATED_MSG;
+                    ((evtimer_event_t *)&(publisher_automated))->offset = PUBSUB_PUB_AUTOMATED_TIME;
+                    evtimer_add_msg(&evtimer, &publisher_automated, pubsub_pid);
+                }
                 break;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *)msg.content.ptr;
@@ -771,10 +795,28 @@ int pubsub_publish_cmd(int argc, char **argv)
     return 0;
 }
 
+int pubsub_publish_automated_cmd(int argc, char **argv)
+{
+    (void) argv;
+    if (argc == 1) {
+        if (dodag.rank != COMPAS_DODAG_ROOT_RANK) {
+            publisher_automated.msg.type = PUBSUB_PUB_AUTOMATED_MSG;
+            ((evtimer_event_t *)&(publisher_automated))->offset = PUBSUB_PUB_AUTOMATED_TIME;
+            evtimer_add_msg(&evtimer, &publisher_automated, pubsub_pid);
+        }
+    }
+    else {
+        puts("error");
+        return -1;
+    }
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
     { "pr", "start pubsub root", pubsub_root },
     { "pp", "publish content", pubsub_publish_cmd },
-    { "ps", "show content", pubsub_show },
+    { "sc", "show content", pubsub_show },
+    { "ppa", "publish content automated", pubsub_publish_automated_cmd },
     { NULL, NULL, NULL }
 };
 
@@ -806,7 +848,7 @@ int main(void)
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
     gnrc_netapi_get(pubsub_netif->pid, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
     gnrc_netif_addr_to_str(hwaddr, sizeof(hwaddr), hwaddr_str);
-    printf("d;%s\n", hwaddr_str);
+    printf("\nd;%s\n", hwaddr_str);
 
     pubsub_pid = thread_create(pubsub_stack, sizeof(pubsub_stack), THREAD_PRIORITY_MAIN - 1,
                               THREAD_CREATE_STACKTEST, pubsub, &ccnl_relay,
