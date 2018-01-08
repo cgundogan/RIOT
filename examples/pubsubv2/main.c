@@ -71,7 +71,7 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_NCACHE_REQUESTED_MSG     (0xBFF9)
 #define TRICKLE_IMIN                    (512)
 #define TRICKLE_IMAX                    (16)
-#define TRICKLE_REDCONST                (5)
+#define TRICKLE_REDCONST                (8)
 static msg_t pubsub_sol_msg = { .type = PUBSUB_SOL_MSG };
 static xtimer_t pubsub_sol_timer;
 static msg_t pubsub_pam_msg = { .type = PUBSUB_PAM_MSG };
@@ -81,14 +81,14 @@ static msg_t pubsub_parent_timeout_msg = { .type = PUBSUB_PARENT_TIMEOUT_MSG };
 
 evtimer_msg_t evtimer;
 
-#define PUBSUB_PUBLISH_TIMEOUT          (700 + (random_uint32() % 1000))
+#define PUBSUB_PUBLISH_TIMEOUT          (500 + (random_uint32() % 1000))
 #define PUBSUB_INT_REQ_PERIOD           (100)
 #define PUBSUB_INT_REQ_COUNT            (8)
 #define PUBSUB_PUBLISH_TIME             ((random_uint32() % 30000))
 #define PUBSUB_BLOCK_TIME               (8000)
 #define PUBSUB_PUBLISH_NUMBERS          (1)
 #define PUBSUB_MAX_PUBLISHES            (2)
-#define PUBSUB_PUB_AUTOMATED_TIME       (25000 + (random_uint32() % (10 * MS_PER_SEC)))
+#define PUBSUB_PUB_AUTOMATED_TIME       ((30 + (random_uint32() % 60)) * MS_PER_SEC)
 evtimer_msg_event_t publish_reqs;
 evtimer_msg_event_t int_reqs[COMPAS_NAM_CACHE_LEN];
 //evtimer_msg_event_t nam_dels[COMPAS_NAM_CACHE_LEN];
@@ -213,9 +213,14 @@ void pubsub_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     pubsub_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
 }
 
-void pubsub_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_addr_len)
+void pubsub_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_addr_len, bool redun)
 {
     //puts("TX PAM");
+
+    if (redun && (dodag->trickle.c >= dodag->trickle.k)) {
+        return;
+    }
+
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, compas_pam_len(dodag) + 2, GNRC_NETTYPE_CCN);
 
     if (pkt == NULL) {
@@ -358,14 +363,14 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
     else if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
         //printf("WORSE RANK PARENT\n");
         dodag->sol_num = 0xFF;
-        puts("TO3");
         pubsub_parent_timeout(dodag);
-        puts("SOL0");
         pubsub_send_sol(dodag);
         return;
     }
 
-    trickle_increment_counter(&dodag->trickle);
+    if (dodag->rank >= pam->rank) {
+        trickle_increment_counter(&dodag->trickle);
+    }
 
     /*
     if (!publish) {
@@ -510,7 +515,7 @@ void pubsub_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol, uint8_t *dst_ad
                          &pubsub_pam_msg, sched_active_pid);
     }
     else {
-        pubsub_send_pam(dodag, dst_addr, dst_addr_len);
+        pubsub_send_pam(dodag, dst_addr, dst_addr_len, false);
     }
 
     return;
@@ -662,7 +667,6 @@ void *pubsub(void *arg)
             case PUBSUB_SOL_MSG:
                 if ((dodag.rank != COMPAS_DODAG_ROOT_RANK) &&
                     (dodag.rank == COMPAS_DODAG_UNDEF || !dodag.parent.alive)) {
-                    puts("SOL1");
                     pubsub_send_sol(&dodag);
                     xtimer_set_msg(&pubsub_sol_timer, PUBSUB_SOL_PERIOD,
                                    &pubsub_sol_msg, sched_active_pid);
@@ -670,7 +674,7 @@ void *pubsub(void *arg)
                 break;
             case PUBSUB_PAM_MSG:
                 if (dodag.rank != COMPAS_DODAG_UNDEF) {
-                    pubsub_send_pam(&dodag, NULL, 0);
+                    pubsub_send_pam(&dodag, NULL, 0, true);
                     uint64_t trickle_int = trickle_next(&dodag.trickle);
                     xtimer_set_msg64(&pubsub_pam_timer, trickle_int * MS_PER_SEC,
                                      &pubsub_pam_msg, sched_active_pid);
@@ -697,9 +701,7 @@ void *pubsub(void *arg)
                                 evtimer_add_msg(&evtimer, &blocker, pubsub_pid);
                                 */
                                 dodag.sol_num = 0xFF;
-                                puts("TO0");
                                 pubsub_parent_timeout(&dodag);
-                                puts("SOL2");
                                 pubsub_send_sol(&dodag);
                             }
                             break;
@@ -742,7 +744,6 @@ void *pubsub(void *arg)
                 */
                 break;
             case PUBSUB_PARENT_TIMEOUT_MSG:
-                puts("TO1");
                 pubsub_parent_timeout(&dodag);
                 break;
             case PUBSUB_NCACHE_DEL_MSG:
@@ -773,7 +774,7 @@ void *pubsub(void *arg)
                                &pubsub_parent_timeout_msg, sched_active_pid);
                 break;
             case PUBSUB_PUB_MSG:
-                sprintf(pubname, "/HAW/%s/%"PRIu32, hwaddr_str, xtimer_now_usec());
+                sprintf(pubname, "/HAW/%s/%010"PRIu32, hwaddr_str, xtimer_now_usec());
                 pubsub_pub(pubname);
                 ((evtimer_event_t *)&publisher)->offset = PUBSUB_PUBLISH_TIME;
                 if (++publish_numbers < PUBSUB_PUBLISH_NUMBERS) {
@@ -786,13 +787,13 @@ void *pubsub(void *arg)
             case PUBSUB_PUB_AUTOMATED_MSG:
                 if (publish_numbers++ < PUBSUB_MAX_PUBLISHES) {
 #ifdef NOPUBSUB
-                    sprintf(pubname, "/HAW/%s/%"PRIu32, root_str, xtimer_now_usec());
+                    sprintf(pubname, "/HAW/%s/%010"PRIu32, root_str, xtimer_now_usec());
                     printf("\np;%d;%s;%s;%d\n", dodag.rank, pubname, parent_str, dodag.parent.alive);
                     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(pubname, CCNL_SUITE_NDNTLV, NULL, NULL);
                     ccnl_send_interest(prefix, NULL, 0, NULL);
                     ccnl_prefix_free(prefix);
 #else
-                    sprintf(pubname, "/HAW/%s/%"PRIu32, hwaddr_str, xtimer_now_usec());
+                    sprintf(pubname, "/HAW/%s/%010"PRIu32, hwaddr_str, xtimer_now_usec());
                     pubsub_pub(pubname);
 #endif
                     publisher_automated.msg.type = PUBSUB_PUB_AUTOMATED_MSG;
@@ -903,12 +904,14 @@ int main(void)
     uint8_t csma_retries = 5;
     //uint16_t tx_power = 1024;
     //netopt_enable_t preloading = NETOPT_DISABLE;
+    //netopt_enable_t csma = NETOPT_DISABLE;
     uint8_t retries = 7;
     //netopt_enable_t cca = NETOPT_DISABLE;
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_CHANNEL, 0, &chan, sizeof(chan));
     //gnrc_netapi_set(pubsub_netif->pid, NETOPT_TX_POWER, 0, &tx_power, sizeof(tx_power));
     //gnrc_netapi_set(pubsub_netif->pid, NETOPT_PRELOADING, 0, &preloading, sizeof(preloading));
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_RETRANS, 0, &retries, sizeof(retries));
+    //gnrc_netapi_set(pubsub_netif->pid, NETOPT_CSMA, 0, &csma, sizeof(csma));
     gnrc_netapi_set(pubsub_netif->pid, NETOPT_CSMA_RETRIES, 0, &csma_retries, sizeof(csma_retries));
     //gnrc_netapi_set(pubsub_netif->pid, NETOPT_AUTOCCA, 0, &cca, sizeof(netopt_enable_t));
 
