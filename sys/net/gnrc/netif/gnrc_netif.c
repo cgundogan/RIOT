@@ -38,7 +38,9 @@
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 #endif
 
+#ifndef _NETIF_NETAPI_MSG_QUEUE_SIZE
 #define _NETIF_NETAPI_MSG_QUEUE_SIZE    (8)
+#endif
 
 static gnrc_netif_t _netifs[GNRC_NETIF_NUMOF];
 

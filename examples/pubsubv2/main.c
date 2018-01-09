@@ -50,7 +50,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define PUBSUB_STACKSZ (THREAD_STACKSIZE_DEFAULT + THREAD_EXTRA_STACKSIZE_PRINTF + 1024)
 static char pubsub_stack[PUBSUB_STACKSZ];
 static kernel_pid_t pubsub_pid;
-#define PUBSUB_QSZ  (64)
+#define PUBSUB_QSZ  (32)
 static msg_t _pubsub_q[PUBSUB_QSZ];
 static gnrc_netif_t *pubsub_netif;
 static struct ccnl_face_s *loopback_face;
@@ -73,7 +73,7 @@ static struct ccnl_face_s *loopback_face;
 #define PUBSUB_NCACHE_REQUESTED_MSG     (0xBFF9)
 #define TRICKLE_IMIN                    (512)
 #define TRICKLE_IMAX                    (16)
-#define TRICKLE_REDCONST                (10)
+#define TRICKLE_REDCONST                (5)
 static msg_t pubsub_sol_msg = { .type = PUBSUB_SOL_MSG };
 static xtimer_t pubsub_sol_timer;
 static msg_t pubsub_pam_msg = { .type = PUBSUB_PAM_MSG };
@@ -83,14 +83,14 @@ static msg_t pubsub_parent_timeout_msg = { .type = PUBSUB_PARENT_TIMEOUT_MSG };
 
 evtimer_msg_t evtimer;
 
-#define PUBSUB_PUBLISH_TIMEOUT          (500 + (random_uint32() % 1000))
+#define PUBSUB_PUBLISH_TIMEOUT          (1000 + (random_uint32() % 1500))
 #define PUBSUB_INT_REQ_PERIOD           (100)
 #define PUBSUB_INT_REQ_COUNT            (8)
 #define PUBSUB_PUBLISH_TIME             ((random_uint32() % 30000))
 #define PUBSUB_BLOCK_TIME               (8000)
 #define PUBSUB_PUBLISH_NUMBERS          (1)
-#define PUBSUB_MAX_PUBLISHES            (6)
-#define PUBSUB_PUB_AUTOMATED_TIME       ((20 + (random_uint32() % 20)) * MS_PER_SEC)
+#define PUBSUB_MAX_PUBLISHES            (2)
+#define PUBSUB_PUB_AUTOMATED_TIME       ((15 + (random_uint32() % 30)) * MS_PER_SEC)
 evtimer_msg_event_t publish_reqs;
 //evtimer_msg_event_t int_reqs[COMPAS_NAM_CACHE_LEN];
 //evtimer_msg_event_t nam_dels[COMPAS_NAM_CACHE_LEN];
@@ -335,6 +335,7 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
 
     if ((state == COMPAS_PAM_RET_CODE_CURRPARENT) ||
         (state == COMPAS_PAM_RET_CODE_NEWPARENT)  ||
+        (state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK)  ||
         (state == COMPAS_PAM_RET_CODE_NONFLOATINGDODAG_WORSERANK)) {
 
         /*
@@ -354,8 +355,6 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(dodag_prfx, CCNL_SUITE_NDNTLV, NULL, NULL);
 
         if (state == COMPAS_PAM_RET_CODE_NEWPARENT) {
-            gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-            printf("n;%d;%s\n", dodag->rank, parent_str);
             sockunion su;
             memset(&su, 0, sizeof(su));
             su.sa.sa_family = AF_PACKET;
@@ -369,8 +368,6 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
         }
 
         if (!dodag->parent.alive) {
-            gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
-            printf("r;%d;%s\n", dodag->rank, parent_str);
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
@@ -382,21 +379,27 @@ void pubsub_handle_pam(struct ccnl_relay_s *relay, compas_dodag_t *dodag, compas
             msg_send(&msg, pubsub_pid);
         }
 
+        gnrc_netif_addr_to_str(dodag->parent.face.face_addr, dodag->parent.face.face_addr_len, parent_str);
+        printf("r;%d;%s\n", dodag->rank, parent_str);
+
         ccnl_prefix_free(prefix);
 
         dodag->sol_num = 0;
+
+        /*
+        if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
+            dodag->sol_num = 0xFF;
+            pubsub_send_sol(dodag);
+            dodag->sol_num = 0x0;
+            return;
+        }
+        */
+
         xtimer_remove(&pubsub_sol_timer);
 
         xtimer_remove(&pubsub_parent_timeout_timer);
         xtimer_set_msg(&pubsub_parent_timeout_timer, PUBSUB_PARENT_TIMEOUT_PERIOD,
                        &pubsub_parent_timeout_msg, sched_active_pid);
-        return;
-    }
-    else if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
-        //printf("WORSE RANK PARENT\n");
-        dodag->sol_num = 0xFF;
-        pubsub_parent_timeout(dodag);
-        pubsub_send_sol(dodag);
         return;
     }
 
