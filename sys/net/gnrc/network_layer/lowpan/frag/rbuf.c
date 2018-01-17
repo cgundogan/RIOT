@@ -178,11 +178,19 @@ void rbuf_add(gnrc_netif_hdr_t *netif_hdr, gnrc_pktsnip_t *pkt,
         new_netif_hdr->rssi = netif_hdr->rssi;
         LL_APPEND(entry->pkt, netif);
 
+#ifdef MODULE_GNRC_IPV6
         if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_IPV6, GNRC_NETREG_DEMUX_CTX_ALL,
                                           entry->pkt)) {
             DEBUG("lowpan rbuf: No receivers for this packet found\n");
             gnrc_pktbuf_release(entry->pkt);
         }
+#elif defined (MODULE_ICNL)
+        if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_CCN, GNRC_NETREG_DEMUX_CTX_ALL,
+                                          entry->pkt)) {
+            DEBUG("lowpan rbuf: No receivers for this packet found\n");
+            gnrc_pktbuf_release(entry->pkt);
+        }
+#endif
 
         _rbuf_rem(entry);
     }
@@ -320,7 +328,11 @@ static rbuf_t *_rbuf_get(const void *src, size_t src_len,
 
     /* now we have an empty spot */
 
+#ifdef MODULE_GNRC_IPV6
     res->pkt = gnrc_pktbuf_add(NULL, NULL, size, GNRC_NETTYPE_IPV6);
+#elif defined (MODULE_ICNL)
+    res->pkt = gnrc_pktbuf_add(NULL, NULL, size, GNRC_NETTYPE_CCN);
+#endif
     if (res->pkt == NULL) {
         DEBUG("lowpan rfrag: can not allocate reassembly buffer space.\n");
         return NULL;

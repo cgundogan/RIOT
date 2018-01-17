@@ -33,6 +33,10 @@
 #include <inttypes.h>
 #endif
 
+#ifdef MODULE_ICNL
+#include "icnlowpan.h"
+#endif
+
 static kernel_pid_t _pid = KERNEL_PID_UNDEF;
 
 #ifdef MODULE_GNRC_LOWPAN_FRAG
@@ -97,7 +101,9 @@ static void _receive(gnrc_pktsnip_t *pkt)
 
     dispatch = payload->data;
 
-    if (dispatch[0] == LOWPAN_UNCOMP_IPV6) {
+    if (0) {}
+#ifdef MODULE_GNRC_IPV6
+    else if (dispatch[0] == LOWPAN_UNCOMP_IPV6) {
         destination = GNRC_NETTYPE_IPV6;
         gnrc_pktsnip_t *lowpan;
         DEBUG("lowpan: received uncompressed IPv6 packet\n");
@@ -124,6 +130,7 @@ static void _receive(gnrc_pktsnip_t *pkt)
         pkt = gnrc_pktbuf_remove_snip(pkt, lowpan);
         payload->type = GNRC_NETTYPE_IPV6;
     }
+#endif
 #ifdef MODULE_GNRC_LOWPAN_FRAG
     else if (lowpan_frag_is((lowpan_frag_t *)dispatch)) {
         DEBUG("lowpan: received LoWPAN fragment\n");
@@ -160,6 +167,16 @@ static void _receive(gnrc_pktsnip_t *pkt)
         /* Insert decoded header instead */
         pkt = gnrc_pktbuf_replace_snip(pkt, lowpan, dec_hdr);
         payload->type = GNRC_NETTYPE_UNDEF;
+    }
+#endif
+#ifdef MODULE_ICNL
+    /* page 2 */
+    else if (*dispatch == 0xF2) {
+        uint8_t scratch[256];
+        unsigned actual_len = icnl_decode(scratch, payload->data, payload->size);
+        destination = GNRC_NETTYPE_CCN;
+        gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, scratch, actual_len, GNRC_NETTYPE_CCN);
+        pkt = gnrc_pktbuf_replace_snip(pkt, payload, dec_hdr);
     }
 #endif
     else {
@@ -207,11 +224,13 @@ static void _send(gnrc_pktsnip_t *pkt)
         return;
     }
 
+#ifdef MODULE_GNRC_IPV6
     if ((pkt->next == NULL) || (pkt->next->type != GNRC_NETTYPE_IPV6)) {
         DEBUG("lowpan: Sending packet has no IPv6 header\n");
         gnrc_pktbuf_release(pkt);
         return;
     }
+#endif
 
     pkt2 = gnrc_pktbuf_start_write(pkt);
 
@@ -250,6 +269,12 @@ static void _send(gnrc_pktsnip_t *pkt)
         }
     }
 #else
+#ifdef MODULE_ICNL
+    uint8_t scratch[256];
+    unsigned actual_len = icnl_encode(scratch, ICNL_PROTO_NDN, pkt2->next->data, pkt2->next->size);
+    gnrc_pktsnip_t *pkt3 = gnrc_pktbuf_add(NULL, scratch, actual_len, GNRC_NETTYPE_LOWPAN);
+    pkt2 = gnrc_pktbuf_replace_snip(pkt2, pkt2->next, pkt3);
+#else
     /* suppress clang-analyzer report about iface being not read */
     (void) iface;
     if (!_add_uncompr_disp(pkt2)) {
@@ -258,6 +283,7 @@ static void _send(gnrc_pktsnip_t *pkt)
         gnrc_pktbuf_release(pkt2);
         return;
     }
+#endif
 #endif
     DEBUG("lowpan: iface->lowpan.max_frag_size = %" PRIu16 " for interface %"
           PRIkernel_pid "\n", iface->lowpan.max_frag_size, hdr->if_pid);
