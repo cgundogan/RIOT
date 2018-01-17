@@ -1172,6 +1172,10 @@ static void _init_from_device(gnrc_netif_t *netif)
 #else
             netif->ipv6.mtu = tmp;
 #endif
+#elif defined(MODULE_ICNL)
+            res = dev->driver->get(dev, NETOPT_MAX_PACKET_SIZE, &tmp, sizeof(tmp));
+            assert(res == sizeof(tmp));
+            netif->lowpan.max_frag_size = tmp;
 #endif
             break;
 #endif  /* MODULE_NETDEV_IEEE802154 */
