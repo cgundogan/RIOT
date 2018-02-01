@@ -1160,7 +1160,7 @@ static void _init_from_device(gnrc_netif_t *netif)
 #if defined(MODULE_NETDEV_IEEE802154) || defined(MODULE_NRFMIN) || defined(MODULE_XBEE)
         case NETDEV_TYPE_IEEE802154:
         case NETDEV_TYPE_NRFMIN:
-#ifdef MODULE_GNRC_LOWPAN_IPHC
+#ifdef MODULE_GNRC_SIXLOWPAN_IPHC
             netif->flags |= GNRC_NETIF_FLAGS_6LO_HC;
 #endif
 #ifdef MODULE_GNRC_IPV6
