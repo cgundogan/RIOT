@@ -26,7 +26,7 @@
 
 #include "rbuf.h"
 
-#define ENABLE_DEBUG    (0)
+#define ENABLE_DEBUG    (1)
 #include "debug.h"
 
 #if ENABLE_DEBUG
@@ -203,7 +203,7 @@ static uint16_t _send_nth_fragment(gnrc_netif_t *iface, gnrc_pktsnip_t *pkt,
     }
 
     DEBUG("lowpan frag: send subsequent fragment (datagram size: %u, "
-          "datagram tag: %" PRIu16 ", offset: %" PRIu8 " (%u bytes), "
+          "datagram tag: %" PRIu16 ", offset: %" PRIu16 " (%u bytes), "
           "fragment size: %" PRIu16 ")\n",
           (unsigned int)datagram_size, _tag, hdr->offset, hdr->offset << 3,
           local_offset);

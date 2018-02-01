@@ -27,6 +27,10 @@
 #include "xtimer.h"
 #include "utlist.h"
 
+#ifdef MODULE_ICNL
+#include "icnlowpan.h"
+#endif
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -48,6 +52,10 @@ static rbuf_int_t rbuf_int[RBUF_INT_SIZE];
 static rbuf_t rbuf[RBUF_SIZE];
 
 static char l2addr_str[3 * RBUF_L2ADDR_MAX_LEN];
+
+#if defined (MODULE_ICNL)
+extern uint8_t icnl_scratch[ICNL_SCRATCH_SIZE];
+#endif
 
 /* ------------------------------------
  * internal function definitions
@@ -185,6 +193,9 @@ void rbuf_add(gnrc_netif_hdr_t *netif_hdr, gnrc_pktsnip_t *pkt,
             gnrc_pktbuf_release(entry->pkt);
         }
 #elif defined (MODULE_ICNL)
+        unsigned actual_len = icnl_decode(icnl_scratch, entry->pkt->data, entry->pkt->size);
+        gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
+        entry->pkt = gnrc_pktbuf_replace_snip(entry->pkt, entry->pkt, dec_hdr);
         if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_CCN, GNRC_NETREG_DEMUX_CTX_ALL,
                                           entry->pkt)) {
             DEBUG("lowpan rbuf: No receivers for this packet found\n");

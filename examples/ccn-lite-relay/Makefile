@@ -20,6 +20,9 @@ CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
+CFLAGS += -DCCNL_MAX_PACKET_SIZE=512
+CFLAGS += -DICNL_SCRATCH_SIZE=512
+CFLAGS += '-DTHREAD_STACKSIZE_MAIN=(THREAD_STACKSIZE_DEFAULT + 1048)'
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
@@ -41,5 +44,9 @@ USEMODULE += prng_minstd
 USEPKG += tlsf
 
 USEPKG += ccn-lite
+
+USEPKG += libicnl
+USEMODULE += gnrc_lowpan
+USEMODULE += gnrc_lowpan_frag
 
 include $(RIOTBASE)/Makefile.include

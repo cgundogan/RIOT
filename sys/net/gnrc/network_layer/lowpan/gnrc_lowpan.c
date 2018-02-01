@@ -37,6 +37,8 @@
 #include "icnlowpan.h"
 #endif
 
+uint8_t icnl_scratch[ICNL_SCRATCH_SIZE];
+
 static kernel_pid_t _pid = KERNEL_PID_UNDEF;
 
 #ifdef MODULE_GNRC_LOWPAN_FRAG
@@ -46,7 +48,7 @@ static gnrc_lowpan_msg_frag_t fragment_msg = {KERNEL_PID_UNDEF, NULL, 0, 0};
 #if ENABLE_DEBUG
 static char _stack[GNRC_LOWPAN_STACK_SIZE + THREAD_EXTRA_STACKSIZE_PRINTF];
 #else
-static char _stack[GNRC_LOWPAN_STACK_SIZE];
+static char _stack[GNRC_LOWPAN_STACK_SIZE + ICNL_SCRATCH_SIZE];
 #endif
 
 
@@ -172,10 +174,9 @@ static void _receive(gnrc_pktsnip_t *pkt)
 #ifdef MODULE_ICNL
     /* page 2 */
     else if (*dispatch == 0xF2) {
-        uint8_t scratch[256];
-        unsigned actual_len = icnl_decode(scratch, payload->data, payload->size);
+        unsigned actual_len = icnl_decode(icnl_scratch, payload->data, payload->size);
         destination = GNRC_NETTYPE_CCN;
-        gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, scratch, actual_len, GNRC_NETTYPE_CCN);
+        gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
         pkt = gnrc_pktbuf_replace_snip(pkt, payload, dec_hdr);
     }
 #endif
@@ -270,10 +271,10 @@ static void _send(gnrc_pktsnip_t *pkt)
     }
 #else
 #ifdef MODULE_ICNL
-    uint8_t scratch[256];
-    unsigned actual_len = icnl_encode(scratch, ICNL_PROTO_NDN, pkt2->next->data, pkt2->next->size);
-    gnrc_pktsnip_t *pkt3 = gnrc_pktbuf_add(NULL, scratch, actual_len, GNRC_NETTYPE_LOWPAN);
+    unsigned actual_len = icnl_encode(icnl_scratch, ICNL_PROTO_NDN_HC, pkt2->next->data, pkt2->next->size);
+    gnrc_pktsnip_t *pkt3 = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_LOWPAN);
     pkt2 = gnrc_pktbuf_replace_snip(pkt2, pkt2->next, pkt3);
+    datagram_size = gnrc_pkt_len(pkt2->next);
 #else
     /* suppress clang-analyzer report about iface being not read */
     (void) iface;
