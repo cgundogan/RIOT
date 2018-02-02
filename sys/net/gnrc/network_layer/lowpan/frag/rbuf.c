@@ -193,7 +193,9 @@ void rbuf_add(gnrc_netif_hdr_t *netif_hdr, gnrc_pktsnip_t *pkt,
             gnrc_pktbuf_release(entry->pkt);
         }
 #elif defined (MODULE_ICNL)
+        printf("r;%u;", entry->pkt->size);
         unsigned actual_len = icnl_decode(icnl_scratch, entry->pkt->data, entry->pkt->size);
+        printf("%u\n", actual_len);
         gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
         entry->pkt = gnrc_pktbuf_replace_snip(entry->pkt, entry->pkt, dec_hdr);
         if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_CCN, GNRC_NETREG_DEMUX_CTX_ALL,
