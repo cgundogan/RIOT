@@ -174,7 +174,9 @@ static void _receive(gnrc_pktsnip_t *pkt)
 #ifdef MODULE_ICNL
     /* page 2 */
     else if (*dispatch == 0xF2) {
+        printf("r;%u;", payload->size);
         unsigned actual_len = icnl_decode(icnl_scratch, payload->data, payload->size);
+        printf("%u\n", actual_len);
         destination = GNRC_NETTYPE_CCN;
         gnrc_pktsnip_t *dec_hdr = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
         pkt = gnrc_pktbuf_replace_snip(pkt, payload, dec_hdr);
@@ -271,7 +273,9 @@ static void _send(gnrc_pktsnip_t *pkt)
     }
 #else
 #ifdef MODULE_ICNL
+    printf("s;%u;", pkt2->next->size);
     unsigned actual_len = icnl_encode(icnl_scratch, ICNL_PROTO_NDN_HC, pkt2->next->data, pkt2->next->size);
+    printf("%u\n", actual_len);
     gnrc_pktsnip_t *pkt3 = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_LOWPAN);
     pkt2 = gnrc_pktbuf_replace_snip(pkt2, pkt2->next, pkt3);
     datagram_size = gnrc_pkt_len(pkt2->next);

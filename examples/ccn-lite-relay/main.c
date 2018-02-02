@@ -49,7 +49,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
 		return 0;
 	}
 	static unsigned char buffer[CCNL_MAX_PACKET_SIZE];
-	memset(buffer, 0xAA, len);
+	memset(buffer, 'A', len);
 	struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, buffer, len);
 	ccnl_content_add2cache(relay, c);
     return 0;
