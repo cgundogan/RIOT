@@ -1249,6 +1249,7 @@ static void _configure_netdev(netdev_t *dev)
     }
 #endif
 }
+#include "pktcnt.h"
 
 static void *_gnrc_netif_thread(void *args)
 {
@@ -1294,6 +1295,7 @@ static void *_gnrc_netif_thread(void *args)
                 break;
             case GNRC_NETAPI_MSG_TYPE_SND:
                 DEBUG("gnrc_netif: GNRC_NETDEV_MSG_TYPE_SND received\n");
+                pktcnt_log_tx(msg.content.ptr);
                 res = netif->ops->send(netif, msg.content.ptr);
                 if (res < 0) {
                     DEBUG("gnrc_netif: error sending packet %p (code: %u)\n",
