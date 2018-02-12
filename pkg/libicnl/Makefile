@@ -1,6 +1,6 @@
 PKG_NAME=libICNL
 PKG_URL=https://github.com/cgundogan/libICNL/
-PKG_VERSION=78ca04f87843ed139ae49d7c4fe81bb64b1b3842
+PKG_VERSION=e33db2bffc2527d41fd6cd894a00850f176dcd3c
 PKG_LICENSE=LGPLv2.1
 
 .PHONY: all
