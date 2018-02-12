@@ -112,7 +112,10 @@ int _ccnl_content(int argc, char **argv)
 
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], CCNL_SUITE_NDNTLV, NULL, NULL);
     int offs = CCNL_MAX_PACKET_SIZE;
-    arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) body, arg_len, NULL, NULL, &offs, _out);
+    struct ccnl_ndntlv_data_opts_s data_opts = { .freshnessperiod = 10000,
+                                                 .finalblockid = UINT32_MAX,
+                                               };
+    arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) body, arg_len, NULL, &data_opts, &offs, _out);
 
     ccnl_prefix_free(prefix);
 
@@ -207,7 +210,10 @@ int _ccnl_interest(int argc, char **argv)
     memset(_int_buf, '\0', BUF_SIZE);
 
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], CCNL_SUITE_NDNTLV, NULL, 0);
-    int res = ccnl_send_interest(prefix, _int_buf, BUF_SIZE);
+    ccnl_interest_opts_u opts = { .ndntlv.interestlifetime = 4000,
+                                  .ndntlv.mustbefresh = true,
+                                };
+    int res = ccnl_send_interest(prefix, _int_buf, BUF_SIZE, &opts);
     ccnl_prefix_free(prefix);
 
     return res;

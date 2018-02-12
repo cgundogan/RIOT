@@ -48,7 +48,7 @@ static gnrc_lowpan_msg_frag_t fragment_msg = {KERNEL_PID_UNDEF, NULL, 0, 0};
 #if ENABLE_DEBUG
 static char _stack[GNRC_LOWPAN_STACK_SIZE + THREAD_EXTRA_STACKSIZE_PRINTF];
 #else
-static char _stack[GNRC_LOWPAN_STACK_SIZE + ICNL_SCRATCH_SIZE];
+static char _stack[GNRC_LOWPAN_STACK_SIZE + ICNL_SCRATCH_SIZE*2];
 #endif
 
 

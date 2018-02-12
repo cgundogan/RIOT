@@ -45,13 +45,16 @@ static unsigned len = 0;
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
                    struct ccnl_pkt_s *pkt)
 {
-	if (from->ifndx == -1) {
-		return 0;
-	}
-	static unsigned char buffer[CCNL_MAX_PACKET_SIZE];
-	memset(buffer, 'A', len);
-	struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, buffer, len);
-	ccnl_content_add2cache(relay, c);
+    if (from->ifndx == -1) {
+        return 0;
+    }
+    static unsigned char buffer[CCNL_MAX_PACKET_SIZE];
+    memset(buffer, 'A', len);
+    ccnl_data_opts_u opts = { .ndntlv.finalblockid = UINT32_MAX,
+                              .ndntlv.freshnessperiod = 10000,
+                            };
+    struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, buffer, len, &opts);
+    ccnl_content_add2cache(relay, c);
     return 0;
 }
 
@@ -79,7 +82,7 @@ int main(void)
 
     ccnl_start();
 
-	ccnl_set_local_producer(producer_func);
+    ccnl_set_local_producer(producer_func);
 
     /* get the default interface */
     gnrc_netif_t *netif;
