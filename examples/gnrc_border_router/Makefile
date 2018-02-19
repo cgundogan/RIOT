@@ -67,6 +67,7 @@ USEMODULE += gnrc_icmpv6_echo
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
+USEMODULE += pktcnt
 
 # include UHCP client
 USEMODULE += gnrc_uhcpc
