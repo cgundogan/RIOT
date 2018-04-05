@@ -131,8 +131,35 @@ static void log_l2_tx(gnrc_pktsnip_t *pkt)
 #ifdef MODULE_CCN_LITE
 static void log_ndn(uint8_t *payload)
 {
-    printf("NDN %02x\n", payload[0]);
+    /* print type */
+    printf("NDN %02x ", payload[0]);
+
+    /* print name and nonce */
+    /* search for name type */
+    if (payload[2] == 0x7) {
+        unsigned i=4; /* start after length field of packet */
+        /* while smaller than packet size */
+        while (i<payload[1]){
+            /* search for generic name component type */
+            if (payload[i] == 0x08) {
+                printf("/%.*s", payload[i+1], (char *)&payload[i+2]);
+                i+=payload[i+1];
+            }
+            /* search for nonce component type */
+            if (payload[i] == 0x0a) {
+                /* nonce is always 4 bytes */
+                printf(" 0x%02x", payload[i+2]);
+                printf("%02x", payload[i+3]);
+                printf("%02x", payload[i+4]);
+                printf("%02x", payload[i+5]);
+                i+=payload[i+1];
+            }
+            i++;
+        }
+        printf("\n");
+    }
 }
+
 #endif
 
 #ifdef MODULE_GNRC_IPV6
@@ -486,7 +513,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
 #elif defined(MODULE_CCN_LITE)
     if ((pkt->type == GNRC_NETTYPE_CCN) || (pkt->type == GNRC_NETTYPE_CCN_CHUNK)) {
         uint8_t *payload = pkt->data;
-
+        /* 0x5: Interest, 0x6: data*/
         if ((payload[0] == 0x5) || payload[0] == 0x6) {
             log_l2_rx(pkt);
             log_ndn(payload);
@@ -570,6 +597,12 @@ void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
                             break;
 
                     }
+#endif
+#ifdef MODULE_CCN_LITE
+                    log_l2_tx(pkt);
+                    log_ndn(pkt->next->data);
+                    break;
+
 #endif
                     log_l2_tx(pkt);
                     puts("UNKNOWN");
