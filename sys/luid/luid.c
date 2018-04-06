@@ -55,8 +55,21 @@ void luid_base(void *buf, size_t len)
     uint8_t cid[CPUID_LEN];
 
     cpuid_get(cid);
+#ifdef MODULE_STM32_COMMON
+    /* ugly hack to enforce unique3 MAC addresses on the
+     *  iotlab testbed */
+    out[0] = cid[2];
+    out[1] = cid[4];
+    out[2] = cid[5];
+    out[3] = cid[6];
+    out[4] = cid[7];
+    out[5] = cid[8];
+    out[6] = cid[9];
+    out[7] = cid[10];
+#else
     for (size_t i = 0; i < CPUID_LEN; i++) {
         out[i % len] ^= cid[i];
     }
+#endif
 #endif
 }
