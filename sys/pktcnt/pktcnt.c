@@ -156,8 +156,8 @@ static void log_ndn(uint8_t *payload)
             }
             i++;
         }
-        printf("\n");
     }
+    printf("\n");
 }
 
 #endif
