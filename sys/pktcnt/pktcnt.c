@@ -598,12 +598,6 @@ void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
 
                     }
 #endif
-#ifdef MODULE_CCN_LITE
-                    log_l2_tx(pkt);
-                    log_ndn(pkt->next->data);
-                    break;
-
-#endif
                     log_l2_tx(pkt);
                     puts("UNKNOWN");
                     break;
