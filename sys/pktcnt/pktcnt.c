@@ -160,6 +160,26 @@ static void log_ndn(uint8_t *payload)
     printf("\n");
 }
 
+static void log_hopp(uint8_t *payload)
+{
+    /* print type
+     * 0xC0: PAM
+     * 0xC1: NAM
+     * 0xC2: SOL
+     */
+    printf("HOPP %02x ", payload[2]);
+
+    /* print rank for PAM */
+    if (payload[2] == 0xC0) {
+        printf("RANK %" PRIu16, (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF));
+    }
+    /* print name from NAM if it's has name type*/
+    else if ((payload[2] == 0xC1) && (payload[4] == 0X00)) {
+        uint16_t nam_len = (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF);
+        printf("%.*s", nam_len, &payload[7]);
+    }
+    printf("\n");
+}
 #endif
 
 #ifdef MODULE_GNRC_IPV6
@@ -518,6 +538,11 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
             log_l2_rx(pkt);
             log_ndn(payload);
         }
+        /* HOPP identifier*/
+        else if ((payload[0] == 0x80) && (payload[1] == 0x08)) {
+            log_l2_tx(pkt);
+            log_hopp(payload);
+        }
         else {
             log_l2_rx(pkt);
             puts("UNKNOWN");
@@ -621,10 +646,15 @@ void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
     if ((pkt->next->type == GNRC_NETTYPE_CCN) ||
         (pkt->next->type == GNRC_NETTYPE_CCN_CHUNK)) {
         uint8_t *payload = pkt->next->data;
-
+        /* 0x5: Interest, 0x6: data*/
         if ((payload[0] == 0x5) || payload[0] == 0x6) {
             log_l2_tx(pkt);
             log_ndn(payload);
+        }
+        /* HOPP identifier*/
+        else if ((payload[0] == 0x80) && (payload[1] == 0x08)) {
+            log_l2_tx(pkt);
+            log_hopp(payload);
         }
         else {
             log_l2_tx(pkt);
