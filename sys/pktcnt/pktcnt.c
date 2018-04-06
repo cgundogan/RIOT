@@ -148,7 +148,7 @@ static void log_ndn(uint8_t *payload)
             /* search for nonce component type */
             if (payload[i] == 0x0a) {
                 /* nonce is always 4 bytes */
-                printf(" 0x%02x", payload[i+2]);
+                printf("-0x%02x", payload[i+2]);
                 printf("%02x", payload[i+3]);
                 printf("%02x", payload[i+4]);
                 printf("%02x", payload[i+5]);
