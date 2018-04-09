@@ -61,6 +61,10 @@ static void *pktcnt_thread(void *args)
                                     );
     msg_init_queue(pktcnt_msg_queue, PKTCNT_MSG_QUEUE_SIZE);
     gnrc_netreg_register(NETREG_TYPE, &entry);
+/*#ifdef MODULE_CCN_LITE
+      we need HOPP for pub/sub as well as initial FIB setup
+    gnrc_netreg_register(GNRC_NETTYPE_CCN_HOPP, &entry);
+#endif*/
 
     while (1) {
         msg_t msg;
@@ -171,11 +175,11 @@ static void log_hopp(uint8_t *payload)
 
     /* print rank for PAM */
     if (payload[2] == 0xC0) {
-        printf("RANK %" PRIu16, (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF));
+        printf("RANK-%" PRIu16, (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF));
     }
     /* print name from NAM if it's has name type*/
     else if ((payload[2] == 0xC1) && (payload[4] == 0X00)) {
-        uint16_t nam_len = (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF);
+        uint16_t nam_len = (uint16_t)(payload[6] << 8) | (payload[5] & 0xFF);
         printf("%.*s", nam_len, &payload[7]);
     }
     printf("\n");
@@ -531,7 +535,9 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         }
     }
 #elif defined(MODULE_CCN_LITE)
-    if ((pkt->type == GNRC_NETTYPE_CCN) || (pkt->type == GNRC_NETTYPE_CCN_CHUNK)) {
+    if ((pkt->type == GNRC_NETTYPE_CCN) ||
+        (pkt->type == GNRC_NETTYPE_CCN_CHUNK) ||
+        (pkt->type == GNRC_NETTYPE_CCN_HOPP)) {
         uint8_t *payload = pkt->data;
         /* 0x5: Interest, 0x6: data*/
         if ((payload[0] == 0x5) || payload[0] == 0x6) {
@@ -540,7 +546,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         }
         /* HOPP identifier*/
         else if ((payload[0] == 0x80) && (payload[1] == 0x08)) {
-            log_l2_tx(pkt);
+            log_l2_rx(pkt);
             log_hopp(payload);
         }
         else {
@@ -644,7 +650,8 @@ void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
 #endif
 #elif defined(MODULE_CCN_LITE)
     if ((pkt->next->type == GNRC_NETTYPE_CCN) ||
-        (pkt->next->type == GNRC_NETTYPE_CCN_CHUNK)) {
+        (pkt->next->type == GNRC_NETTYPE_CCN_CHUNK) ||
+        (pkt->next->type == GNRC_NETTYPE_CCN_HOPP)) {
         uint8_t *payload = pkt->next->data;
         /* 0x5: Interest, 0x6: data*/
         if ((payload[0] == 0x5) || payload[0] == 0x6) {
