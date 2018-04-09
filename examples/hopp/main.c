@@ -93,10 +93,6 @@ int main(void)
         return 1;
     }
 
-#ifndef BOARD_NATIVE
-    random_init(*(uint32_t *)(hwaddr+4));
-#endif
-
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
     return 0;

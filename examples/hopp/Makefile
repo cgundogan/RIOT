@@ -43,7 +43,6 @@ USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_xorshift
-USEMODULE += prng_minstd
 USEMODULE += evtimer
 USEMODULE += netstats_l2
 #USEMODULE += l2filter_blacklist
