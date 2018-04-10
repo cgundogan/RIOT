@@ -34,7 +34,7 @@ USEMODULE += shell_commands
 USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 # This application dumps received packets to STDIO using the pktdump module
-#USEMODULE += gnrc_pktdump
+USEMODULE += gnrc_pktdump
 USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
