@@ -134,38 +134,56 @@ static void log_l2_tx(gnrc_pktsnip_t *pkt)
 }
 
 #ifdef MODULE_CCN_LITE
+
+static void log_name(uint8_t *payload, unsigned len)
+{
+    unsigned i = 0;
+    while (i < len) {
+        if (payload[i] == 0x08) {
+            unsigned complen = payload[i+1];
+            printf("/%.*s", complen, (char *)&payload[i+2]);
+            i += complen + 2;
+        }
+        else {
+            /* this should not happen, actually */
+            break;
+        }
+    }
+    return;
+}
+
 static void log_ndn(uint8_t *payload)
 {
     /* print type */
     printf("NDN %02x ", payload[0]);
 
-    /* print name and nonce */
-    /* search for name type */
-    if (payload[2] == 0x7) {
-        unsigned i=4; /* start after length field of packet */
-        /* while smaller than packet size */
-        while (i<payload[1]){
-            /* search for generic name component type */
-            if (payload[i] == 0x08) {
-                printf("/%.*s", payload[i+1], (char *)&payload[i+2]);
-                i+=payload[i+1];
-                i++;
-            }
-            /* search for nonce component type */
-            else if (payload[i] == 0x0a) {
-                /* nonce is always 4 bytes */
-                printf("-0x%02x", payload[i+2]);
-                printf("%02x", payload[i+3]);
-                printf("%02x", payload[i+4]);
-                printf("%02x", payload[i+5]);
-                i+=payload[i+1];
-                i++;
-            }
-            else{
-                i++;
-            }
+    unsigned pkttype = payload[0];
+    unsigned pktlen = payload[1];
+    unsigned i = 2;
+
+    while (i < pktlen) {
+        unsigned tlvtype = payload[i];
+        unsigned tlvlen = payload[i+1];
+
+        /* Name TLV */
+        if (tlvtype == 0x7) {
+            log_name(payload + i + 2, tlvlen);
+            i += tlvlen + 2;
+        }
+        /* Nonce TLV */
+        else if ((pkttype == 0x5) && (payload[i] == 0x0a)) {
+            /* nonce is always 4 bytes */
+            printf("-0x%02x%02x%02x%02x", payload[i+2],
+                                          payload[i+3],
+                                          payload[i+4],
+                                          payload[i+5]);
+            i += 4 + 2;
+        }
+        else{
+            i++;
         }
     }
+
     printf("\n");
 }
 
