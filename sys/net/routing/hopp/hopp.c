@@ -555,6 +555,8 @@ void *hopp(void *arg)
             case HOPP_PARENT_TIMEOUT_MSG:
                 hopp_parent_timeout(&dodag);
                 break;
+            case HOPP_STOP_MSG:
+                return NULL;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *) msg.content.ptr;
                 netif_snip = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
