@@ -68,7 +68,7 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
-static char _consumer_stack[512];
+static char _consumer_stack[1024];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
@@ -97,7 +97,7 @@ void *_consumer_event_loop(void *arg)
             xtimer_usleep(1000 * 1000);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 40, "%s/gasval/%02d", s, i);
-            printf("request : %s\n", req_uri);
+            //printf("request : %s\n", req_uri);
             a[1]= req_uri;
             _ccnl_interest(2, (char **)a);
         }
