@@ -11,7 +11,7 @@ RIOTBASE ?= $(CURDIR)/../..
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
-#DEVELHELP ?= 1
+DEVELHELP ?= 1
 
 CFLAGS += -DUSE_LINKLAYER
 #CFLAGS += -DUSE_RONR
@@ -31,17 +31,18 @@ CFLAGS += -DCCNL_FACE_TIMEOUT=15
 CFLAGS += -DCCNL_INTEREST_TIMEOUT=5
 CFLAGS += -DCCNL_MAX_INTEREST_RETRANSMIT=3
 CFLAGS += -DCOMPAS_NAM_CACHE_RETRIES=3
-CFLAGS += -DCCNL_STACK_SIZE="THREAD_STACKSIZE_DEFAULT"
-CFLAGS += -DCCNL_QUEUE_SIZE=32
-CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=32
+CFLAGS += -DCCNL_STACK_SIZE="THREAD_STACKSIZE_DEFAULT+512+256"
+CFLAGS += -DCCNL_QUEUE_SIZE=16
+CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=16
 
-CFLAGS += -DHOPP_STACKSZ="THREAD_STACKSIZE_DEFAULT"
+CFLAGS += -DHOPP_STACKSZ="THREAD_STACKSIZE_DEFAULT+512+256"
+CFLAGS += -DPKTCNT_STACKSZ="512"
 #CFLAGS += -DNOPUBSUB
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-#USEMODULE += ps
+USEMODULE += ps
 USEMODULE += shell
 USEMODULE += shell_commands
 # Include packages that pull up and auto-init the link layer.

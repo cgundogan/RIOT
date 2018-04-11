@@ -68,12 +68,7 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
-static char _consumer_stack[THREAD_STACKSIZE_IDLE];
-static msg_t _msg_queue[8];
-
-#define MAIN_PERIODIC           (0x666)
-static msg_t _wait_reset = { .type = MAIN_PERIODIC };
-static xtimer_t _wait_timer = { .target = 0, .long_target = 0 };
+static char _consumer_stack[512];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
@@ -92,29 +87,21 @@ extern int _ccnl_interest(int argc, char **argv);
 void *_consumer_event_loop(void *arg)
 {
     (void)arg;
-    msg_init_queue(_msg_queue, 8);
-
     /* periodically request content items */
     char req_uri[40];
     char *a[2];
-    xtimer_set_msg(&_wait_timer, DELAY_REQUEST, &_wait_reset, sched_active_pid);
     char s[CCNL_MAX_PREFIX_SIZE];
     struct ccnl_forward_s *fwd;
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
+            xtimer_usleep(1000 * 1000);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
-            msg_t m;
-            msg_receive(&m);
-            if(m.type == MAIN_PERIODIC) {
-                snprintf(req_uri, 40, "%s/gasval/%02d", s, i);
-                //printf("request : %s\n", req_uri);
-                a[1]= req_uri;
-                _ccnl_interest(2, (char **)a);
-                xtimer_set_msg(&_wait_timer, DELAY_REQUEST, &_wait_reset, sched_active_pid);
-            }
+            snprintf(req_uri, 40, "%s/gasval/%02d", s, i);
+            printf("request : %s\n", req_uri);
+            a[1]= req_uri;
+            _ccnl_interest(2, (char **)a);
         }
     }
-    xtimer_remove(&_wait_timer);
     return 0;
 }
 

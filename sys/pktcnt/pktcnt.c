@@ -23,6 +23,9 @@
 #ifndef PKTCNT_PRIO
 #define PKTCNT_PRIO             (THREAD_PRIORITY_MAIN - 1)
 #endif
+#ifndef PKTCNT_STACKSIZE
+#define PKTCNT_STACKSIZE        (THREAD_STACKSIZE_DEFAULT)
+#endif
 /* net/emcute.h and net/gcoap.h require sock_udp so we can't include them with
  * e.g. gnrc_networking, so just define ports here */
 #define COAP_PORT           (5683U)
@@ -41,7 +44,7 @@ typedef struct {
     char id[23];
 } pktcnt_ctx_t;
 
-static char pktcnt_stack[THREAD_STACKSIZE_DEFAULT];
+static char pktcnt_stack[PKTCNT_STACKSIZE];
 static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
 static pktcnt_ctx_t ctx;
 
