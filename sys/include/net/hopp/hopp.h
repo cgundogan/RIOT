@@ -81,9 +81,14 @@ extern char hopp_stack[HOPP_STACKSZ];
 extern gnrc_netif_t *hopp_netif;
 extern kernel_pid_t hopp_pid;
 
+typedef void (*hopp_cb_published)(struct ccnl_relay_s *relay,
+                                  struct ccnl_pkt_s *pkt,
+                                  struct ccnl_face_s *from);
+
 void *hopp(void *arg);
 void hopp_root_start(const char *prefix, size_t prefix_len);
 bool hopp_publish_content(const char *name, size_t name_len,
                           unsigned char *content, size_t content_len);
+void hopp_set_cb_published(hopp_cb_published cb);
 
 #endif /* HOPP_H */

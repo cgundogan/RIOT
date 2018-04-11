@@ -43,6 +43,13 @@ static evtimer_msg_event_t nam_msg_evt = { .msg.type = HOPP_NAM_MSG, .msg.conten
 static evtimer_msg_event_t pto_msg_evt = { .msg.type = HOPP_PARENT_TIMEOUT_MSG };
 static uint32_t nce_times[COMPAS_NAM_CACHE_LEN];
 
+static hopp_cb_published cb_published = NULL;
+
+void hopp_set_cb_published(hopp_cb_published cb)
+{
+    cb_published = cb;
+}
+
 static void hopp_parent_timeout(compas_dodag_t *dodag)
 {
     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pto_msg_evt);
@@ -443,9 +450,11 @@ static int content_send(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt) {
     return 1;
 }
 
-static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p)
+static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p,
+                             struct ccnl_face_s *from)
 {
     (void) relay;
+    (void) from;
     char *s = ccnl_prefix_to_path(p->pfx);
 
     compas_name_t cname;
@@ -453,6 +462,9 @@ static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p)
     compas_nam_cache_entry_t *n = compas_nam_cache_find(&dodag, &cname);
 
     if (n) {
+        if (cb_published) {
+            cb_published(relay, p, from);
+        }
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = NULL };
         msg_send(&msg, hopp_pid);
     }
@@ -478,7 +490,6 @@ void *hopp(void *arg)
     gnrc_netreg_register(GNRC_NETTYPE_CCN_HOPP, &_ne);
     loopback_face = ccnl_get_face_or_create(&ccnl_relay, -1, NULL, 0);
 
-    //ccnl_set_local_producer(handle_int);
     ccnl_callback_set_data_send(content_send);
     ccnl_callback_set_data_received(content_requested);
 
