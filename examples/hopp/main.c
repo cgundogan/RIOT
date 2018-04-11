@@ -41,6 +41,24 @@ static int _root(int argc, char **argv)
     return 0;
 }
 
+static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
+                         struct ccnl_face_s *from)
+{
+    static char scratch[32];
+    struct ccnl_prefix_s *prefix;
+
+
+    snprintf(scratch, sizeof(scratch)/sizeof(scratch[0]),
+             "/%.*s/%.*s", pkt->pfx->complen[0], pkt->pfx->comp[0],
+                           pkt->pfx->complen[1], pkt->pfx->comp[1]);
+    //printf("PUBLISHED: %s\n", scratch);
+    prefix = ccnl_URItoPrefix(scratch, CCNL_SUITE_NDNTLV, NULL, NULL);
+
+    from->flags |= CCNL_FACE_FLAGS_STATIC;
+    ccnl_fib_add_entry(relay, ccnl_prefix_dup(prefix), from);
+    ccnl_prefix_free(prefix);
+}
+
 static int _publish(int argc, char **argv)
 {
     if (argc == 2) {
@@ -92,6 +110,8 @@ int main(void)
     if (hopp_pid <= KERNEL_PID_UNDEF) {
         return 1;
     }
+
+    hopp_set_cb_published(cb_published);
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
