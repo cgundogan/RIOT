@@ -40,7 +40,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define I3_DATA     "{\"id\":\"0x12a77af232\",\"val\":3000}"
 
 #ifndef NUM_REQUESTS_NODE
-#define NUM_REQUESTS_NODE            (5u)
+#define NUM_REQUESTS_NODE            (3600u)
 #endif
 
 #ifndef DELAY_REQUEST
@@ -94,7 +94,7 @@ void *_consumer_event_loop(void *arg)
     struct ccnl_forward_s *fwd;
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
-            xtimer_usleep(1000 * 1000);
+            xtimer_usleep(DELAY_REQUEST);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 40, "%s/gasval/%02d", s, i);
             //printf("request : %s\n", req_uri);
@@ -209,7 +209,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
             struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
             c = ccnl_content_new(&pk);
             ccnl_content_add2cache(relay, c);
-            c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+            //c->flags |= CCNL_CONTENT_FLAGS_STATIC;
         }
     }
     return 0;
@@ -298,6 +298,9 @@ int main(void)
     gnrc_netif_t *netif = gnrc_netif_iter(NULL);
 
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
+
+    uint16_t chan = 11;
+    gnrc_netapi_set(netif->pid, NETOPT_CHANNEL, 0, &chan, sizeof(chan));
 
     /* set the relay's PID, configure the interface to use CCN nettype */
     if (ccnl_open_netif(netif->pid, GNRC_NETTYPE_CCN) < 0) {

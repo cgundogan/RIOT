@@ -161,6 +161,7 @@ static void log_ndn(uint8_t *payload)
     printf("NDN %02x ", payload[0]);
 
     unsigned pkttype = payload[0];
+    (void) pkttype;
     unsigned pktlen = payload[1];
     unsigned i = 2;
 
@@ -172,16 +173,18 @@ static void log_ndn(uint8_t *payload)
         if (tlvtype == 0x7) {
             log_name(payload + i + 2, tlvlen);
             i += tlvlen + 2;
+            break;
         }
         /* Nonce TLV */
+        /*
         else if ((pkttype == 0x5) && (payload[i] == 0x0a)) {
-            /* nonce is always 4 bytes */
             printf("-0x%02x%02x%02x%02x", payload[i+2],
                                           payload[i+3],
                                           payload[i+4],
                                           payload[i+5]);
             i += 4 + 2;
         }
+        */
         else{
             i++;
         }
