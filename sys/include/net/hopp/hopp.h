@@ -68,6 +68,9 @@
 #ifndef HOPP_PARENT_TIMEOUT_MSG
 #define HOPP_PARENT_TIMEOUT_MSG     (0xBFF3)
 #endif
+#ifndef HOPP_STOP_MSG
+#define HOPP_STOP_MSG               (0xBFF4)
+#endif
 
 #ifndef HOPP_NAM_STALE_TIME
 #define HOPP_NAM_STALE_TIME         (10 * US_PER_SEC)
