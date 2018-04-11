@@ -11,7 +11,7 @@ RIOTBASE ?= $(CURDIR)/../..
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
-DEVELHELP ?= 1
+#DEVELHELP ?= 1
 
 CFLAGS += -DUSE_LINKLAYER
 #CFLAGS += -DUSE_RONR
@@ -20,13 +20,28 @@ CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
 
+CFLAGS += -DCONSUMER_THREAD_PRIORITY="THREAD_PRIORITY_MAIN-1"
+CFLAGS += -DPKTCNT_PRIO="THREAD_PRIORITY_MAIN-2"
+CFLAGS += -DHOPP_PRIO="THREAD_PRIORITY_MAIN-3"
+CFLAGS += -DCCNL_THREAD_PRIORITY="THREAD_PRIORITY_MAIN-4"
+
+CFLAGS += -DCOMPAS_NAM_CACHE_LEN=10
+CFLAGS += -DCCNL_CACHE_SIZE=5
+CFLAGS += -DCCNL_FACE_TIMEOUT=15
+CFLAGS += -DCCNL_INTEREST_TIMEOUT=5
 CFLAGS += -DCCNL_MAX_INTEREST_RETRANSMIT=3
-CFLAGS += -DCCNL_THREAD_PRIORITY=5
+CFLAGS += -DCOMPAS_NAM_CACHE_RETRIES=3
+CFLAGS += -DCCNL_STACK_SIZE="THREAD_STACKSIZE_DEFAULT"
+CFLAGS += -DCCNL_QUEUE_SIZE=32
+CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=32
+
+CFLAGS += -DHOPP_STACKSZ="THREAD_STACKSIZE_DEFAULT"
+#CFLAGS += -DNOPUBSUB
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-USEMODULE += ps
+#USEMODULE += ps
 USEMODULE += shell
 USEMODULE += shell_commands
 # Include packages that pull up and auto-init the link layer.
@@ -34,15 +49,17 @@ USEMODULE += shell_commands
 USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 # This application dumps received packets to STDIO using the pktdump module
-USEMODULE += gnrc_pktdump
+#USEMODULE += gnrc_pktdump
 USEMODULE += timex
 USEMODULE += xtimer
 USEMODULE += random
 USEMODULE += prng_xorshift
+USEMODULE += evtimer
 USEMODULE += pktcnt
+USEMODULE += hopp
 
+USEPKG += compas
 USEPKG += tlsf
-
 USEPKG += ccn-lite
 
 include $(RIOTBASE)/Makefile.include
