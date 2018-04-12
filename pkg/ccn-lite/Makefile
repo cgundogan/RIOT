@@ -1,6 +1,6 @@
 PKG_NAME=ccn-lite
 PKG_URL=https://github.com/cgundogan/ccn-lite/
-PKG_VERSION=dcf2ff45d428427e57bb24a615302bf48fdc0424
+PKG_VERSION=f3f71c50768f935375169c13269d7d6b29a5dc93
 PKG_LICENSE=ISC
 
 .PHONY: all
