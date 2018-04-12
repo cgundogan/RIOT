@@ -73,9 +73,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
-//static unsigned char _out[CCNL_MAX_PACKET_SIZE];
+static bool i_am_root = false;
 
-//static char _consumer_stack[3000];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
@@ -105,6 +104,10 @@ static int _req_start(int argc, char **argv)
     (void)argv;
     if (!pktcnt_running) {
         puts("Warning: pktcnt module not running");
+    }
+
+    if (i_am_root) {
+        return 0;
     }
     /* unset local producer function for producer nodes */
     ccnl_set_local_producer(NULL);
@@ -169,6 +172,9 @@ static int _root(int argc, char **argv)
 
     char name[5];
     int name_len = sprintf(name, "/%s", PREFIX);
+
+    i_am_root = true;
+
     hopp_root_start(name, name_len);
     return 0;
 }
