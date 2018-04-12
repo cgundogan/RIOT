@@ -45,6 +45,7 @@ typedef struct {
 } pktcnt_ctx_t;
 
 static char pktcnt_stack[PKTCNT_STACKSIZE];
+static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
 static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
 static pktcnt_ctx_t ctx;
 
@@ -55,6 +56,8 @@ static void log_event(int type)
 {
     printf("%s %s %s ", keyword, ctx.id, typestr[type]);
 }
+
+static void _log_tx(gnrc_pktsnip_t *pkt);
 
 static void *pktcnt_thread(void *args)
 {
@@ -78,6 +81,7 @@ static void *pktcnt_thread(void *args)
             gnrc_pktbuf_release(msg.content.ptr);
         }
         else if (msg.type == GNRC_NETAPI_MSG_TYPE_SND) {
+            _log_tx(msg.content.ptr);
             gnrc_pktbuf_release(msg.content.ptr);
         }
     }
@@ -96,9 +100,9 @@ int pktcnt_init(void)
     log_event(TYPE_STARTUP);
     puts("");
 
-    if (thread_create(pktcnt_stack, sizeof(pktcnt_stack), PKTCNT_PRIO,
-                      THREAD_CREATE_STACKTEST, pktcnt_thread, NULL,
-                      "pktcnt") < 0) {
+    if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
+                                    PKTCNT_PRIO, THREAD_CREATE_STACKTEST,
+                                    pktcnt_thread, NULL, "pktcnt")) < 0) {
         return PKTCNT_ERR_INIT;
     }
 
@@ -588,6 +592,18 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
 }
 
 void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
+{
+    if (pktcnt_pid > KERNEL_PID_UNDEF) {
+        msg_t msg = { .type = GNRC_NETAPI_MSG_TYPE_SND,
+                      .content = { .ptr = pkt } };
+
+        /* we divert the packet, so hold */
+        gnrc_pktbuf_hold(pkt, 1);
+        msg_try_send(&msg, pktcnt_pid);
+    }
+}
+
+static void _log_tx(gnrc_pktsnip_t *pkt)
 {
 #if defined(MODULE_GNRC_IPV6)
 #if defined(MODULE_GNRC_SIXLOWPAN)
