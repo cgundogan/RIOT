@@ -59,7 +59,7 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static bool i_am_root = false;
 
-static char _consumer_stack[2048];
+static char _consumer_stack[1792];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
@@ -91,10 +91,6 @@ static int _req_start(int argc, char **argv)
         return 0;
     }
 
-    if (!pktcnt_running) {
-        puts("Warning: pktcnt module not running");
-    }
-
     thread_create(_consumer_stack, sizeof(_consumer_stack),
                   CONSUMER_THREAD_PRIORITY,
                   THREAD_CREATE_STACKTEST, _consumer_event_loop,
@@ -108,7 +104,6 @@ static int _pktcnt_start(int argc, char **argv) {
 #ifdef MODULE_PKTCNT
     /* init pktcnt */
     if (pktcnt_init() != PKTCNT_OK) {
-        puts("error: unable to initialize pktcnt");
         return 1;
     }
     pktcnt_running=1;
@@ -163,7 +158,6 @@ int main(void)
 
     /* set the relay's PID, configure the interface to use CCN nettype */
     if (ccnl_open_netif(netif->pid, GNRC_NETTYPE_CCN) < 0) {
-        puts("Error registering at network interface!");
         return -1;
     }
 
