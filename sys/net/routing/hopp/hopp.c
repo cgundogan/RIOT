@@ -556,6 +556,8 @@ void *hopp(void *arg)
                 hopp_parent_timeout(&dodag);
                 break;
             case HOPP_STOP_MSG:
+                ccnl_callback_set_data_send(NULL);
+                ccnl_callback_set_data_received(NULL);
                 return NULL;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *) msg.content.ptr;
