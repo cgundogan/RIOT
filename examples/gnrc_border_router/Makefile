@@ -113,6 +113,9 @@ include $(RIOTBASE)/Makefile.include
 host-tools:
 	$(Q)env -u CC -u CFLAGS make -C $(RIOTBASE)/dist/tools
 
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=200
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=200
+
 # Set a custom channel if needed
 ifneq (,$(filter cc110x,$(USEMODULE)))          # radio is cc110x sub-GHz
   DEFAULT_CHANNEL ?= 0
@@ -122,7 +125,7 @@ else
     DEFAULT_CHANNEL ?= 5
     CFLAGS += -DIEEE802154_DEFAULT_SUBGHZ_CHANNEL=$(DEFAULT_CHANNEL)
   else                                          # radio is IEEE 802.15.4 2.4 GHz
-    DEFAULT_CHANNEL ?= 26
+    DEFAULT_CHANNEL ?= 11
     CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=$(DEFAULT_CHANNEL)
   endif
 endif
