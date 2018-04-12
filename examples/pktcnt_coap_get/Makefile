@@ -24,7 +24,7 @@ else
 endif
 USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
-USEMODULE += gnrc_ipv6_default
+USEMODULE += gnrc_ipv6_router_default
 USEMODULE += gcoap
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
@@ -51,4 +51,6 @@ DEVELHELP ?= 1
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=200
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=200
 include $(RIOTBASE)/Makefile.include
