@@ -76,7 +76,7 @@ void *_consumer_event_loop(void *arg)
     char name[40];
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         xtimer_usleep(DELAY_REQUEST);
-        unsigned name_len = snprintf(name, 40, "/%s/gasval/%04d", PREFIX, i);
+        unsigned name_len = snprintf(name, 40, "/%s/%s/gasval/%04d", PREFIX, my_hwaddr_str, i);
         hopp_publish_content(name, name_len, (unsigned char*)content, content_len);
     }
     return 0;
