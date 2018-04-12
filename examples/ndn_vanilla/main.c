@@ -96,7 +96,7 @@ void *_consumer_event_loop(void *arg)
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
             xtimer_usleep(DELAY_REQUEST);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
-            snprintf(req_uri, 40, "%s/gasval/%02d", s, i);
+            snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
             //printf("request : %s\n", req_uri);
             a[1]= req_uri;
             _ccnl_interest(2, (char **)a);
