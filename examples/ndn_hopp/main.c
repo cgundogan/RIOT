@@ -44,8 +44,15 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
 #ifndef DELAY_REQUEST
-#define DELAY_REQUEST           (1000000u) // us
+#define DELAY_REQUEST           (1000000u) // us = 1sec
 #endif
+
+#ifndef DELAY_JITTER
+#define DELAY_JITTER            (250000) // us = 0,25sec
+#endif
+
+#define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
+#define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
@@ -75,7 +82,7 @@ void *_consumer_event_loop(void *arg)
     /* periodically request content items */
     char name[40];
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
-        xtimer_usleep(DELAY_REQUEST);
+        xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
         unsigned name_len = snprintf(name, 40, "/%s/%s/gasval/%04d", PREFIX, my_hwaddr_str, i);
         hopp_publish_content(name, name_len, (unsigned char*)content, content_len);
     }
