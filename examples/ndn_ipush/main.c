@@ -91,7 +91,7 @@ void *_consumer_event_loop(void *arg)
     for (unsigned i=0; i<NUM_PUBLISHES_NODE; i++) {
         xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
         snprintf(req_uri, 100, "/%s/%s/gasval/%04d/%s", PREFIX, my_hwaddr_str, i, I3_DATA);
-        printf("push : %s\n size of string: %i\n", req_uri, strlen(req_uri));
+        //printf("push : %s\n size of string: %i\n", req_uri, strlen(req_uri));
         a[1]= req_uri;
         _ccnl_interest(2, (char **)a);
     }
