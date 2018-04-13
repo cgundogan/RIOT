@@ -308,7 +308,7 @@ int gcoap_cli_cmd(int argc, char **argv)
 static void *data_gen(void *arg)
 {
     (void)arg;
-    while (1) {
+    for (int i = 0; i < 3600; i++) {
         uint8_t buf[GCOAP_PDU_BUF_SIZE];
         coap_pkt_t pdu;
         size_t len;
