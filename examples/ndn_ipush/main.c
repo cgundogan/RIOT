@@ -252,9 +252,6 @@ int main(void)
 
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
 
-    uint16_t chan = 11;
-    gnrc_netapi_set(netif->pid, NETOPT_CHANNEL, 0, &chan, sizeof(chan));
-
     /* set the relay's PID, configure the interface to use CCN nettype */
     if (ccnl_open_netif(netif->pid, GNRC_NETTYPE_CCN) < 0) {
         puts("Error registering at network interface!");
