@@ -44,8 +44,15 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
 #ifndef DELAY_REQUEST
-#define DELAY_REQUEST           (1000000u) // us
+#define DELAY_REQUEST           (30 * 1000000) // us = 30sec
 #endif
+
+#ifndef DELAY_JITTER
+#define DELAY_JITTER            (15 * 1000000) // us = 15sec
+#endif
+
+#define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
+#define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
@@ -75,14 +82,14 @@ uint8_t pktcnt_running = 0;
 
 extern int _ccnl_interest(int argc, char **argv);
 
-/*static int _count_fib_entries(void) {
+static uint32_t _count_fib_entries(void) {
     int num_fib_entries = 0;
     struct ccnl_forward_s *fwd;
     for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
         num_fib_entries++;
     }
     return num_fib_entries;
-}*/
+}
 
 void *_consumer_event_loop(void *arg)
 {
@@ -92,9 +99,12 @@ void *_consumer_event_loop(void *arg)
     char *a[2];
     char s[CCNL_MAX_PREFIX_SIZE];
     struct ccnl_forward_s *fwd;
+    int nodes_num = _count_fib_entries();
+    uint32_t delay = 0;
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
-            xtimer_usleep(DELAY_REQUEST);
+            delay = (uint32_t)((float)random_uint32_range(DELAY_MIN, DELAY_MAX)/(float)nodes_num);
+            xtimer_usleep(delay);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
             //printf("request : %s\n", req_uri);
