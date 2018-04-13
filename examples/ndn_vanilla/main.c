@@ -40,7 +40,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define I3_DATA     "{\"id\":\"0x12a77af232\",\"val\":3000}"
 
 #ifndef NUM_REQUESTS_NODE
-#define NUM_REQUESTS_NODE            (3600u)
+#define NUM_REQUESTS_NODE       (3600u)
 #endif
 
 #ifndef DELAY_REQUEST
@@ -60,15 +60,6 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #ifndef HOPP_PRIO
 #define HOPP_PRIO (HOPP_PRIO - 3)
-#endif
-
-#ifdef MODULE_IEEE802154
-/* hwaddr of m3-34 in grenoble */
-#define HWADDR_CONSUMER         "03:68:39:36:32:48:33:d6"
-#else
-/* use this for native */
-//#define HWADDR_CONSUMER         "12:34:56:78:90:12"
-#define HWADDR_CONSUMER         "ff:ff:ff:ff:ff:ff"
 #endif
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
@@ -107,7 +98,6 @@ void *_consumer_event_loop(void *arg)
             xtimer_usleep(delay);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
-            //printf("request : %s\n", req_uri);
             a[1]= req_uri;
             _ccnl_interest(2, (char **)a);
         }
@@ -124,39 +114,6 @@ static int _req_start(int argc, char **argv)
     }
     /* unset local producer function for consumer node */
     ccnl_set_local_producer(NULL);
-/*
-    // set FIB manually
-    char fib_uri[40];
-    snprintf(fib_uri, 40, "/%s/%s", PREFIX, HWADDR_CONSUMER);
-
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(fib_uri, CCNL_SUITE_NDNTLV, NULL, 0);
-    if (!prefix) {
-        puts("Error: prefix could not be created!");
-        return -1;
-    }
-
-
-    uint8_t relay_addr[GNRC_NETIF_L2ADDR_MAXLEN];
-    memset(relay_addr, UINT8_MAX, GNRC_NETIF_L2ADDR_MAXLEN);
-    size_t addr_len = gnrc_netif_addr_from_str(HWADDR_CONSUMER, relay_addr);
-
-    sockunion sun;
-    sun.sa.sa_family = AF_PACKET;
-    memcpy(&(sun.linklayer.sll_addr), relay_addr, addr_len);
-    sun.linklayer.sll_halen = addr_len;
-    sun.linklayer.sll_protocol = htons(ETHERTYPE_NDN);
-    struct ccnl_face_s *fibface = ccnl_get_face_or_create(&ccnl_relay, 0, &(sun.sa), sizeof(sun.sa));
-    if (fibface == NULL) {
-        return -1;
-    }
-    fibface->flags |= CCNL_FACE_FLAGS_STATIC;
-
-    if (ccnl_fib_add_entry(&ccnl_relay, prefix, fibface) != 0) {
-        printf("Error adding to the FIB\n");
-        return -1;
-    }
-    _count_fib_entries();
-*/
     thread_create(_consumer_stack, sizeof(_consumer_stack),
                   CONSUMER_THREAD_PRIORITY,
                   THREAD_CREATE_STACKTEST, _consumer_event_loop,
@@ -219,7 +176,6 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
             struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
             c = ccnl_content_new(&pk);
             ccnl_content_add2cache(relay, c);
-            //c->flags |= CCNL_CONTENT_FLAGS_STATIC;
         }
     }
     return 0;
@@ -260,7 +216,6 @@ static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
     snprintf(scratch, sizeof(scratch)/sizeof(scratch[0]),
              "/%.*s/%.*s", pkt->pfx->complen[0], pkt->pfx->comp[0],
                            pkt->pfx->complen[1], pkt->pfx->comp[1]);
-    //printf("PUBLISHED: %s\n", scratch);
     prefix = ccnl_URItoPrefix(scratch, CCNL_SUITE_NDNTLV, NULL, NULL);
 
     from->flags |= CCNL_FACE_FLAGS_STATIC;
