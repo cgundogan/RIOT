@@ -66,8 +66,6 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
-static char _consumer_stack[1024];
-
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
 
@@ -114,7 +112,8 @@ static int _req_start(int argc, char **argv)
     }
     /* unset local producer function for consumer node */
     ccnl_set_local_producer(NULL);
-    thread_create(_consumer_stack, sizeof(_consumer_stack),
+    memset(hopp_stack, 0, HOPP_STACKSZ);
+    thread_create(hopp_stack, sizeof(hopp_stack),
                   CONSUMER_THREAD_PRIORITY,
                   THREAD_CREATE_STACKTEST, _consumer_event_loop,
                   NULL, "consumer");
@@ -230,6 +229,7 @@ static int _publish(int argc, char **argv)
 
     char name[30];
     int name_len = sprintf(name, "/%s/%s", PREFIX, my_hwaddr_str);
+    xtimer_usleep(random_uint32_range(0, 1000000));
     if(!hopp_publish_content(name, name_len, NULL, 0)) {
         return 1;
     }
