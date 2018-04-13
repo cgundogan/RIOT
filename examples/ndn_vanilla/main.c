@@ -64,6 +64,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
+uint64_t my_hwaddr_num = 0;
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
 /* state for running pktcnt module */
@@ -194,10 +195,13 @@ static int _root(int argc, char **argv)
 static int _hopp_end(int argc, char **argv) {
     (void)argc;
     (void)argv;
+    uint32_t the_fib_count = _count_fib_entries();
+    printf("FIBCOUNT: %lu\n", the_fib_count);
 #ifdef MODULE_HOPP
     msg_t msg = { .type = HOPP_STOP_MSG, .content.ptr = NULL };
-    if (msg_send(&msg, hopp_pid) <= 0) {
-        puts("Error sending HOPP_STOP_MSG message");
+    int ret = msg_send(&msg, hopp_pid);
+    if (ret <= 0) {
+        printf("Error sending HOPP_STOP_MSG message to %d. ret=%d\n", hopp_pid, ret);
         return 1;
     }
 #endif
@@ -229,7 +233,7 @@ static int _publish(int argc, char **argv)
 
     char name[30];
     int name_len = sprintf(name, "/%s/%s", PREFIX, my_hwaddr_str);
-    xtimer_usleep(random_uint32_range(0, 1000000));
+    xtimer_usleep(random_uint32_range(0, 10000000));
     if(!hopp_publish_content(name, name_len, NULL, 0)) {
         return 1;
     }
@@ -285,6 +289,8 @@ int main(void)
 #endif
     gnrc_netif_addr_to_str(my_hwaddr, sizeof(my_hwaddr), my_hwaddr_str);
     printf("My ID is: %s\n", my_hwaddr_str);
+
+    memcpy(&my_hwaddr_num, my_hwaddr, sizeof(my_hwaddr)/sizeof(my_hwaddr[0]));
 
 #ifdef MODULE_HOPP
     hopp_netif = netif;
