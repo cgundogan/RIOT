@@ -215,7 +215,7 @@ int gcoap_cli_cmd(int argc, char **argv)
 
 void gcoap_cli_init(void)
 {
-    while (1) {
+    for (int i = 0; i < 3600; i++) {
         gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
         xtimer_sleep(1U);
     }
