@@ -83,6 +83,7 @@
 extern char hopp_stack[HOPP_STACKSZ];
 extern gnrc_netif_t *hopp_netif;
 extern kernel_pid_t hopp_pid;
+extern compas_dodag_t dodag;
 
 typedef void (*hopp_cb_published)(struct ccnl_relay_s *relay,
                                   struct ccnl_pkt_s *pkt,

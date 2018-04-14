@@ -36,7 +36,7 @@ kernel_pid_t hopp_pid;
 static struct ccnl_face_s *loopback_face;
 static msg_t hopp_q[HOPP_QSZ];
 static evtimer_msg_t evtimer;
-static compas_dodag_t dodag;
+compas_dodag_t dodag;
 static evtimer_msg_event_t sol_msg_evt = { .msg.type = HOPP_SOL_MSG };
 static evtimer_msg_event_t pam_msg_evt = { .msg.type = HOPP_PAM_MSG };
 static evtimer_msg_event_t nam_msg_evt = { .msg.type = HOPP_NAM_MSG, .msg.content.value = 0x00 };

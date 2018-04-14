@@ -64,7 +64,6 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
-uint64_t my_hwaddr_num = 0;
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
 static int my_macid = -1;
@@ -582,7 +581,6 @@ static int _hopp_end(int argc, char **argv) {
     return 0;
 }
 
-
 static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
                          struct ccnl_face_s *from)
 {
@@ -593,7 +591,7 @@ static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
     snprintf(scratch, sizeof(scratch)/sizeof(scratch[0]),
              "/%.*s/%.*s", pkt->pfx->complen[0], pkt->pfx->comp[0],
                            pkt->pfx->complen[1], pkt->pfx->comp[1]);
-    printf("GEPUBLISHED: %s\n", scratch);
+    printf("PUBLISHED: %s\n", scratch);
     prefix = ccnl_URItoPrefix(scratch, CCNL_SUITE_NDNTLV, NULL, NULL);
 
     from->flags |= CCNL_FACE_FLAGS_STATIC;
@@ -612,6 +610,7 @@ static int _publish(int argc, char **argv)
     char name[30];
     int name_len = sprintf(name, "/%s/%s", PREFIX, my_macid_str);
     xtimer_usleep(random_uint32_range(0, 10000000));
+    printf("RANK: %u\n", dodag.rank);
     if(!hopp_publish_content(name, name_len, NULL, 0)) {
         return 1;
     }
@@ -676,8 +675,6 @@ int main(void)
     }
 
     snprintf(my_macid_str, sizeof(my_macid_str), "%03d", my_macid);
-
-    memcpy(&my_hwaddr_num, my_hwaddr, sizeof(my_hwaddr)/sizeof(my_hwaddr[0]));
 
 #ifdef MODULE_HOPP
     hopp_netif = netif;
