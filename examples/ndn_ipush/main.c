@@ -39,16 +39,16 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #define I3_DATA     "{\"id\":\"0x12a77af232\",\"val\":3000}"
 
-#ifndef NUM_PUBLISHES_NODE
-#define NUM_PUBLISHES_NODE      (3600u)
+#ifndef NUM_REQUESTS_NODE
+#define NUM_REQUESTS_NODE      (3600u)
 #endif
 
 #ifndef DELAY_REQUEST
-#define DELAY_REQUEST           (1000000u) // us = 1sec
+#define DELAY_REQUEST           (30 * 1000000) // us = 30sec
 #endif
 
 #ifndef DELAY_JITTER
-#define DELAY_JITTER            (250000) // us = 0,25sec
+#define DELAY_JITTER            (15 * 1000000) // us = 15sec
 #endif
 
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
@@ -461,9 +461,9 @@ void *_consumer_event_loop(void *arg)
     /* periodically request content items */
     char req_uri[100];
     char *a[2];
-    for (unsigned i=0; i<NUM_PUBLISHES_NODE; i++) {
+    for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
-        snprintf(req_uri, 100, "/%s/%s/gasval/%04d/%s", PREFIX, my_hwaddr_str, i, I3_DATA);
+        snprintf(req_uri, 100, "/%s/%s/gasval/%04d/%s", PREFIX, my_macid_str, i, I3_DATA);
         //printf("push : %s\n size of string: %i\n", req_uri, strlen(req_uri));
         a[1]= req_uri;
         _ccnl_interest(2, (char **)a);
@@ -619,7 +619,7 @@ int main(void)
 #endif
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
 
-    puts("ndn_vanilla");
+    puts("ndn_ipush");
 
     ccnl_core_init();
 
