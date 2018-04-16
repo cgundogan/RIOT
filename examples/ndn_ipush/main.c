@@ -562,6 +562,7 @@ static int _hopp_end(int argc, char **argv) {
         printf("Error sending HOPP_STOP_MSG message to %d. ret=%d\n", hopp_pid, ret);
         return 1;
     }
+    printf("RANK: %u\n", dodag.rank);
 #endif
     return 0;
 }
@@ -595,7 +596,6 @@ static int _publish(int argc, char **argv)
     char name[30];
     int name_len = sprintf(name, "/%s/%s", PREFIX, my_macid_str);
     xtimer_usleep(random_uint32_range(0, 10000000));
-    printf("RANK: %u\n", dodag.rank);
     if(!hopp_publish_content(name, name_len, NULL, 0)) {
         return 1;
     }
@@ -650,7 +650,6 @@ int main(void)
     gnrc_netapi_get(netif->pid, NETOPT_ADDRESS_LONG, 0, my_hwaddr, sizeof(my_hwaddr));
 #endif
     gnrc_netif_addr_to_str(my_hwaddr, sizeof(my_hwaddr), my_hwaddr_str);
-    printf("My ID is: %s\n", my_hwaddr_str);
 
     for (int i = 0; i < MACMAPSZ; i++) {
         if (!strcmp(my_hwaddr_str, macmap[i])) {
@@ -661,6 +660,7 @@ int main(void)
 
     snprintf(my_macid_str, sizeof(my_macid_str), "%03d", my_macid);
 
+    printf("hwaddr: %s, macid: %s\n", my_hwaddr_str, my_macid_str);
 #ifdef MODULE_HOPP
     hopp_netif = netif;
     hopp_pid = thread_create(hopp_stack, sizeof(hopp_stack), HOPP_PRIO,
