@@ -112,7 +112,7 @@ int main(void)
         return 1;
     }
 
-    while (1) {
+    for (int i = 0; i < 3600; i++) {
         xtimer_usleep(I3_INTERVAL);
 
         /* publish sensor data */
