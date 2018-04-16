@@ -482,6 +482,9 @@ static int _req_start(int argc, char **argv)
 static int _pktcnt_start(int argc, char **argv) {
     (void)argc;
     (void)argv;
+#ifdef MODULE_HOPP
+    printf("RANK: %u\n", dodag.rank);
+#endif
 #ifdef MODULE_PKTCNT
     /* init pktcnt */
     if (pktcnt_init() != PKTCNT_OK) {
@@ -552,7 +555,6 @@ int main(void)
     gnrc_netapi_get(netif->pid, NETOPT_ADDRESS_LONG, 0, my_hwaddr, sizeof(my_hwaddr));
 #endif
     gnrc_netif_addr_to_str(my_hwaddr, sizeof(my_hwaddr), my_hwaddr_str);
-    printf("My ID is: %s\n", my_hwaddr_str);
 
     for (int i = 0; i < MACMAPSZ; i++) {
         if (!strcmp(my_hwaddr_str, macmap[i])) {
@@ -562,6 +564,8 @@ int main(void)
     }
 
     snprintf(my_macid_str, sizeof(my_macid_str), "%03d", my_macid);
+
+    printf("hwaddr: %s, macid: %s\n", my_hwaddr_str, my_macid_str);
 
 #ifdef MODULE_HOPP
     hopp_netif = netif;
