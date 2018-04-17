@@ -569,7 +569,7 @@ static int _hopp_end(int argc, char **argv) {
     (void)argc;
     (void)argv;
     uint32_t the_fib_count = _count_fib_entries();
-    printf("FIBCOUNT: %lu\n", the_fib_count);
+    printf("FIBCOUNT: %"PRIu32"\n", the_fib_count);
 #ifdef MODULE_HOPP
     msg_t msg = { .type = HOPP_STOP_MSG, .content.ptr = NULL };
     int ret = msg_send(&msg, hopp_pid);
