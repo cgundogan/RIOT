@@ -208,7 +208,7 @@ static void log_hopp(uint8_t *payload)
 
     /* print rank for PAM */
     if (payload[2] == 0xC0) {
-        printf("RANK-%" PRIu16, (uint16_t)(payload[5] << 8) | (payload[6] & 0xFF));
+        printf("RANK-%" PRIu16, (uint16_t)(payload[6] << 8) | (payload[5] & 0xFF));
     }
     /* print name from NAM if it's has name type*/
     else if ((payload[2] == 0xC1) && (payload[4] == 0X00)) {
