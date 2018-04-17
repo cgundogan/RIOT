@@ -65,11 +65,17 @@
 #ifndef HOPP_NAM_MSG
 #define HOPP_NAM_MSG                (0xBEF2)
 #endif
+#ifndef HOPP_NAM_TRIGGER_MSG
+#define HOPP_NAM_TRIGGER_MSG        (0xBEF3)
+#endif
+#ifndef HOPP_NAM_DEL_MSG
+#define HOPP_NAM_DEL_MSG            (0xBEF4)
+#endif
 #ifndef HOPP_PARENT_TIMEOUT_MSG
-#define HOPP_PARENT_TIMEOUT_MSG     (0xBFF3)
+#define HOPP_PARENT_TIMEOUT_MSG     (0xBFF5)
 #endif
 #ifndef HOPP_STOP_MSG
-#define HOPP_STOP_MSG               (0xBFF4)
+#define HOPP_STOP_MSG               (0xBFF6)
 #endif
 
 #ifndef HOPP_NAM_STALE_TIME
