@@ -39,9 +39,10 @@ static evtimer_msg_t evtimer;
 compas_dodag_t dodag;
 static evtimer_msg_event_t sol_msg_evt = { .msg.type = HOPP_SOL_MSG };
 static evtimer_msg_event_t pam_msg_evt = { .msg.type = HOPP_PAM_MSG };
-static evtimer_msg_event_t nam_msg_evt = { .msg.type = HOPP_NAM_MSG, .msg.content.value = 0x00 };
+//static evtimer_msg_event_t nam_msg_evt = { .msg.type = HOPP_NAM_MSG };
 static evtimer_msg_event_t pto_msg_evt = { .msg.type = HOPP_PARENT_TIMEOUT_MSG };
 static uint32_t nce_times[COMPAS_NAM_CACHE_LEN];
+static evtimer_msg_event_t nam_msg_evts[COMPAS_NAM_CACHE_LEN];
 
 static hopp_cb_published cb_published = NULL;
 
@@ -56,7 +57,7 @@ static void hopp_parent_timeout(compas_dodag_t *dodag)
     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
     dodag->parent.alive = false;
     msg_t m = { .type = HOPP_SOL_MSG, .content.value = 0 };
-    msg_send(&m, sched_active_pid);
+    msg_try_send(&m, hopp_pid);
 }
 
 static bool hopp_send(gnrc_pktsnip_t *pkt, uint8_t *addr, uint8_t addr_len)
@@ -125,9 +126,11 @@ static void hopp_send_sol(compas_dodag_t *dodag)
     }
     else {
         dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
+        /*
         if (dodag->rank != COMPAS_DODAG_UNDEF) {
             flags = COMPAS_SOL_FLAGS_TRICKLE;
         }
+        */
         if (dodag->parent.alive) {
             hopp_parent_timeout(dodag);
         }
@@ -179,11 +182,14 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
         (state == COMPAS_PAM_RET_CODE_NONFLOATINGDODAG_WORSERANK)) {
 
         if (old_rank != dodag->rank) {
+            /*
             trickle_init(&dodag->trickle, HOPP_TRICKLE_IMIN, HOPP_TRICKLE_IMAX, HOPP_TRICKLE_REDCONST);
             uint64_t trickle_int = trickle_next(&dodag->trickle);
             evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
             ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
-            evtimer_add_msg(&evtimer, &pam_msg_evt, sched_active_pid);
+            evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
+            */
+            hopp_send_pam(dodag, NULL, 0, false);
         }
 
         char dodag_prfx[COMPAS_PREFIX_LEN + 1];
@@ -209,29 +215,35 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                 if (nce->in_use) {
+                    unsigned pos = nce - dodag->nam_cache;
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
+                    nam_msg_evts->msg.type = HOPP_NAM_MSG;
+                    nam_msg_evts->msg.content.ptr = nce;
+                    evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                    ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
+                    evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
                 }
             }
-            msg_t msg = { .type = HOPP_NAM_MSG, .content.value = 0x00 };
-            msg_try_send(&msg, sched_active_pid);
         }
 
         ccnl_prefix_free(prefix);
 
         dodag->sol_num = 0;
 
+        /*
         if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
             dodag->sol_num = 0xFF;
             hopp_send_sol(dodag);
             dodag->sol_num = 0x0;
             return;
         }
+        */
 
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
 
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pto_msg_evt);
         ((evtimer_event_t *)&pto_msg_evt)->offset = HOPP_PARENT_TIMEOUT_PERIOD;
-        evtimer_add_msg(&evtimer, &pto_msg_evt, sched_active_pid);
+        evtimer_add_msg(&evtimer, &pto_msg_evt, hopp_pid);
 
         return;
     }
@@ -302,8 +314,16 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                     uint32_t now = xtimer_now_usec();
                     for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                         compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
+                        unsigned pos = nce - dodag->nam_cache;
                         if (nce->in_use && !lookup_cs(relay, nce, NULL) &&
-                            ((now - nce_times[nce - dodag->nam_cache]) > HOPP_NAM_STALE_TIME)) {
+                            ((now - nce_times[pos]) > HOPP_NAM_STALE_TIME)) {
+                            evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                            /*
+                            struct ccnl_content_s *c = NULL;
+                            if (lookup_cs(relay, nce, &c)) {
+                                ccnl_content_remove(relay, c);
+                            }
+                            */
                             memset(nce, 0, sizeof(*nce));
                             n = compas_nam_cache_add(dodag, &cname, &face);
                             break;
@@ -316,17 +336,19 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                 }
             }
             if (n) {
+                /*
                 struct ccnl_content_s *c = NULL;
                 if (lookup_cs(relay, n, &c)) {
                     ccnl_content_remove(relay, c);
                 }
+                */
                 nce_times[n - dodag->nam_cache] = xtimer_now_usec();
                 hopp_request(relay, n);
+                msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = n };
+                msg_try_send(&msg, hopp_pid);
             }
         }
     }
-    msg_t msg = { .type = HOPP_NAM_MSG, .content.value = 0x00 };
-    msg_send(&msg, sched_active_pid);
 
     return;
 }
@@ -356,7 +378,7 @@ static void hopp_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol,
         uint64_t trickle_int = trickle_next(&dodag->trickle);
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
         ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
-        evtimer_add_msg(&evtimer, &pam_msg_evt, sched_active_pid);
+        evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
     }
     else {
         hopp_send_pam(dodag, dst_addr, dst_addr_len, false);
@@ -395,6 +417,7 @@ static void hopp_dispatcher(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
     }
 }
 
+/*
 static void hopp_publish_send(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                               compas_nam_cache_entry_t *nce)
 {
@@ -407,7 +430,40 @@ static void hopp_publish_send(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
         hopp_send_nam(dodag, nce);
     }
 }
+*/
 
+static bool check_nce(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
+                      compas_nam_cache_entry_t *nce)
+{
+    struct ccnl_content_s *c = NULL;
+    if (nce->in_use && lookup_cs(relay, nce, &c)) {
+        if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
+            unsigned pos = nce - dodag->nam_cache;
+            evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+            /*
+            struct ccnl_content_s *c = NULL;
+            if (lookup_cs(relay, nce, &c)) {
+                ccnl_content_remove(relay, c);
+            }
+            */
+            memset(nce, 0, sizeof(*nce));
+            return false;
+        }
+        if (nce->retries > 0) {
+            nce->retries--;
+            hopp_send_nam(dodag, nce);
+            return true;
+        }
+        else {
+            dodag->sol_num = 0xFF;
+            hopp_parent_timeout(dodag);
+        }
+    }
+
+    return false;
+}
+
+/*
 static bool check_nce(struct ccnl_relay_s *relay, compas_dodag_t *dodag)
 {
     static size_t i = 0;
@@ -434,6 +490,7 @@ static bool check_nce(struct ccnl_relay_s *relay, compas_dodag_t *dodag)
 
     return false;
 }
+*/
 
 static int content_send(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt) {
     (void) relay;
@@ -444,8 +501,8 @@ static int content_send(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt) {
     compas_nam_cache_entry_t *n = compas_nam_cache_find(&dodag, &cname);
 
     if (n) {
-        msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = n };
-        msg_send(&msg, hopp_pid);
+        msg_t msg = { .type = HOPP_NAM_DEL_MSG, .content.ptr = n };
+        msg_try_send(&msg, hopp_pid);
     }
     return 1;
 }
@@ -465,8 +522,8 @@ static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p,
         if (cb_published) {
             cb_published(relay, p, from);
         }
-        msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = NULL };
-        msg_send(&msg, hopp_pid);
+        msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = n };
+        msg_try_send(&msg, hopp_pid);
     }
 
     ccnl_free(s);
@@ -499,6 +556,7 @@ void *hopp(void *arg)
         gnrc_pktsnip_t *pkt, *netif_snip;
         gnrc_netif_hdr_t *netif_hdr;
         compas_nam_cache_entry_t *nce;
+        unsigned pos = 0;
 
         switch (msg.type) {
             case HOPP_SOL_MSG:
@@ -526,31 +584,40 @@ void *hopp(void *arg)
                     evtimer_add_msg(&evtimer, &pam_msg_evt, sched_active_pid);
                 }
                 break;
+            /*
+            case HOPP_NAM_TRIGGER_MSG:
+                if (!nam_running) {
+                    msg_t msg = { .type = HOPP_NAM_MSG };
+                    msg_try_send(&msg, sched_active_pid);
+                }
+                break;
+            */
             case HOPP_NAM_MSG:
                 nce = (compas_nam_cache_entry_t *) msg.content.ptr;
+                pos = nce - dodag.nam_cache;
+                evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
                 if (dodag.rank != COMPAS_DODAG_UNDEF) {
-                    if (nce) {
-                        /*
-                        for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
-                            char *spref = ccnl_prefix_to_path(c->pkt->pfx);
-                            if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
-                                ccnl_free(spref);
-                                ccnl_content_remove(relay, c);
-                                break;
-                            }
-                            ccnl_free(spref);
-                        }
-                        */
-                        memset(nce, 0, sizeof(*nce));
-                    }
                     if ((dodag.parent.alive || dodag.rank == COMPAS_DODAG_ROOT_RANK) &&
-                         check_nce(relay, &dodag)) {
-                        evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evt);
-                        ((evtimer_event_t *)&nam_msg_evt)->offset = HOPP_NAM_PERIOD;
-                        evtimer_add_msg(&evtimer, &nam_msg_evt, sched_active_pid);
+                         check_nce(relay, &dodag, nce)) {
+                        nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
+                        nam_msg_evts[pos].msg.content.ptr = nce;
+                        ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
+                        evtimer_add_msg(&evtimer, &nam_msg_evts[pos], sched_active_pid);
                     }
                 }
 
+                break;
+            case HOPP_NAM_DEL_MSG:
+                nce = (compas_nam_cache_entry_t *) msg.content.ptr;
+                pos = nce - dodag.nam_cache;
+                evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                /*
+                struct ccnl_content_s *c = NULL;
+                if (lookup_cs(relay, nce, &c)) {
+                    ccnl_content_remove(relay, c);
+                }
+                */
+                memset(nce, 0, sizeof(*nce));
                 break;
             case HOPP_PARENT_TIMEOUT_MSG:
                 hopp_parent_timeout(&dodag);
@@ -606,7 +673,7 @@ bool hopp_publish_content(const char *name, size_t name_len,
         struct ccnl_content_s *c = ccnl_mkContentObject(prefix, content, content_len, NULL);
         ccnl_prefix_free(prefix);
         ccnl_content_add2cache(&ccnl_relay, c);
-        msg_t msg = { .type = HOPP_NAM_MSG, .content.value = 0x00 };
+        msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
 
         return true;
