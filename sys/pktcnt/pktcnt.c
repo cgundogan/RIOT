@@ -119,6 +119,7 @@ static void log_l2_rx(gnrc_pktsnip_t *pkt)
                                          netif_hdr->src_l2addr_len, addr_str));
     printf("%s ", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_dst_addr(netif_hdr),
                                          netif_hdr->dst_l2addr_len, addr_str));
+    printf("seq=%u ", (unsigned)netif_hdr->seq);
     printf("%u ", (unsigned)pkt->size);
 }
 
