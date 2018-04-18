@@ -255,24 +255,6 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
     return;
 }
 
-void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
-{
-    static unsigned char int_buf[HOPP_INTEREST_BUFSIZE];
-    char name[COMPAS_NAME_LEN + 1];
-    memcpy(name, nce->name.name, nce->name.name_len);
-    name[nce->name.name_len] = '\0';
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
-    sockunion su;
-    memset(&su, 0, sizeof(su));
-    su.sa.sa_family = AF_PACKET;
-    su.linklayer.sll_halen = nce->face.face_addr_len;
-    memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
-    struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
-    memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
-    ccnl_interest_opts_u int_opts = { .ndntlv.mustbefresh = true, .ndntlv.nonce = 0 };
-    ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, &int_opts, to);
-}
-
 static bool lookup_cs(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce,
                       struct ccnl_content_s **c_out)
 {
@@ -288,6 +270,28 @@ static bool lookup_cs(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce,
         ccnl_free(spref);
     }
     return false;
+}
+
+void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
+{
+    static unsigned char int_buf[HOPP_INTEREST_BUFSIZE];
+    char name[COMPAS_NAME_LEN + 1];
+    memcpy(name, nce->name.name, nce->name.name_len);
+    name[nce->name.name_len] = '\0';
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+    sockunion su;
+    memset(&su, 0, sizeof(su));
+    su.sa.sa_family = AF_PACKET;
+    su.linklayer.sll_halen = nce->face.face_addr_len;
+    memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
+    struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
+    memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
+    struct ccnl_content_s *c = NULL;
+    if (lookup_cs(relay, nce, &c)) {
+        //ccnl_content_remove(relay, c);
+    }
+    ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to);
+    ccnl_prefix_free(prefix);
 }
 
 static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
@@ -436,8 +440,8 @@ static bool check_nce(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                       compas_nam_cache_entry_t *nce)
 {
     struct ccnl_content_s *c = NULL;
-    if (nce->in_use && lookup_cs(relay, nce, &c)) {
-        if (dodag->rank == COMPAS_DODAG_ROOT_RANK) {
+    if (nce->in_use) {
+        if (!lookup_cs(relay, nce, &c) || (dodag->rank == COMPAS_DODAG_ROOT_RANK)) {
             unsigned pos = nce - dodag->nam_cache;
             evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
             /*
