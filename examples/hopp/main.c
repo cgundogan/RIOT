@@ -43,6 +43,7 @@ static int _root(int argc, char **argv)
     return 0;
 }
 
+/*
 static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
                          struct ccnl_face_s *from)
 {
@@ -60,6 +61,7 @@ static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt,
     ccnl_fib_add_entry(relay, ccnl_prefix_dup(prefix), from);
     ccnl_prefix_free(prefix);
 }
+*/
 
 static int _publish(int argc, char **argv)
 {
@@ -119,7 +121,7 @@ int main(void)
         return 1;
     }
 
-    hopp_set_cb_published(cb_published);
+    //hopp_set_cb_published(cb_published);
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
