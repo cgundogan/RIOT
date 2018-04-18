@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "div.h"
 #include "pktcnt.h"
 #include "net/gnrc.h"
 #include "net/ipv6/hdr.h"
@@ -10,6 +11,7 @@
 #include "net/protnum.h"
 #include "net/sixlowpan.h"
 #include "thread.h"
+#include "xtimer.h"
 
 #ifdef MODULE_SIXLOWPAN
 #define NETREG_TYPE     (GNRC_NETTYPE_SIXLOWPAN)
@@ -54,7 +56,12 @@ const char *typestr[] = { "STARTUP", "PKT_TX", "PKT_RX", };
 
 static void log_event(int type)
 {
-    printf("%s %s %s ", keyword, ctx.id, typestr[type]);
+    uint64_t now = xtimer_now_usec64();
+    /* now overflows for after ~71.5 min! */
+    printf("%s %lu.%06lu %s %s ", keyword,
+           (unsigned long)div_u64_by_1000000(now),
+           (unsigned long)now % US_PER_SEC,
+           ctx.id, typestr[type]);
 }
 
 static void _log_tx(gnrc_pktsnip_t *pkt);
