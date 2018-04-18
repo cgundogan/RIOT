@@ -269,7 +269,8 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
     struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
-    ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to);
+    ccnl_interest_opts_u int_opts = { .ndntlv.mustbefresh = true, .ndntlv.nonce = 0 };
+    ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, &int_opts, to);
 }
 
 static bool lookup_cs(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce,
