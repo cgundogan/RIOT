@@ -60,10 +60,11 @@ static void log_event(int type)
 {
     uint64_t now = xtimer_now_usec64();
     /* now overflows for after ~71.5 min! */
-    printf("%s %lu.%06lu %s %s ", keyword,
+    printf("%s %s %s %lu.%06lu ", keyword,
+           ctx.id, typestr[type],
            (unsigned long)div_u64_by_1000000(now),
-           (unsigned long)now % US_PER_SEC,
-           ctx.id, typestr[type]);
+           (unsigned long)now % US_PER_SEC
+       );
 }
 
 static void _log_tx(gnrc_pktsnip_t *pkt);
