@@ -33,6 +33,8 @@ char hopp_stack[HOPP_STACKSZ];
 gnrc_netif_t *hopp_netif;
 kernel_pid_t hopp_pid;
 
+extern kernel_pid_t _ccnl_event_loop_pid;
+
 static struct ccnl_face_s *loopback_face;
 static msg_t hopp_q[HOPP_QSZ];
 static evtimer_msg_t evtimer;
@@ -255,23 +257,6 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
     return;
 }
 
-static bool lookup_cs(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce,
-                      struct ccnl_content_s **c_out)
-{
-    for (struct ccnl_content_s *c = relay->contents; c; c = c->next) {
-        char *spref = ccnl_prefix_to_path(c->pkt->pfx);
-        if (memcmp(nce->name.name, spref, strlen(spref)) == 0) {
-            if (c_out) {
-                *c_out = c;
-            }
-            ccnl_free(spref);
-            return true;
-        }
-        ccnl_free(spref);
-    }
-    return false;
-}
-
 void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
 {
     static unsigned char int_buf[HOPP_INTEREST_BUFSIZE];
@@ -286,11 +271,13 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
     struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
-    struct ccnl_content_s *c = NULL;
-    if (lookup_cs(relay, nce, &c)) {
-        ccnl_content_remove(relay, c);
+
+    msg_t mr, ms = { .type = CCNL_MSG_DEL_CS, .content.ptr = nce->name.name };
+    msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+
+    if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) != 0) {
+        puts("hopp: failed to send Interest");
     }
-    ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to);
     ccnl_prefix_free(prefix);
 }
 
@@ -322,12 +309,6 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                         if (nce->in_use && !compas_nam_cache_requested(nce->flags) &&
                             ((now - nce_times[pos]) > HOPP_NAM_STALE_TIME)) {
                             evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
-                            /*
-                            struct ccnl_content_s *c = NULL;
-                            if (lookup_cs(relay, nce, &c)) {
-                                ccnl_content_remove(relay, c);
-                            }
-                            */
                             memset(nce, 0, sizeof(*nce));
                             n = compas_nam_cache_add(dodag, &cname, &face);
                             break;
@@ -340,12 +321,6 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                 }
             }
             if (n) {
-                /*
-                struct ccnl_content_s *c = NULL;
-                if (lookup_cs(relay, n, &c)) {
-                    ccnl_content_remove(relay, c);
-                }
-                */
                 nce_times[n - dodag->nam_cache] = xtimer_now_usec();
                 hopp_request(relay, n);
 #if 0
@@ -430,21 +405,21 @@ static void hopp_nce_del(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     memset(nce, 0, sizeof(*nce));
 }
 
-static bool check_nce(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
-                      compas_nam_cache_entry_t *nce)
+static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
-    struct ccnl_content_s *c = NULL;
     if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
+        msg_t mr, ms = { .type = CCNL_MSG_IN_CS, .content.ptr = nce->name.name };
+        msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+        if (!mr.content.value) {
+            hopp_nce_del(dodag, nce);
+            return false;
+        }
         if (nce->retries > 0) {
             nce->retries--;
             hopp_send_nam(dodag, nce);
             return true;
         }
         else {
-            if (!lookup_cs(relay, nce, &c)) {
-                hopp_nce_del(dodag, nce);
-                return false;
-            }
             dodag->sol_num = 0xFF;
             hopp_parent_timeout(dodag);
         }
@@ -560,7 +535,7 @@ void *hopp(void *arg)
                 evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
                 if (dodag.rank != COMPAS_DODAG_UNDEF) {
                     if ((dodag.parent.alive || dodag.rank == COMPAS_DODAG_ROOT_RANK) &&
-                         check_nce(relay, &dodag, nce)) {
+                         check_nce(&dodag, nce)) {
                         nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
                         nam_msg_evts[pos].msg.content.ptr = nce;
                         ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
@@ -627,7 +602,10 @@ bool hopp_publish_content(const char *name, size_t name_len,
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
         struct ccnl_content_s *c = ccnl_mkContentObject(prefix, content, content_len, NULL);
         ccnl_prefix_free(prefix);
-        ccnl_content_add2cache(&ccnl_relay, c);
+
+        msg_t mr, ms = { .type = CCNL_MSG_ADD_CS, .content.ptr = c };
+        msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
 
