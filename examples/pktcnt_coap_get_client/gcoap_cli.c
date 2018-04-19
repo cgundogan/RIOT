@@ -25,6 +25,7 @@
 #include "net/gcoap.h"
 #include "od.h"
 #include "fmt.h"
+#include "random.h"
 #include "xtimer.h"
 #include "net/gnrc/ipv6/nib/ft.h"
 #include "ps.h"

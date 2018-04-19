@@ -25,6 +25,7 @@
 #include "net/gcoap.h"
 #include "od.h"
 #include "fmt.h"
+#include "random.h"
 #include "xtimer.h"
 
 #define ENABLE_DEBUG (0)
