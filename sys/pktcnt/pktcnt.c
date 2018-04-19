@@ -51,7 +51,9 @@ static char pktcnt_stack[PKTCNT_STACKSIZE];
 static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
 static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
 static pktcnt_ctx_t ctx;
+#ifdef MODULE_GNRC_IPV6
 static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
+#endif
 
 const char *keyword = "PKT";
 const char *typestr[] = { "STARTUP", "PKT_TX", "PKT_RX", };
