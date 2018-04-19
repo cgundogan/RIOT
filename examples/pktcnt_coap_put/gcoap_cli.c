@@ -36,6 +36,15 @@
 #define I3_PORT     "5683"
 #define I3_PATH     "/i3/gasval"
 #define I3_DATA     "{\"id\":\"0x12a77af232\",\"val\":3000}"
+#ifndef I3_MIN_WAIT
+#define I3_MIN_WAIT (1)
+#endif
+#ifndef I3_MAX_WAIT
+#define I3_MAX_WAIT (1)
+#endif
+#ifndef I3_MAX_REQ
+#define I3_MAX_REQ      (3600U)
+#endif
 
 static char *i3_args[] = {
         "coap",
@@ -213,10 +222,20 @@ int gcoap_cli_cmd(int argc, char **argv)
     return 1;
 }
 
+static inline uint32_t _next_msg(void)
+{
+#if I3_MIN_WAIT < I3_MAX_WAIT
+    return random_uint32_range(I3_MIN_WAIT * MS_PER_SEC,
+                               I3_MAX_WAIT * MS_PER_SEC) * US_PER_MS;
+#else
+    return I3_MIN_WAIT * US_PER_SEC;
+#endif
+}
+
 void gcoap_cli_init(void)
 {
-    for (int i = 0; i < 3600; i++) {
+    for (int i = 0; i < I3_MAX_REQ; i++) {
         gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
-        xtimer_sleep(1U);
+        xtimer_usleep(_next_msg());
     }
 }
