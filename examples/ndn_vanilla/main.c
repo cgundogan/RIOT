@@ -54,6 +54,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
+#ifndef REQ_DELAY
+#define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
+#endif
+
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
 #endif
@@ -466,7 +470,7 @@ void *_consumer_event_loop(void *arg)
     uint32_t delay = 0;
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
-            delay = (uint32_t)((float)random_uint32_range(DELAY_MIN, DELAY_MAX)/(float)nodes_num);
+            delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
             xtimer_usleep(delay);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
