@@ -51,8 +51,8 @@ DEVELHELP ?= 1
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-CFLAGS += -DGNRC_IPV6_NIB_NUMOF=200
-CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=200
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=50
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=50
 include $(RIOTBASE)/Makefile.include
 
 

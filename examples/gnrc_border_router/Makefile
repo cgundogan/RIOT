@@ -26,7 +26,7 @@ ifeq (,$(filter native,$(BOARD)))
   USEMODULE += ethos
 
   # ethos baudrate can be configured from make command
-  ifneq (,$(filter iotlab-%,$(BOARD)))
+  ifeq (,$(filter iotlab-%,$(BOARD)))
     ETHOS_BAUDRATE ?= 115200
   else
     ETHOS_BAUDRATE ?= 500000
@@ -110,15 +110,15 @@ TERMFLAGS ?= $(PORT) $(TAP) $(IPV6_PREFIX)
 TERMDEPS += host-tools
 endif
 
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=50
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=50
+
 include $(RIOTBASE)/Makefile.include
 
 .PHONY: host-tools
 
 host-tools:
 	$(Q)env -u CC -u CFLAGS make -C $(RIOTTOOLS)
-
-CFLAGS += -DGNRC_IPV6_NIB_NUMOF=200
-CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=200
 
 # Set a custom channel if needed
 ifneq (,$(filter cc110x,$(USEMODULE)))          # radio is cc110x sub-GHz
