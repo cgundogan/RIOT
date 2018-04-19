@@ -38,6 +38,7 @@
 #define NDN_DATA_TYPE       (0x06U)
 
 enum {
+    TYPE_TIMER,
     TYPE_STARTUP,
     TYPE_PKT_TX,
     TYPE_PKT_RX,
@@ -56,7 +57,7 @@ static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 #endif
 
 const char *keyword = "PKT";
-const char *typestr[] = { "STARTUP", "PKT_TX", "PKT_RX", };
+const char *typestr[] = { "TIMER", "STARTUP", "PKT_TX", "PKT_RX", };
 
 static void log_event(int type)
 {
@@ -119,6 +120,14 @@ int pktcnt_init(void)
     }
 
     return PKTCNT_OK;
+}
+
+void pktcnt_timer_init(void)
+{
+    strcpy(ctx.id, "00");
+    log_event(TYPE_TIMER);
+    memset(ctx.id, 0, sizeof(ctx.id));
+    puts("");
 }
 
 static void log_l2_rx(gnrc_pktsnip_t *pkt)

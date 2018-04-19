@@ -101,6 +101,14 @@ void auto_init(void)
     DEBUG("Auto init xtimer module.\n");
     xtimer_init();
 #endif
+#ifdef MODULE_PKTCNT
+    extern void pktcnt_timer_init(void);
+    pktcnt_timer_init();
+#endif
+#ifdef MODULE_SHT11
+    DEBUG("Auto init SHT11 module.\n");
+    sht11_init();
+#endif
 #ifdef MODULE_MCI
     DEBUG("Auto init mci module.\n");
     mci_initialize();
