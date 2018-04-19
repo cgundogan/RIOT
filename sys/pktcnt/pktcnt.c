@@ -313,18 +313,26 @@ static void log_icmpv6(icmpv6_hdr_t *hdr)
 
 static void log_flow(char *src, char *dst)
 {
-    printf("src=%s ", src);
-    printf("dst=%s ", dst);
+    if (src[0] != '\0') {
+        printf("src=%s ", src);
+        src[0] = '\0';
+    }
+    if (dst[0] != '\0') {
+        printf("dst=%s ", dst);
+        dst[0] = '\0';
+    }
 }
 #endif
 
 #ifdef MODULE_GNRC_SIXLOWPAN
+#include "od.h"
+
 static unsigned get_sixlo_src_len(uint8_t *data, char *src, int offset)
 {
     int res = 0;
     if (!(data[1] & SIXLOWPAN_IPHC2_SAC) && !(data[1] & SIXLOWPAN_IPHC2_SAM)) {
         /* source address is fully attached */
-        ipv6_addr_to_str(src, (ipv6_addr_t *)&data[offset], sizeof(src));
+        ipv6_addr_to_str(src, (ipv6_addr_t *)&data[offset], IPV6_ADDR_MAX_STR_LEN);
         res += sizeof(ipv6_addr_t);
     }
     else {
@@ -386,21 +394,21 @@ static int get_sixlo_dst_len(uint8_t *data, char *dst, int offset)
 
     if (!(data[1] & SIXLOWPAN_IPHC2_DAC) && !(data[1] & SIXLOWPAN_IPHC2_DAM)) {
         /* destination address is fully attached */
-        ipv6_addr_to_str(dst, (ipv6_addr_t *)&data[offset], sizeof(dst));
+        ipv6_addr_to_str(dst, (ipv6_addr_t *)&data[offset], IPV6_ADDR_MAX_STR_LEN);
         res += sizeof(ipv6_addr_t);
     }
     else if (data[1] & SIXLOWPAN_IPHC2_M) {
         /* XXX intentionally used = here */
         res = get_sixlo_multicast_dst_len(data);
-        memcpy(dst, "-", sizeof("-"));
+        memcpy(dst, "mcast", sizeof("mcast"));
     } else {
         switch (data[1] & SIXLOWPAN_IPHC2_DAM) {
             case 0x0:
                 if (data[1] & SIXLOWPAN_IPHC2_DAC) {
-                    memcpy(dst, "-", sizeof("-"));
                     /* reserved flag combination */
                     return -1;
                 }
+                ipv6_addr_to_str(dst, (ipv6_addr_t *)&data[offset], sizeof(dst));
                 break;
             case 0x1:
                 /* last 64 bits of destination address are carried inline */
@@ -601,8 +609,8 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
                 log_icmpv6((icmpv6_hdr_t *)&payload[sizeof(ipv6_hdr_t)]);
                 break;
             default:
-                log_flow(src, dst);
                 log_l2_rx(pkt);
+                log_flow(src, dst);
                 puts("UNKNOWN");
                 break;
 
@@ -659,7 +667,7 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
             switch (pkt->next->next->type) {
                 case GNRC_NETTYPE_UDP: {
                     udp_hdr_t *udp_hdr = pkt->next->next->data;
-                    /* XXX: assume next header compression is in effect */
+                    /* XXX: assume no next header compression is in effect */
                     ipv6_hdr_t *ipv6_hdr = pkt->next->data;
                     uint16_t src_port = byteorder_ntohs(udp_hdr->src_port);
                     uint16_t dst_port = byteorder_ntohs(udp_hdr->dst_port);
