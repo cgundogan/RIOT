@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "div.h"
+#include "fmt.h"
 #include "pktcnt.h"
 #include "net/gnrc.h"
 #include "net/ipv6/hdr.h"
@@ -43,13 +44,14 @@ enum {
 };
 
 typedef struct {
-    char id[23];
+    char id[24];
 } pktcnt_ctx_t;
 
 static char pktcnt_stack[PKTCNT_STACKSIZE];
 static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
 static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
 static pktcnt_ctx_t ctx;
+static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 
 const char *keyword = "PKT";
 const char *typestr[] = { "STARTUP", "PKT_TX", "PKT_RX", };
@@ -118,7 +120,7 @@ int pktcnt_init(void)
 
 static void log_l2_rx(gnrc_pktsnip_t *pkt)
 {
-    char addr_str[23];
+    char addr_str[24];
     gnrc_netif_hdr_t *netif_hdr = pkt->next->data;
 
     log_event(TYPE_PKT_RX);
@@ -132,7 +134,7 @@ static void log_l2_rx(gnrc_pktsnip_t *pkt)
 
 static void log_l2_tx(gnrc_pktsnip_t *pkt)
 {
-    char addr_str[23];
+    char addr_str[24];
     gnrc_netif_hdr_t *netif_hdr = pkt->data;
 
     log_event(TYPE_PKT_TX);
@@ -305,28 +307,40 @@ static void log_icmpv6(icmpv6_hdr_t *hdr)
 {
     printf("ICMPv6 %u(%u)\n", hdr->type, hdr->code);
 }
+
+static void log_flow(char *src, char *dst)
+{
+    printf("src=%s ", src);
+    printf("dst=%s ", dst);
+}
 #endif
 
 #ifdef MODULE_GNRC_SIXLOWPAN
-static unsigned get_sixlo_src_len(uint8_t *data)
+static unsigned get_sixlo_src_len(uint8_t *data, char *src, int offset)
 {
     int res = 0;
     if (!(data[1] & SIXLOWPAN_IPHC2_SAC) && !(data[1] & SIXLOWPAN_IPHC2_SAM)) {
         /* source address is fully attached */
+        ipv6_addr_to_str(src, (ipv6_addr_t *)&data[offset], sizeof(src));
         res += sizeof(ipv6_addr_t);
     }
     else {
         switch (data[1] & SIXLOWPAN_IPHC2_SAM) {
             case 0x1:
                 /* last 64 bits of source address are carried inline */
+                fmt_bytes_hex(src, &data[offset], sizeof(uint64_t));
+                src[sizeof(uint64_t)] = '\0';
                 res += sizeof(uint64_t);
                 break;
             case 0x2:
                 /* last 16 bits of source address are carried inline */
+                fmt_bytes_hex(src, &data[offset], sizeof(uint16_t));
+                src[sizeof(uint16_t)] = '\0';
                 res += sizeof(uint16_t);
                 break;
             default:
                 /* rest causes elision of source address */
+                memcpy(src, "l2_src", sizeof("l2_src"));
                 break;
         }
     }
@@ -363,35 +377,43 @@ static int get_sixlo_multicast_dst_len(uint8_t *data)
     return res;
 }
 
-static int get_sixlo_dst_len(uint8_t *data)
+static int get_sixlo_dst_len(uint8_t *data, char *dst, int offset)
 {
     int res = 0;
 
     if (!(data[1] & SIXLOWPAN_IPHC2_DAC) && !(data[1] & SIXLOWPAN_IPHC2_DAM)) {
         /* destination address is fully attached */
+        ipv6_addr_to_str(dst, (ipv6_addr_t *)&data[offset], sizeof(dst));
         res += sizeof(ipv6_addr_t);
     }
     else if (data[1] & SIXLOWPAN_IPHC2_M) {
         /* XXX intentionally used = here */
         res = get_sixlo_multicast_dst_len(data);
+        memcpy(dst, "-", sizeof("-"));
     } else {
         switch (data[1] & SIXLOWPAN_IPHC2_DAM) {
             case 0x0:
                 if (data[1] & SIXLOWPAN_IPHC2_DAC) {
+                    memcpy(dst, "-", sizeof("-"));
                     /* reserved flag combination */
                     return -1;
                 }
                 break;
             case 0x1:
                 /* last 64 bits of destination address are carried inline */
+                fmt_bytes_hex(dst, &data[offset], sizeof(uint64_t));
+                dst[sizeof(uint64_t)] = '\0';
                 res += sizeof(uint64_t);
                 break;
             case 0x2:
                 /* last 16 bits of destination address are carried inline */
+                fmt_bytes_hex(dst, &data[offset], sizeof(uint16_t));
+                dst[sizeof(uint16_t)] = '\0';
                 res += sizeof(uint16_t);
                 break;
             default:
                 /* rest causes elision of destination address */
+                memcpy(dst, "l2_dst", sizeof("l2_dst"));
                 break;
         }
     }
@@ -446,6 +468,7 @@ static unsigned get_sixlo_nhc_udp_len(uint8_t *data, uint16_t *src_port,
 }
 
 static int get_from_sixlo_dispatch(uint8_t *data, uint8_t *protnum,
+                                   char *src, char *dst,
                                    uint16_t *src_port, uint16_t *dst_port)
 {
     int res = SIXLOWPAN_IPHC_HDR_LEN;
@@ -480,8 +503,8 @@ static int get_from_sixlo_dispatch(uint8_t *data, uint8_t *protnum,
             /* CID extension is attached */
             res++;
         }
-        res += get_sixlo_src_len(data);
-        if ((tmp = get_sixlo_dst_len(data)) < 0) {
+        res += get_sixlo_src_len(data, src, res);
+        if ((tmp = get_sixlo_dst_len(data, dst, res)) < 0) {
             printf("WARNING: reseved 6Lo dst comp flags 0x%02x\n",
                    data[1] & (SIXLOWPAN_IPHC2_M | SIXLOWPAN_IPHC2_DAC |
                               SIXLOWPAN_IPHC2_DAM));
@@ -517,7 +540,8 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         uint16_t src_port = 0, dst_port = 0;
         uint8_t protnum = 0;
 
-        offset = get_from_sixlo_dispatch(payload, &protnum, &src_port, &dst_port);
+        offset = get_from_sixlo_dispatch(payload, &protnum, src, dst,
+                                         &src_port, &dst_port);
         if (offset < 0) {
             return;
         }
@@ -528,6 +552,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         switch (protnum) {
             case PROTNUM_UDP:
                 log_l2_rx(pkt);
+                log_flow(src, dst);
                 /* no next header compression */
                 if (src_port == 0) {
                     udp_hdr_t *udp_hdr = (udp_hdr_t *)&payload[offset];
@@ -543,6 +568,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
                 break;
             default:
                 log_l2_rx(pkt);
+                log_flow(src, dst);
                 puts("UNKNOWN");
                 break;
         }
@@ -552,6 +578,8 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         uint8_t *payload = pkt->data;
         ipv6_hdr_t *ipv6_hdr = pkt->data;
 
+        ipv6_addr_to_str(src, (ipv6_addr_t *)&ipv6_hdr->src, sizeof(src));
+        ipv6_addr_to_str(dst, (ipv6_addr_t *)&ipv6_hdr->dst, sizeof(dst));
         /* ipv6_hdr_print(ipv6_hdr); */
         switch (ipv6_hdr->nh) {
             case PROTNUM_UDP: {
@@ -560,6 +588,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
                 uint16_t src_port = byteorder_ntohs(udp_hdr->dst_port);
 
                 log_l2_rx(pkt);
+                log_flow(src, dst);
                 log_udp(&payload[sizeof(ipv6_hdr_t) + sizeof(udp_hdr_t)],
                         src_port, dst_port);
                 break;
@@ -569,6 +598,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
                 log_icmpv6((icmpv6_hdr_t *)&payload[sizeof(ipv6_hdr_t)]);
                 break;
             default:
+                log_flow(src, dst);
                 log_l2_rx(pkt);
                 puts("UNKNOWN");
                 break;
@@ -626,9 +656,15 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
             switch (pkt->next->next->type) {
                 case GNRC_NETTYPE_UDP: {
                     udp_hdr_t *udp_hdr = pkt->next->next->data;
+                    /* XXX: assume next header compression is in effect */
+                    ipv6_hdr_t *ipv6_hdr = pkt->next->data;
                     uint16_t src_port = byteorder_ntohs(udp_hdr->src_port);
                     uint16_t dst_port = byteorder_ntohs(udp_hdr->dst_port);
+
+                    ipv6_addr_to_str(src, (ipv6_addr_t *)&ipv6_hdr->src, sizeof(src));
+                    ipv6_addr_to_str(dst, (ipv6_addr_t *)&ipv6_hdr->dst, sizeof(dst));
                     log_l2_tx(pkt);
+                    log_flow(src, dst);
                     log_udp(pkt->next->next->next->data, src_port, dst_port);
                     break;
                 }
@@ -644,6 +680,7 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
                     uint8_t protnum = 0;
 
                     offset = get_from_sixlo_dispatch(pkt->next->data, &protnum,
+                                                     src, dst,
                                                      &src_port, &dst_port);
                     if (offset < 0) {
                         return;
@@ -657,6 +694,7 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
                     /* next header compression for UDP *is* activated  */
                     if ((protnum == PROTNUM_UDP) && (src_port != 0)) {
                         log_l2_tx(pkt);
+                        log_flow(src, dst);
                         log_udp(pkt->next->next->data, src_port, dst_port);
                         /* return early */
                         return;
@@ -668,6 +706,7 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
                             uint16_t src_port = byteorder_ntohs(udp_hdr->src_port);
                             uint16_t dst_port = byteorder_ntohs(udp_hdr->dst_port);
                             log_l2_tx(pkt);
+                            log_flow(src, dst);
                             log_udp(pkt->next->next->data, src_port, dst_port);
                             /* return early */
                             return;
