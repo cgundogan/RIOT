@@ -29,7 +29,7 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 #ifdef MODULE_TLSF
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     ((45 * 1024) / sizeof(uint32_t))
+#define TLSF_BUFFER     ((41 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
@@ -55,11 +55,16 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
 #ifndef REQ_DELAY
+//#define REQ_DELAY               (250000)
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
+#endif
+
+#ifndef CONSUMER_STACKSIZE
+#define CONSUMER_STACKSIZE (1024)
 #endif
 
 #ifndef HOPP_PRIO
@@ -70,7 +75,7 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static bool i_am_root = false;
 
-static char _consumer_stack[1024+128];
+static char _consumer_stack[CONSUMER_STACKSIZE];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;

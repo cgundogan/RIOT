@@ -274,8 +274,10 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
 
+    /*
     msg_t mr, ms = { .type = CCNL_MSG_DEL_CS, .content.ptr = nce->name.name };
     msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+    */
 
     if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) != 0) {
         puts("hopp: failed to send Interest");
@@ -592,13 +594,13 @@ void hopp_root_start(const char *prefix, size_t prefix_len)
 bool hopp_publish_content(const char *name, size_t name_len,
                           unsigned char *content, size_t content_len)
 {
-    compas_name_t cname;
+    static compas_name_t cname;
     compas_name_init(&cname, name, name_len);
     compas_nam_cache_entry_t *nce = compas_nam_cache_add(&dodag, &cname, NULL);
 
     if (nce) {
         nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
-        char prefix_n[COMPAS_NAME_LEN + 1];
+        static char prefix_n[COMPAS_NAME_LEN + 1];
         memcpy(prefix_n, cname.name, cname.name_len);
         prefix_n[cname.name_len] = '\0';
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
