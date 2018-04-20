@@ -33,6 +33,8 @@ char hopp_stack[HOPP_STACKSZ];
 gnrc_netif_t *hopp_netif;
 kernel_pid_t hopp_pid;
 
+static unsigned char _out[CCNL_MAX_PACKET_SIZE];
+
 extern kernel_pid_t _ccnl_event_loop_pid;
 
 static struct ccnl_face_s *loopback_face;
@@ -600,8 +602,19 @@ bool hopp_publish_content(const char *name, size_t name_len,
         memcpy(prefix_n, cname.name, cname.name_len);
         prefix_n[cname.name_len] = '\0';
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
-        struct ccnl_content_s *c = ccnl_mkContentObject(prefix, content, content_len, NULL);
+        int offs = CCNL_MAX_PACKET_SIZE;
+        content_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) content, content_len, NULL, NULL, &offs, _out);
         ccnl_prefix_free(prefix);
+        unsigned char *olddata;
+        unsigned char *data = olddata = _out + offs;
+        int len;
+        unsigned typ;
+        if (ccnl_ndntlv_dehead(&data, (int *)&content_len, (int*) &typ, &len) ||
+            typ != NDN_TLV_Data) {
+            return -1;
+        }
+        struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, (int *)&content_len);
+        struct ccnl_content_s *c = ccnl_content_new(&pk);
 
         msg_t mr, ms = { .type = CCNL_MSG_ADD_CS, .content.ptr = c };
         msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
