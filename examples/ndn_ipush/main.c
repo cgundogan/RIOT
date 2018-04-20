@@ -54,6 +54,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
+#ifndef REQ_DELAY
+#define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
+#endif
+
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
 #endif
@@ -462,7 +466,7 @@ void *_consumer_event_loop(void *arg)
     char req_uri[100];
     char *a[2];
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
-        xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
+        xtimer_usleep(REQ_DELAY);
         snprintf(req_uri, 100, "/%s/%s/gasval/%04d/%s", PREFIX, my_macid_str, i, I3_DATA);
         //printf("push : %s\n size of string: %i\n", req_uri, strlen(req_uri));
         a[1]= req_uri;
