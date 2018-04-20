@@ -54,6 +54,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
 
+#ifndef REQ_DELAY
+#define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
+#endif
+
 #ifndef CONSUMER_THREAD_PRIORITY
 #define CONSUMER_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 1)
 #endif
@@ -66,13 +70,10 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 static bool i_am_root = false;
 
-static char _consumer_stack[768];
+static char _consumer_stack[1024+128];
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
-
-static char content[33];
-static unsigned content_len = 0;
 
 static int my_macid = -1;
 static char my_macid_str[4];
@@ -454,10 +455,13 @@ void *_consumer_event_loop(void *arg)
 {
     (void)arg;
     /* periodically request content items */
-    char name[40];
+    static char name[40];
+    static char content[33];
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
-        xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
+        xtimer_usleep(REQ_DELAY);
         unsigned name_len = snprintf(name, 40, "/%s/%s/gasval/%04d", PREFIX, my_macid_str, i);
+        int content_len = sprintf(content, "%s", I3_DATA);
+        content[content_len]='\0';
         hopp_publish_content(name, name_len, (unsigned char*)content, content_len);
     }
     return 0;
@@ -529,8 +533,6 @@ int main(void)
     ccnl_core_init();
 
     ccnl_start();
-
-    content_len = snprintf(content, 33, "%s", I3_DATA);
 
     /* get the default interface */
     gnrc_netif_t *netif = gnrc_netif_iter(NULL);
