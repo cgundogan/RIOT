@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "shell.h"
 #include "thread.h"
 #include "xtimer.h"
 #include "net/emcute.h"
@@ -36,40 +37,50 @@
 #ifndef I3_BROKER
 #define I3_BROKER           "affe::1"
 #endif
-#define I3_INTERVAL         (1 * US_PER_SEC)
+#ifndef I3_MIN_WAIT
+#define I3_MIN_WAIT (1)
+#endif
+#ifndef I3_MAX_WAIT
+#define I3_MAX_WAIT (1)
+#endif
+#ifndef I3_MAX_PUB
+#define I3_MAX_PUB      (3600U)
+#endif
 #define I3_PORT             EMCUTE_DEFAULT_PORT
 
+#define PUB_GEN_STACK_SIZE (THREAD_STACKSIZE_MAIN)
+#define PUB_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
 
-static char stack[THREAD_STACKSIZE_DEFAULT];
+static char pub_gen_stack[PUB_GEN_STACK_SIZE];
+
+static char mqtt_stack[THREAD_STACKSIZE_DEFAULT];
 static const char *payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
 
-static void *emcute_thread(void *arg)
+static inline uint32_t _next_msg(void)
 {
-    (void)arg;
-    emcute_run(I3_PORT, I3_ID);
-    return NULL;    /* should never be reached */
+#if I3_MIN_WAIT < I3_MAX_WAIT
+    return random_uint32_range(I3_MIN_WAIT * MS_PER_SEC,
+                               I3_MAX_WAIT * MS_PER_SEC) * US_PER_MS;
+#else
+    return I3_MIN_WAIT * US_PER_SEC;
+#endif
 }
 
-int main(void)
+static void *pub_gen(void *arg)
 {
-    /* init pktcnt */
-    if (pktcnt_init() != PKTCNT_OK) {
-        puts("error: unable to initialize pktcnt");
-        return 1;
-    }
-
     sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT };
     emcute_topic_t t = { I3_TOPIC, 0 };
     bool unbootstrapped = true;
     unsigned flags = 0;
 
+    (void)arg;
 #ifdef I3_CONFIRMABLE
     flags = EMCUTE_QOS_1;
 #else
     flags = EMCUTE_QOS_0;
 #endif
 
-    puts("pktcnt: MQTT-SN push setup\n");
+    printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5));
 
     /* wait for network to be set-up */
     while (unbootstrapped) {
@@ -91,29 +102,26 @@ int main(void)
             }
         }
     }
-    /* start the emcute thread */
-    thread_create(stack, sizeof(stack), EMCUTE_PRIO, 0,
-                  emcute_thread, NULL, "emcute");
 
     if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, I3_BROKER) == NULL) {
         printf("error parsing the broker's IPv6 address\n");
-        return 1;
+        return NULL;
     }
 
     if (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
         printf("error: unable to connect to [%s]:%i\n", I3_BROKER, (int)gw.port);
-        return 1;
+        return NULL;
     }
     printf("successfully connected to broker at [%s]:%u\n", I3_BROKER, gw.port);
 
     /* now register out topic */
     if (emcute_reg(&t) != EMCUTE_OK) {
         printf("error: unable to register topic\n");
-        return 1;
+        return NULL;
     }
 
-    for (int i = 0; i < 3600; i++) {
-        xtimer_usleep(I3_INTERVAL);
+    for (unsigned i = 0; i < I3_MAX_PUB; i++) {
+        xtimer_usleep(_next_msg());
 
         /* publish sensor data */
         if (emcute_pub(&t, payload, strlen(payload), flags) != EMCUTE_OK) {
@@ -124,6 +132,35 @@ int main(void)
         }
 
     }
+    return NULL;
+}
+
+static void *emcute_thread(void *arg)
+{
+    (void)arg;
+    emcute_run(I3_PORT, I3_ID);
+    return NULL;    /* should never be reached */
+}
+
+int main(void)
+{
+    /* init pktcnt */
+    if (pktcnt_init() != PKTCNT_OK) {
+        puts("error: unable to initialize pktcnt");
+        return 1;
+    }
+
+    /* start the emcute thread */
+    thread_create(mqtt_stack, sizeof(mqtt_stack), EMCUTE_PRIO, 0,
+                  emcute_thread, NULL, "emcute");
+
+    /* start the publishing thread */
+    thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
+                  pub_gen, NULL, "i3-pub-gen");
+
+    puts("All up, running the shell now");
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
+    shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;

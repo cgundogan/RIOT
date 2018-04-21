@@ -28,6 +28,7 @@ USEMODULE += gnrc_ipv6_router_default
 # Include MQTT-SN
 USEMODULE += emcute
 USEMODULE += pktcnt
+USEMODULE += fmt
 # Add a routing protocol
 USEMODULE += gnrc_rpl
 USEMODULE += auto_init_gnrc_rpl
@@ -48,8 +49,16 @@ DEVELHELP ?= 1
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-CFLAGS += -DGNRC_IPV6_NIB_NUMOF=50
-CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=50
+ifneq (,$(I3_CONFIRMABLE))
+  CFLAGS += -DI3_CONFIRMABLE
+endif
+ifneq (,$(DAO_INT))
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=$(DAO_INT)
+else
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=10
+endif
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=64
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=64
 include $(RIOTBASE)/Makefile.include
 
 # Set a custom channel if needed
