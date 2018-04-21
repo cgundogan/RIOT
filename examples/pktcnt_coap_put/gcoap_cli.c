@@ -31,6 +31,8 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
+#define DATA_GEN_STACK_SIZE (THREAD_STACKSIZE_DEFAULT)
+#define DATA_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
 #ifndef I3_SERVER
 #define I3_SERVER   "affe::1"
 #endif
@@ -47,6 +49,7 @@
 #define I3_MAX_REQ      (3600U)
 #endif
 
+static char data_gen_stack[DATA_GEN_STACK_SIZE];
 static char *i3_args[] = {
         "coap",
         "put",
@@ -186,6 +189,7 @@ int gcoap_cli_cmd(int argc, char **argv)
     unsigned msg_type = COAP_TYPE_NON;
     if (argc > apos && strcmp(argv[apos], "-c") == 0) {
         msg_type = COAP_TYPE_CON;
+        puts("CONFIRMABLE");
         apos++;
     }
 
@@ -233,10 +237,18 @@ static inline uint32_t _next_msg(void)
 #endif
 }
 
-void gcoap_cli_init(void)
+static void *data_gen(void *arg)
 {
-    for (int i = 0; i < I3_MAX_REQ; i++) {
+    (void)arg;
+    for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
         xtimer_usleep(_next_msg());
     }
+    return NULL;
+}
+
+void gcoap_cli_init(void)
+{
+    thread_create(data_gen_stack, DATA_GEN_STACK_SIZE, DATA_GEN_PRIO,
+                  THREAD_CREATE_STACKTEST, data_gen, NULL, "i3-data-gen");
 }

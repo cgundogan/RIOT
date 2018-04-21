@@ -1,5 +1,5 @@
 # name of your application
-APPLICATION = gnrc_border_router
+APPLICATION = pktcnt_coap_get_client
 
 # If no BOARD is found in the environment, use this default:
 BOARD ?= samr21-xpro
@@ -112,8 +112,17 @@ TERMFLAGS ?= $(PORT) $(TAP) $(IPV6_PREFIX)
 TERMDEPS += host-tools
 endif
 
-CFLAGS += -DGNRC_IPV6_NIB_NUMOF=50
-CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=50
+ifneq (,$(I3_CONFIRMABLE))
+  CFLAGS += -DI3_CONFIRMABLE
+endif
+ifneq (,$(DAO_INT))
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=$(DAO_INT)
+else
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=10
+endif
+CFLAGS += -DLOG_LEVEL=LOG_NONE
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=64
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=64
 CFLAGS += -DGCOAP_REQ_WAITING_MAX=6
 CFLAGS += -DGCOAP_STACK_SIZE=1536
 
