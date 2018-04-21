@@ -29,7 +29,7 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 #ifdef MODULE_TLSF
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     (46080 / sizeof(uint32_t))
+#define TLSF_BUFFER     ((42 * 1024)/ sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
@@ -522,7 +522,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
             !memcmp(pkt->pfx->comp[1], my_macid_str, pkt->pfx->complen[1]) &&
             !memcmp(pkt->pfx->comp[2], "gasval", pkt->pfx->complen[2])) {
 
-            char name[100];
+            char name[40];
             int offs = CCNL_MAX_PACKET_SIZE;
 
             char buffer[33];
