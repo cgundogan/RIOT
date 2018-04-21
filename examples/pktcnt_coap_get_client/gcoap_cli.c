@@ -154,6 +154,7 @@ int gcoap_cli_cmd(int argc, char **argv)
     unsigned msg_type = COAP_TYPE_NON;
     if (argc > apos && strcmp(argv[apos], "-c") == 0) {
         msg_type = COAP_TYPE_CON;
+        puts("CONFIRMABLE");
         apos++;
     }
 
@@ -244,9 +245,9 @@ static void *req_gen(void *arg)
         }
     }
     do {
+        xtimer_sleep(5U);
         printf("Waiting for %u down-stream nodes\n", I3_MAX_SERVER);
         num_server = 0;
-        xtimer_sleep(1U);
         while (gnrc_ipv6_nib_ft_iter(NULL, netif->pid, &state, &fib)) {
             if (fib.dst_len == 128U) {
                 /* is a route to a down-stream node */
