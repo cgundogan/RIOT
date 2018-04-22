@@ -29,6 +29,7 @@
 #include "net/gnrc/netif.h"
 #include "net/ipv6/addr.h"
 #include "pktcnt.h"
+#include "random.h"
 
 #define EMCUTE_PRIO         (THREAD_PRIORITY_MAIN - 1)
 
@@ -43,8 +44,8 @@
 #ifndef I3_MAX_WAIT
 #define I3_MAX_WAIT (1)
 #endif
-#ifndef I3_MAX_PUB
-#define I3_MAX_PUB      (3600U)
+#ifndef I3_MAX_REQ
+#define I3_MAX_REQ      (3600U)
 #endif
 #define I3_PORT             EMCUTE_DEFAULT_PORT
 
@@ -108,19 +109,20 @@ static void *pub_gen(void *arg)
         return NULL;
     }
 
-    if (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
+    while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
         printf("error: unable to connect to [%s]:%i\n", I3_BROKER, (int)gw.port);
-        return NULL;
+        xtimer_usleep(random_uint32_range(5000,200000));
     }
     printf("successfully connected to broker at [%s]:%u\n", I3_BROKER, gw.port);
 
     /* now register out topic */
-    if (emcute_reg(&t) != EMCUTE_OK) {
+    while (emcute_reg(&t) != EMCUTE_OK) {
         printf("error: unable to register topic\n");
-        return NULL;
+        xtimer_usleep(random_uint32_range(5000,200000));
     }
+    printf("successfully registered topic %s under ID %u\n", t.name, t.id);
 
-    for (unsigned i = 0; i < I3_MAX_PUB; i++) {
+    for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         xtimer_usleep(_next_msg());
 
         /* publish sensor data */
