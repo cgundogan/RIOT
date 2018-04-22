@@ -239,7 +239,29 @@ static inline uint32_t _next_msg(void)
 
 static void *data_gen(void *arg)
 {
+    bool unbootstrapped = true;
     (void)arg;
+
+    /* wait for network to be set-up */
+    while (unbootstrapped) {
+        ipv6_addr_t addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+        gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+        int res;
+
+        xtimer_sleep(1);
+        if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
+            for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+                if (!ipv6_addr_is_link_local(&addrs[i])) {
+                    char addr_str[IPV6_ADDR_MAX_STR_LEN];
+                    printf("Global address %s configured\n",
+                           ipv6_addr_to_str(addr_str, &addrs[i],
+                                            sizeof(addr_str)));
+                    unbootstrapped = false;
+                    break;
+                }
+            }
+        }
+    }
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
         xtimer_usleep(_next_msg());
