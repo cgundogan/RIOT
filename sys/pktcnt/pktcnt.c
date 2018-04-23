@@ -22,7 +22,7 @@
 #define NETREG_TYPE     (GNRC_NETTYPE_IPV6)
 #endif
 
-#define PKTCNT_MSG_QUEUE_SIZE   (4)
+#define PKTCNT_MSG_QUEUE_SIZE   (32)
 #ifndef PKTCNT_PRIO
 #define PKTCNT_PRIO             (THREAD_PRIORITY_MAIN - 1)
 #endif
@@ -57,7 +57,7 @@ static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 #endif
 
 const char *keyword = "PKT";
-const char *typestr[] = { "TIMER", "STARTUP", "PKT_TX", "PKT_RX", };
+const char *typestr[] = { "TIMER", "STARTUP", "T", "R", };
 
 static void log_event(int type)
 {
@@ -132,24 +132,31 @@ void pktcnt_timer_init(void)
 
 static void log_l2_rx(gnrc_pktsnip_t *pkt)
 {
+#if 0
     char addr_str[24];
+#endif
     gnrc_netif_hdr_t *netif_hdr = pkt->next->data;
 
     log_event(TYPE_PKT_RX);
+#if 0
     printf("%s ", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_src_addr(netif_hdr),
                                          netif_hdr->src_l2addr_len, addr_str));
     printf("%s ", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_dst_addr(netif_hdr),
                                          netif_hdr->dst_l2addr_len, addr_str));
+#endif
     printf("seq=%u ", (unsigned)netif_hdr->seq);
     printf("%u ", (unsigned)pkt->size);
 }
 
 static void log_l2_tx(gnrc_pktsnip_t *pkt)
 {
+#if 0
     char addr_str[24];
     gnrc_netif_hdr_t *netif_hdr = pkt->data;
+#endif
 
     log_event(TYPE_PKT_TX);
+#if 0
     printf("%s ", ctx.id);
     if (netif_hdr->flags &
         (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
@@ -159,6 +166,7 @@ static void log_l2_tx(gnrc_pktsnip_t *pkt)
         printf("%s ", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_dst_addr(netif_hdr),
                                              netif_hdr->dst_l2addr_len, addr_str));
     }
+#endif
     printf("%u ", (unsigned)gnrc_pkt_len(pkt->next));
 }
 
@@ -184,7 +192,7 @@ static void log_name(uint8_t *payload, unsigned len)
 static void log_ndn(uint8_t *payload)
 {
     /* print type */
-    printf("NDN %02x ", payload[0]);
+    printf("N %x ", payload[0]);
 
     unsigned pkttype = payload[0];
     (void) pkttype;
@@ -226,7 +234,7 @@ static void log_hopp(uint8_t *payload)
      * 0xC1: NAM
      * 0xC2: SOL
      */
-    printf("HOPP %02x ", payload[2]);
+    printf("H %x ", payload[2]);
 
     /* print rank for PAM */
     if (payload[2] == 0xC0) {
