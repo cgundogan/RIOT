@@ -497,7 +497,7 @@ static int _pktcnt_start(int argc, char **argv) {
 #ifdef MODULE_PKTCNT
     /* init pktcnt */
     if (pktcnt_init() != PKTCNT_OK) {
-        return 1;
+       return 1;
     }
     pktcnt_running=1;
 #endif

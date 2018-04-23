@@ -44,6 +44,8 @@ static void _update_l2addr_from_dev(gnrc_netif_t *netif);
 static void *_gnrc_netif_thread(void *args);
 static void _event_cb(netdev_t *dev, netdev_event_t event);
 
+extern uint8_t pktcnt_running;
+
 gnrc_netif_t *gnrc_netif_create(char *stack, int stacksize, char priority,
                                 const char *name, netdev_t *netdev,
                                 const gnrc_netif_ops_t *ops)
@@ -1264,7 +1266,9 @@ static void *_gnrc_netif_thread(void *args)
             case GNRC_NETAPI_MSG_TYPE_SND:
                 DEBUG("gnrc_netif: GNRC_NETDEV_MSG_TYPE_SND received\n");
 #ifdef MODULE_PKTCNT
-                pktcnt_log_tx(msg.content.ptr);
+                if(pktcnt_running) {
+                    _log_tx(msg.content.ptr);
+                }
 #endif
                 res = netif->ops->send(netif, msg.content.ptr);
                 if (res < 0) {
@@ -1348,6 +1352,11 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
                     gnrc_pktsnip_t *pkt = netif->ops->recv(netif);
 
                     if (pkt) {
+#ifdef MODULE_PKTCNT
+                        if(pktcnt_running) {
+                            pktcnt_log_rx(pkt);
+                        }
+#endif
                         _pass_on_packet(pkt);
                     }
                 }

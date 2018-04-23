@@ -37,29 +37,23 @@
 #define NDN_INTEREST_TYPE   (0x05U)
 #define NDN_DATA_TYPE       (0x06U)
 
-enum {
-    TYPE_TIMER,
-    TYPE_STARTUP,
-    TYPE_PKT_TX,
-    TYPE_PKT_RX,
-};
+const char *keyword = "PKT";
+const char *typestr[] = { "TIMER", "STARTUP", "T", "R", };
+
 
 typedef struct {
     char id[24];
 } pktcnt_ctx_t;
 
-static char pktcnt_stack[PKTCNT_STACKSIZE];
+/*static char pktcnt_stack[PKTCNT_STACKSIZE];
 static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
-static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
+static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];*/
 static pktcnt_ctx_t ctx;
 #ifdef MODULE_GNRC_IPV6
 static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 #endif
 
-const char *keyword = "PKT";
-const char *typestr[] = { "TIMER", "STARTUP", "T", "R", };
-
-static void log_event(int type)
+void log_event(int type)
 {
     uint64_t now = xtimer_now_usec64();
     /* now overflows for after ~71.5 min! */
@@ -70,9 +64,9 @@ static void log_event(int type)
        );
 }
 
-static void _log_tx(gnrc_pktsnip_t *pkt);
+//static void _log_tx(gnrc_pktsnip_t *pkt);
 
-static void *pktcnt_thread(void *args)
+/*static void *pktcnt_thread(void *args)
 {
     (void)args;
     gnrc_netreg_entry_t entry = GNRC_NETREG_ENTRY_INIT_PID(
@@ -81,10 +75,6 @@ static void *pktcnt_thread(void *args)
                                     );
     msg_init_queue(pktcnt_msg_queue, PKTCNT_MSG_QUEUE_SIZE);
     gnrc_netreg_register(NETREG_TYPE, &entry);
-/*#ifdef MODULE_CCN_LITE
-      we need HOPP for pub/sub as well as initial FIB setup
-    gnrc_netreg_register(GNRC_NETTYPE_CCN_HOPP, &entry);
-#endif*/
 
     while (1) {
         msg_t msg;
@@ -99,7 +89,7 @@ static void *pktcnt_thread(void *args)
         }
     }
     return NULL;
-}
+}*/
 
 int pktcnt_init(void)
 {
@@ -113,11 +103,11 @@ int pktcnt_init(void)
     log_event(TYPE_STARTUP);
     puts("");
 
-    if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
+/*    if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
                                     PKTCNT_PRIO, THREAD_CREATE_STACKTEST,
                                     pktcnt_thread, NULL, "pktcnt")) < 0) {
         return PKTCNT_ERR_INIT;
-    }
+    }*/
 
     return PKTCNT_OK;
 }
@@ -657,19 +647,7 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
     (void)pkt;
 }
 
-void pktcnt_log_tx(gnrc_pktsnip_t *pkt)
-{
-    if (pktcnt_pid > KERNEL_PID_UNDEF) {
-        msg_t msg = { .type = GNRC_NETAPI_MSG_TYPE_SND,
-                      .content = { .ptr = pkt } };
-
-        /* we divert the packet, so hold */
-        gnrc_pktbuf_hold(pkt, 1);
-        msg_try_send(&msg, pktcnt_pid);
-    }
-}
-
-static void _log_tx(gnrc_pktsnip_t *pkt)
+void _log_tx(gnrc_pktsnip_t *pkt)
 {
 #if defined(MODULE_GNRC_IPV6)
 #if defined(MODULE_GNRC_SIXLOWPAN)

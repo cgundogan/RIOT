@@ -34,11 +34,21 @@ enum {
     PKTCNT_ERR_INIT = -1,
 };
 
+enum {
+    TYPE_TIMER,
+    TYPE_STARTUP,
+    TYPE_PKT_TX,
+    TYPE_PKT_RX,
+};
+
+
 int pktcnt_init(void);
 void pktcnt_timer_init(void);
 
+void log_event(int type);
+
 void pktcnt_log_rx(gnrc_pktsnip_t *pkt);
-void pktcnt_log_tx(gnrc_pktsnip_t *pkt);
+void _log_tx(gnrc_pktsnip_t *pkt);
 
 #ifdef __cplusplus
 }
