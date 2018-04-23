@@ -2,7 +2,7 @@
 APPLICATION = pktcnt_mqtt_push
 
 # If no BOARD is found in the environment, use this default:
-BOARD ?= native
+BOARD ?= iotlab-m3
 
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
