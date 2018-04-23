@@ -363,6 +363,20 @@ int _gnrc_rpl_set_pio(char *inst_id, bool status)
 }
 #endif
 
+static int _gnrc_rpl_set_dao_interval(uint8_t dao_interval)
+{
+    if (gnrc_rpl_pid > KERNEL_PID_UNDEF) {
+        msg_t msg = { .type = GNRC_RPL_MSG_TYPE_DAO_RESET,
+                      .content = { .value = dao_interval } };
+
+        msg_send(&msg, gnrc_rpl_pid);
+        printf("Set DAO interval to %us\n", dao_interval);
+        return 0;
+    }
+    puts("error: RPL not started.");
+    return 1;
+}
+
 int _gnrc_rpl(int argc, char **argv)
 {
     if ((argc < 2) || (strcmp(argv[1], "show") == 0)) {
@@ -420,6 +434,13 @@ int _gnrc_rpl(int argc, char **argv)
                 }
             }
 #endif
+            if (strcmp(argv[2], "dao") == 0) {
+                uint8_t dao_interval = GNRC_RPL_DEFAULT_DAO_INTERVAL;
+                if (argc > 3) {
+                    dao_interval = (uint8_t)atoi(argv[3]);
+                }
+                return _gnrc_rpl_set_dao_interval(dao_interval);
+            }
         }
     }
 #ifdef MODULE_GNRC_RPL_P2P
@@ -447,8 +468,8 @@ int _gnrc_rpl(int argc, char **argv)
     puts("* rm <instance_id>\t\t\t- delete the given instance and related dodag");
     puts("* root <inst_id> <dodag_id>\t\t- add a dodag to a new or existing instance");
     puts("* router <instance_id>\t\t\t- operate as router in the instance");
-    puts("* send dis\t\t\t\t- send a multicast DIS");
     puts("* send dis <VID_flags> <version> <instance_id> <dodag_id> - send a multicast DIS with SOL option");
+    puts("* set dao [<seconds>]\t\t\t-  reset DAO interval to seconds");
 #ifndef GNRC_RPL_WITHOUT_PIO
     puts("* set pio <on/off> <instance_id>\t- (de-)activate PIO transmissions in DIOs");
 #endif
