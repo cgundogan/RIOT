@@ -41,6 +41,7 @@ static int pktcnt_start(int argc, char **argv)
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+    return 0;
 }
 
 static const shell_command_t shell_commands[] = {
