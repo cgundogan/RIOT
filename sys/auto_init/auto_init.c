@@ -101,7 +101,7 @@ void auto_init(void)
     DEBUG("Auto init xtimer module.\n");
     xtimer_init();
 #endif
-#ifdef MODULE_PKTCNT
+#if defined MODULE_PKTCNT && !defined BOARD_NATIVE
     extern void pktcnt_timer_init(void);
     pktcnt_timer_init();
 #endif
