@@ -165,6 +165,8 @@ extern "C" {
  */
 #define GNRC_RPL_MSG_TYPE_DAO_HANDLE  (0x0903)
 
+#define GNRC_RPL_MSG_TYPE_DAO_RESET     (0x0904)
+
 /**
  * @brief   Infinite rank
  * @see <a href="https://tools.ietf.org/html/rfc6550#section-17">
@@ -331,8 +333,9 @@ static inline bool GNRC_RPL_COUNTER_GREATER_THAN(uint8_t A, uint8_t B)
 #ifndef GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK
 #define GNRC_RPL_DEFAULT_WAIT_FOR_DAO_ACK (3)
 #endif
+#define GNRC_RPL_DEFAULT_DAO_INTERVAL (60)
 #ifndef GNRC_RPL_REGULAR_DAO_INTERVAL
-#define GNRC_RPL_REGULAR_DAO_INTERVAL (60)
+#define GNRC_RPL_REGULAR_DAO_INTERVAL (GNRC_RPL_DEFAULT_DAO_INTERVAL)
 #endif
 #ifndef GNRC_RPL_DEFAULT_DAO_DELAY
 #define GNRC_RPL_DEFAULT_DAO_DELAY (1)
