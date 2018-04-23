@@ -29,14 +29,24 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 extern void gcoap_cli_init(void);
 
-int main(void)
+static int pktcnt_start(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
     /* init pktcnt */
     if (pktcnt_init() != PKTCNT_OK) {
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+}
 
+static const shell_command_t shell_commands[] = {
+    { "pktcnt", "Start pktcnt", pktcnt_start },
+    { NULL, NULL, NULL }
+};
+
+int main(void)
+{
     /* we need a message queue for the thread running the shell in order to
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
@@ -47,7 +57,7 @@ int main(void)
     /* start shell */
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];
-    shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
+    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;

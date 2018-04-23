@@ -144,14 +144,24 @@ static void *emcute_thread(void *arg)
     return NULL;    /* should never be reached */
 }
 
-int main(void)
+static int pktcnt_start(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
     /* init pktcnt */
     if (pktcnt_init() != PKTCNT_OK) {
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+}
 
+static const shell_command_t shell_commands[] = {
+    { "pktcnt", "Start pktcnt", pktcnt_start },
+    { NULL, NULL, NULL }
+};
+
+int main(void)
+{
     /* start the emcute thread */
     thread_create(mqtt_stack, sizeof(mqtt_stack), EMCUTE_PRIO, 0,
                   emcute_thread, NULL, "emcute");
@@ -162,7 +172,7 @@ int main(void)
 
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];
-    shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
+    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;
