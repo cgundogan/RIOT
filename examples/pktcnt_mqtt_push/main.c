@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "fmt.h"
 #include "shell.h"
 #include "thread.h"
 #include "xtimer.h"
@@ -33,7 +34,6 @@
 
 #define EMCUTE_PRIO         (THREAD_PRIORITY_MAIN - 1)
 
-#define I3_ID               "i3-gas-sensor"
 #define I3_TOPIC            "/i3/gasval"
 #ifndef I3_BROKER
 #define I3_BROKER           { 0xaf, 0xfe, 0, 0, 0, 0, 0, 0, \
@@ -57,6 +57,7 @@ static char pub_gen_stack[PUB_GEN_STACK_SIZE];
 
 static char mqtt_stack[THREAD_STACKSIZE_DEFAULT];
 static const char *payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
+static char client_id[(2 * GNRC_NETIF_L2ADDR_MAXLEN) + 1];
 static sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT,
                             .addr = { .ipv6 = I3_BROKER } };
 static emcute_topic_t t = { I3_TOPIC, 0 };
@@ -98,13 +99,13 @@ static void *pub_gen(void *arg)
 static void *emcute_thread(void *arg)
 {
     (void)arg;
-    emcute_run(I3_PORT, I3_ID);
+    emcute_run(I3_PORT, client_id);
     return NULL;    /* should never be reached */
 }
 
 static int pktcnt_start(int argc, char **argv)
 {
-    bool unbootstrapped = true, unregistered = true;
+    bool unbootstrapped = true;
     (void)argc;
     (void)argv;
     /* init pktcnt */
@@ -115,6 +116,10 @@ static int pktcnt_start(int argc, char **argv)
         int res;
 
         xtimer_sleep(1);
+        if (client_id[0] == '\0') {
+            size_t res = fmt_bytes_hex(client_id, netif->l2addr, netif->l2addr_len);
+            client_id[res] = '\0';
+        }
         if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
             for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
                 if (!ipv6_addr_is_link_local(&addrs[i])) {
@@ -134,29 +139,22 @@ static int pktcnt_start(int argc, char **argv)
     }
     /* broker will sometimes approve connection but then say there was an
      * unexpected REGISTER */
-    while (unregistered) {
-        while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
-            char ipv6_str[IPV6_ADDR_MAX_STR_LEN];
-            printf("error: unable to connect to [%s]:%i\n",
-                   ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr,
-                                    sizeof(ipv6_str)), (int)gw.port);
-            xtimer_usleep(random_uint32_range(500000,2000000));
-        }
-        puts("successfully connected to broker");
-        xtimer_usleep(500000);
-        /* now register out topic */
-        for (int i = 0; i < EMCUTE_N_RETRY; i++) {
-            if (emcute_reg(&t) != EMCUTE_OK) {
-                puts("error: unable to register topic " I3_TOPIC "\n");
-                xtimer_usleep(random_uint32_range(500000,2000000));
-            }
-            else {
-                printf("successfully registered topic %s under ID %u\n", t.name, t.id);
-                unregistered = false;
-                break;
-            }
-        }
+    while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
+        char ipv6_str[IPV6_ADDR_MAX_STR_LEN];
+        printf("error: unable to connect to [%s]:%i\n",
+               ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr,
+                                sizeof(ipv6_str)), (int)gw.port);
+        xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
+                                          EMCUTE_T_RETRY * US_PER_SEC * 2));
     }
+    puts("successfully connected to broker");
+    /* now register out topic */
+    while (emcute_reg(&t) != EMCUTE_OK) {
+        puts("error: unable to register topic " I3_TOPIC "\n");
+        xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
+                                          EMCUTE_T_RETRY * US_PER_SEC * 2));
+    }
+    printf("successfully registered topic %s under ID %u\n", t.name, t.id);
     /* start the publishing thread */
     thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
                   pub_gen, NULL, "i3-pub-gen");
