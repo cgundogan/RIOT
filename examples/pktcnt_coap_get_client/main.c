@@ -38,6 +38,7 @@ static int pktcnt_start(int argc, char **argv)
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+    gcoap_cli_init();
     return 0;
 }
 
@@ -52,8 +53,6 @@ int main(void)
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT border router example application");
-
-    gcoap_cli_init();
 
     /* start shell */
     puts("All up, running the shell now");
