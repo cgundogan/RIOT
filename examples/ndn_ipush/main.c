@@ -77,7 +77,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
-static bool i_am_root = false;
+bool i_am_root = false;
 
 
 /* state for running pktcnt module */
@@ -469,6 +469,12 @@ void *_consumer_event_loop(void *arg)
         xtimer_usleep(REQ_DELAY);
         snprintf(req_uri, 100, "/%s/%s/gasval/%04d/%s", PREFIX, my_macid_str, i, I3_DATA);
         //printf("push : %s\n size of string: %i\n", req_uri, strlen(req_uri));
+#ifdef MODULE_PKTCNT_FAST
+        uint64_t now = xtimer_now_usec64();
+        printf("PUB;%s;%lu%06lu\n", req_uri,
+            (unsigned long)div_u64_by_1000000(now),
+            (unsigned long)now % US_PER_SEC);
+#endif
         a[1]= req_uri;
         _ccnl_interest(2, (char **)a);
     }
@@ -498,20 +504,6 @@ static int _req_start(int argc, char **argv)
     return 0;
 }
 
-static int _pktcnt_start(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
-#ifdef MODULE_PKTCNT
-    /* init pktcnt */
-    if (pktcnt_init() != PKTCNT_OK) {
-        puts("error: unable to initialize pktcnt");
-        return 1;
-    }
-    pktcnt_running=1;
-#endif
-    return 0;
-}
-
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
                    struct ccnl_pkt_s *pkt){
     (void)from;
@@ -528,6 +520,17 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
             !memcmp(pkt->pfx->comp[2], "gasval", pkt->pfx->complen[2]) 
             &&!memcmp(pkt->pfx->comp[4], I3_DATA, pkt->pfx->complen[4])) {
 
+#ifdef MODULE_PKTCNT_FAST
+            //static char s[CCNL_MAX_PREFIX_SIZE];
+            uint64_t now = xtimer_now_usec64();
+            printf("RECV;");
+            for(int i=0;i<(pkt->pfx->compcnt);i++) {
+                printf("/%.*s", pkt->pfx->complen[i], pkt->pfx->comp[i]);
+            }
+            printf(";%lu%06lu\n",
+                (unsigned long)div_u64_by_1000000(now),
+                (unsigned long)now % US_PER_SEC);
+#endif
             int len = 4;
             char buffer[len];
             snprintf(buffer, len, "ACK");
@@ -568,6 +571,9 @@ static int _hopp_end(int argc, char **argv) {
     }
     printf("RANK: %u\n", dodag.rank);
 #endif
+    /* we unset this flah here so the
+     * function ccnl_app_RX() won't print shit */
+    i_am_root = false;
     return 0;
 }
 
@@ -606,12 +612,41 @@ static int _publish(int argc, char **argv)
     return 0;
 }
 
+#ifdef MODULE_PKTCNT_FAST
+static int _pktcnt_p(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    pktcnt_fast_print();
+    return 0;
+}
+#else
+static int _pktcnt_start(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+#ifdef MODULE_PKTCNT
+    /* init pktcnt */
+    if (pktcnt_init() != PKTCNT_OK) {
+        puts("error: unable to initialize pktcnt");
+        return 1;
+    }
+    pktcnt_running=1;
+#endif
+    return 0;
+}
+#endif
+
 static const shell_command_t shell_commands[] = {
     { "hr", "start HoPP root", _root },
     { "hp", "publish data", _publish },
     { "he", "HoPP end", _hopp_end },
-    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
     { "req_start", "start periodic publishes", _req_start },
+#ifdef MODULE_PKTCNT_FAST
+    { "pktcnt_p", "print variables of pktcnt_fast module", _pktcnt_p },
+#else
+    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
+#endif
     { NULL, NULL, NULL }
 };
 
@@ -676,6 +711,11 @@ int main(void)
     }
 
     hopp_set_cb_published(cb_published);
+#endif
+
+#ifdef MODULE_PKTCNT_FAST
+    bool set = true;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
 #endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
