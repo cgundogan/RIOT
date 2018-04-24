@@ -80,35 +80,35 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     (void)remote;       /* not interested in the source currently */
 
     if (req_state == GCOAP_MEMO_TIMEOUT) {
-        printf("gcoap: timeout for msg ID %02u\n", coap_get_id(pdu));
+        /* printf("gcoap: timeout for msg ID %02u\n", coap_get_id(pdu)); */
         return;
     }
     else if (req_state == GCOAP_MEMO_ERR) {
-        printf("gcoap: error in response\n");
+        /* printf("gcoap: error in response\n"); */
         return;
     }
 
-    char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS)
-                            ? "Success" : "Error";
-    printf("gcoap: response %s, code %1u.%02u", class_str,
-                                                coap_get_code_class(pdu),
-                                                coap_get_code_detail(pdu));
+    /* char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS) */
+    /*                         ? "Success" : "Error"; */
+    /* printf("gcoap: response %s, code %1u.%02u", class_str, */
+    /*                                             coap_get_code_class(pdu), */
+    /*                                             coap_get_code_detail(pdu)); */
     if (pdu->payload_len) {
         if (pdu->content_type == COAP_FORMAT_TEXT
                 || pdu->content_type == COAP_FORMAT_LINK
                 || coap_get_code_class(pdu) == COAP_CLASS_CLIENT_FAILURE
                 || coap_get_code_class(pdu) == COAP_CLASS_SERVER_FAILURE) {
             /* Expecting diagnostic payload in failure cases */
-            printf(", %u bytes\n%.*s\n", pdu->payload_len, pdu->payload_len,
-                                                          (char *)pdu->payload);
+            /* printf(", %u bytes\n%.*s\n", pdu->payload_len, pdu->payload_len, */
+            /*                                               (char *)pdu->payload); */
         }
         else {
-            printf(", %u bytes\n", pdu->payload_len);
-            od_hex_dump(pdu->payload, pdu->payload_len, OD_WIDTH_DEFAULT);
+            /* printf(", %u bytes\n", pdu->payload_len); */
+            /* od_hex_dump(pdu->payload, pdu->payload_len, OD_WIDTH_DEFAULT); */
         }
     }
     else {
-        printf(", empty payload\n");
+        /* printf(", empty payload\n"); */
     }
 }
 
@@ -191,7 +191,7 @@ static size_t _send(uint8_t *buf, size_t len, char *addr_str, char *port_str)
     }
     else {
         if (gnrc_netif_get_by_pid(iface) == NULL) {
-            puts("gcoap_cli: interface not valid");
+            /* puts("gcoap_cli: interface not valid"); */
             return 0;
         }
         remote.netif = iface;
@@ -199,11 +199,11 @@ static size_t _send(uint8_t *buf, size_t len, char *addr_str, char *port_str)
 
     /* parse destination address */
     if (ipv6_addr_from_str(&addr, addr_str) == NULL) {
-        puts("gcoap_cli: unable to parse destination address");
+        /* puts("gcoap_cli: unable to parse destination address"); */
         return 0;
     }
     if ((remote.netif == SOCK_ADDR_ANY_NETIF) && ipv6_addr_is_link_local(&addr)) {
-        puts("gcoap_cli: must specify interface for link local target");
+        /* puts("gcoap_cli: must specify interface for link local target"); */
         return 0;
     }
     memcpy(&remote.addr.ipv6[0], &addr.u8[0], sizeof(addr.u8));
@@ -211,7 +211,7 @@ static size_t _send(uint8_t *buf, size_t len, char *addr_str, char *port_str)
     /* parse port */
     remote.port = atoi(port_str);
     if (remote.port == 0) {
-        puts("gcoap_cli: unable to parse destination port");
+        /* puts("gcoap_cli: unable to parse destination port"); */
         return 0;
     }
 
@@ -236,11 +236,11 @@ int gcoap_cli_cmd(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "info") == 0) {
-        uint8_t open_reqs = gcoap_op_state();
+        /* uint8_t open_reqs = gcoap_op_state(); */
 
-        printf("CoAP server is listening on port %u\n", GCOAP_PORT);
-        printf(" CLI requests sent: %u\n", req_count);
-        printf("CoAP open requests: %u\n", open_reqs);
+        /* printf("CoAP server is listening on port %u\n", GCOAP_PORT); */
+        /* printf(" CLI requests sent: %u\n", req_count); */
+        /* printf("CoAP open requests: %u\n", open_reqs); */
         return 0;
     }
 
@@ -277,10 +277,10 @@ int gcoap_cli_cmd(int argc, char **argv)
             len = gcoap_finish(&pdu, 0, COAP_FORMAT_NONE);
         }
 
-        printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu),
-               (unsigned) len);
+        /* printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu), */
+        /*        (unsigned) len); */
         if (!_send(&buf[0], len, argv[apos], argv[apos+1])) {
-            puts("gcoap_cli: msg send failed");
+            /* puts("gcoap_cli: msg send failed"); */
         }
         else {
             /* send Observe notification for /cli/stats */
@@ -303,15 +303,15 @@ int gcoap_cli_cmd(int argc, char **argv)
         return 0;
     }
     else {
-        printf("usage: %s <get|post|put> [-c] <addr>[%%iface] <port> <path> [data]\n",
-               argv[0]);
-        printf("Options\n");
-        printf("    -c  Send confirmably (defaults to non-confirmable)\n");
+        /* printf("usage: %s <get|post|put> [-c] <addr>[%%iface] <port> <path> [data]\n", */
+        /*        argv[0]); */
+        /* printf("Options\n"); */
+        /* printf("    -c  Send confirmably (defaults to non-confirmable)\n"); */
         return 1;
     }
 
     end:
-    printf("usage: %s <get|post|put|info>\n", argv[0]);
+    /* printf("usage: %s <get|post|put|info>\n", argv[0]); */
     return 1;
 }
 
