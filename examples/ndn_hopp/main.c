@@ -29,7 +29,7 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 #ifdef MODULE_TLSF
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     ((41 * 1024) / sizeof(uint32_t))
+#define TLSF_BUFFER     ((44 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
