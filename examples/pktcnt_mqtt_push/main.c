@@ -36,7 +36,8 @@
 #define I3_ID               "i3-gas-sensor"
 #define I3_TOPIC            "/i3/gasval"
 #ifndef I3_BROKER
-#define I3_BROKER           "affe::1"
+#define I3_BROKER           { 0xaf, 0xfe, 0, 0, 0, 0, 0, 0, \
+                              0, 0, 0, 0, 0, 0, 0, 1 }
 #endif
 #ifndef I3_MIN_WAIT
 #define I3_MIN_WAIT (1)
@@ -56,6 +57,14 @@ static char pub_gen_stack[PUB_GEN_STACK_SIZE];
 
 static char mqtt_stack[THREAD_STACKSIZE_DEFAULT];
 static const char *payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
+static sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT,
+                            .addr = { .ipv6 = I3_BROKER } };
+static emcute_topic_t t = { I3_TOPIC, 0 };
+#ifdef I3_CONFIRMABLE
+static const unsigned flags = EMCUTE_QOS_1;
+#else
+static const unsigned flags = EMCUTE_QOS_0;
+#endif
 
 static inline uint32_t _next_msg(void)
 {
@@ -69,59 +78,8 @@ static inline uint32_t _next_msg(void)
 
 static void *pub_gen(void *arg)
 {
-    sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT };
-    emcute_topic_t t = { I3_TOPIC, 0 };
-    bool unbootstrapped = true;
-    unsigned flags = 0;
-
     (void)arg;
-#ifdef I3_CONFIRMABLE
-    flags = EMCUTE_QOS_1;
-#else
-    flags = EMCUTE_QOS_0;
-#endif
-
     printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5));
-
-    /* wait for network to be set-up */
-    while (unbootstrapped) {
-        ipv6_addr_t addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
-        gnrc_netif_t *netif = gnrc_netif_iter(NULL);
-        int res;
-
-        xtimer_sleep(1);
-        if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
-            for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
-                if (!ipv6_addr_is_link_local(&addrs[i])) {
-                    char addr_str[IPV6_ADDR_MAX_STR_LEN];
-                    printf("Global address %s configured\n",
-                           ipv6_addr_to_str(addr_str, &addrs[i],
-                                            sizeof(addr_str)));
-                    unbootstrapped = false;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, I3_BROKER) == NULL) {
-        printf("error parsing the broker's IPv6 address\n");
-        return NULL;
-    }
-
-    while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
-        printf("error: unable to connect to [%s]:%i\n", I3_BROKER, (int)gw.port);
-        xtimer_usleep(random_uint32_range(5000,200000));
-    }
-    printf("successfully connected to broker at [%s]:%u\n", I3_BROKER, gw.port);
-
-    /* now register out topic */
-    while (emcute_reg(&t) != EMCUTE_OK) {
-        printf("error: unable to register topic\n");
-        xtimer_usleep(random_uint32_range(5000,200000));
-    }
-    printf("successfully registered topic %s under ID %u\n", t.name, t.id);
-
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         xtimer_usleep(_next_msg());
 
@@ -146,12 +104,58 @@ static void *emcute_thread(void *arg)
 
 static int pktcnt_start(int argc, char **argv)
 {
+    bool unbootstrapped = true, unregistered = true;
     (void)argc;
     (void)argv;
     /* init pktcnt */
+    /* wait for network to be set-up */
+    while (unbootstrapped) {
+        ipv6_addr_t addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+        gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+        int res;
+
+        xtimer_sleep(1);
+        if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
+            for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+                if (!ipv6_addr_is_link_local(&addrs[i])) {
+                    char addr_str[IPV6_ADDR_MAX_STR_LEN];
+                    printf("Global address %s configured\n",
+                           ipv6_addr_to_str(addr_str, &addrs[i],
+                                            sizeof(addr_str)));
+                    unbootstrapped = false;
+                    break;
+                }
+            }
+        }
+    }
     if (pktcnt_init() != PKTCNT_OK) {
         puts("error: unable to initialize pktcnt");
         return 1;
+    }
+    /* broker will sometimes approve connection but then say there was an
+     * unexpected REGISTER */
+    while (unregistered) {
+        while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
+            char ipv6_str[IPV6_ADDR_MAX_STR_LEN];
+            printf("error: unable to connect to [%s]:%i\n",
+                   ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr,
+                                    sizeof(ipv6_str)), (int)gw.port);
+            xtimer_usleep(random_uint32_range(500000,2000000));
+        }
+        puts("successfully connected to broker");
+        xtimer_usleep(500000);
+        /* now register out topic */
+        for (int i = 0; i < EMCUTE_N_RETRY; i++) {
+            if (emcute_reg(&t) != EMCUTE_OK) {
+                puts("error: unable to register topic " I3_TOPIC "\n");
+                xtimer_usleep(random_uint32_range(500000,2000000));
+            }
+            else {
+                printf("successfully registered topic %s under ID %u\n", t.name, t.id);
+                unregistered = false;
+                break;
+            }
+        }
     }
     /* start the publishing thread */
     thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,

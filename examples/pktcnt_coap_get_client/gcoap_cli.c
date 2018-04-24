@@ -236,7 +236,7 @@ static void *req_gen(void *arg)
     gnrc_netif_t *netif = NULL;
     gnrc_ipv6_nib_ft_t fib;
     void *state = NULL;
-    unsigned num_server;
+    unsigned num_server = 0;
 
     msg_init_queue(msg_queue, 8);
     while ((netif = gnrc_netif_iter(netif))) {
@@ -244,34 +244,20 @@ static void *req_gen(void *arg)
             break;
         }
     }
-    do {
-        xtimer_sleep(5U);
-        printf("Waiting for %u down-stream nodes\n", I3_MAX_SERVER);
-        num_server = 0;
-        while (gnrc_ipv6_nib_ft_iter(NULL, netif->pid, &state, &fib)) {
-            if (fib.dst_len == 128U) {
-                /* is a route to a down-stream node */
-                num_server++;
-            }
-        }
-    } while (num_server < I3_MAX_SERVER);
-    num_server = 0;
     evtimer_init_msg(&req_timer);
 
-    while (gnrc_ipv6_nib_ft_iter(NULL, netif->pid, &state, &fib)) {
+    /* Trigger CoAP gets for all downstream nodes in FIB */
+    while (gnrc_ipv6_nib_ft_iter(NULL, netif->pid, &state, &fib) &&
+           (num_server < I3_MAX_SERVER)) {
         if (fib.dst_len == 128U) {
-            _server_event_t *event = &server_event[num_server];
+            _server_event_t *event = &server_event[num_server++];
 
             memcpy(&event->server, &fib.dst, sizeof(fib.dst));
             event->event.msg.type = I3_SEND_MSG_TYPE;
-            event->event.msg.content.ptr = &server_event[num_server];
+            event->event.msg.content.ptr = event;
             event->event.event.offset = _next_msg();
             evtimer_add_msg(&req_timer, &event->event, sched_active_pid);
             event->req_count = 0;
-            num_server++;
-            if (num_server >= I3_MAX_SERVER) {
-                break;
-            }
         }
     }
     while (1) {
