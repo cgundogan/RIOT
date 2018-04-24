@@ -132,4 +132,5 @@ PSEUDOMODULES += auto_init_skald
 PSEUDOMODULES += skald_ibeacon
 PSEUDOMODULES += skald_eddystone
 
+PSEUDOMODULES += pktcnt_fast
 # Packages may also add modules to PSEUDOMODULES in their `Makefile.include`.

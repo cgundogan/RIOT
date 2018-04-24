@@ -51,6 +51,10 @@ CFLAGS += -DPKTCNT_STACKSIZE=768
 CFLAGS += -DCONSUMER_STACKSIZE=1536
 #CFLAGS += -DNOPUBSUB
 
+ifneq (,$(filter pktcnt_fast,$(USEMODULE)))
+  USEMODULE += netstats_l2
+endif
+
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 

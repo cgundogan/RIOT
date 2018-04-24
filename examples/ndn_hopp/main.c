@@ -73,7 +73,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
-static bool i_am_root = false;
+bool i_am_root = false;
+gnrc_netif_t *netif;
 
 static char _consumer_stack[CONSUMER_STACKSIZE];
 
@@ -467,6 +468,12 @@ void *_consumer_event_loop(void *arg)
         unsigned name_len = snprintf(name, 40, "/%s/%s/gasval/%04d", PREFIX, my_macid_str, i);
         int content_len = sprintf(content, "%s", I3_DATA);
         content[content_len]='\0';
+#ifdef MODULE_PKTCNT_FAST
+        uint64_t now = xtimer_now_usec64();
+        printf("PUB;%s;%lu.%06lu\n", name,
+            (unsigned long)div_u64_by_1000000(now),
+            (unsigned long)now % US_PER_SEC);
+#endif
         hopp_publish_content(name, name_len, (unsigned char*)content, content_len);
     }
     return 0;
@@ -518,10 +525,24 @@ static int _root(int argc, char **argv)
     return 0;
 }
 
+#ifdef MODULE_PKTCNT_FAST
+static int _pktcnt_p(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    pktcnt_fast_print();
+    return 0;
+}
+#endif
+
 static const shell_command_t shell_commands[] = {
     { "hr", "start HoPP root", _root },
     { "pktcnt_start", "start pktcnt module", _pktcnt_start },
     { "req_start", "start periodic content requests", _req_start },
+#ifdef MODULE_PKTCNT_FAST
+    { "pktcnt_p", "print variables of pktcnt_fast module", _pktcnt_p },
+#endif
     { NULL, NULL, NULL }
 };
 
@@ -540,7 +561,7 @@ int main(void)
     ccnl_start();
 
     /* get the default interface */
-    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    netif = gnrc_netif_iter(NULL);
 
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
 
@@ -584,6 +605,11 @@ int main(void)
         return 1;
     }
 
+#endif
+
+#ifdef MODULE_PKTCNT_FAST
+    bool set = true;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
 #endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
