@@ -323,12 +323,25 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
                     for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                         compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                         unsigned pos = nce - dodag->nam_cache;
-                        if (nce->in_use && !compas_nam_cache_requested(nce->flags) &&
-                            ((now - nce_times[pos]) > HOPP_NAM_STALE_TIME)) {
+                        unsigned time = now - nce_times[pos];
+                        if (nce->in_use && !compas_nam_cache_requested(nce->flags) && (time > HOPP_NAM_STALE_TIME)) {
                             evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
                             memset(nce, 0, sizeof(*nce));
                             n = compas_nam_cache_add(dodag, &cname, &face);
                             break;
+                        }
+                    }
+                    if (!n) {
+                        for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
+                            compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
+                            unsigned pos = nce - dodag->nam_cache;
+                            unsigned time = now - nce_times[pos];
+                            if (nce->in_use && (time > HOPP_NAM_STALE_TIME)) {
+                                evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                                memset(nce, 0, sizeof(*nce));
+                                n = compas_nam_cache_add(dodag, &cname, &face);
+                                break;
+                            }
                         }
                     }
                     if (!n) {
@@ -434,12 +447,14 @@ static void hopp_nce_del(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
     if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
+#if 0
         msg_t mr, ms = { .type = CCNL_MSG_IN_CS, .content.ptr = nce->name.name };
         msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
         if (!mr.content.value) {
             hopp_nce_del(dodag, nce);
             return false;
         }
+#endif
         if (nce->retries > 0) {
             nce->retries--;
             hopp_send_nam(dodag, nce);
