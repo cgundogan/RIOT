@@ -48,6 +48,7 @@ typedef struct {
     char id[24];
 } pktcnt_ctx_t;
 
+
 static char pktcnt_stack[PKTCNT_STACKSIZE];
 static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
 static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
@@ -58,6 +59,40 @@ static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 
 const char *keyword = "PKT";
 const char *typestr[] = { "TIMER", "STARTUP", "PKT_TX", "PKT_RX", };
+
+#ifdef MODULE_PKTCNT_FAST
+/* following counters are only for fast mode*/
+uint32_t retransmissions;
+uint32_t tx_interest;
+uint32_t tx_data;
+uint32_t rx_interest;
+uint32_t rx_data;
+uint32_t netdev_evt_tx_noack;
+
+void pktcnt_fast_print(void)
+{
+    netstats_t *stats;
+    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    gnrc_netapi_get(netif->pid, NETOPT_STATS, 0, &stats,
+                              sizeof(&stats));
+    printf("STATS;%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
+        "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
+        retransmissions,
+        tx_interest,
+        tx_data,
+        rx_interest,
+        rx_data,
+        stats->rx_count,
+        stats->rx_bytes,
+        stats->tx_unicast_count,
+        stats->tx_mcast_count,
+        stats->tx_bytes,
+        stats->tx_success,
+        stats->tx_failed);
+}
+#endif
+
+
 
 static void log_event(int type)
 {
