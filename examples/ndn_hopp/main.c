@@ -495,22 +495,6 @@ static int _req_start(int argc, char **argv)
     return 0;
 }
 
-static int _pktcnt_start(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
-#ifdef MODULE_HOPP
-    printf("RANK: %u\n", dodag.rank);
-#endif
-#ifdef MODULE_PKTCNT
-    /* init pktcnt */
-    if (pktcnt_init() != PKTCNT_OK) {
-        return 1;
-    }
-    pktcnt_running=1;
-#endif
-    return 0;
-}
-
 static int _root(int argc, char **argv)
 {
     (void)argc;
@@ -534,14 +518,31 @@ static int _pktcnt_p(int argc, char **argv)
     pktcnt_fast_print();
     return 0;
 }
+#else
+static int _pktcnt_start(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+#ifdef MODULE_HOPP
+    printf("RANK: %u\n", dodag.rank);
+#endif
+#ifdef MODULE_PKTCNT
+    /* init pktcnt */
+    if (pktcnt_init() != PKTCNT_OK) {
+        return 1;
+    }
+    pktcnt_running=1;
+#endif
+    return 0;
+}
 #endif
 
 static const shell_command_t shell_commands[] = {
     { "hr", "start HoPP root", _root },
-    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
     { "req_start", "start periodic content requests", _req_start },
 #ifdef MODULE_PKTCNT_FAST
     { "pktcnt_p", "print variables of pktcnt_fast module", _pktcnt_p },
+#else
+    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
 #endif
     { NULL, NULL, NULL }
 };

@@ -37,29 +37,6 @@
 #define NDN_INTEREST_TYPE   (0x05U)
 #define NDN_DATA_TYPE       (0x06U)
 
-enum {
-    TYPE_TIMER,
-    TYPE_STARTUP,
-    TYPE_PKT_TX,
-    TYPE_PKT_RX,
-};
-
-typedef struct {
-    char id[24];
-} pktcnt_ctx_t;
-
-
-static char pktcnt_stack[PKTCNT_STACKSIZE];
-static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
-static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
-static pktcnt_ctx_t ctx;
-#ifdef MODULE_GNRC_IPV6
-static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
-#endif
-
-const char *keyword = "PKT";
-const char *typestr[] = { "TIMER", "STARTUP", "PKT_TX", "PKT_RX", };
-
 #ifdef MODULE_PKTCNT_FAST
 /* following counters are only for fast mode*/
 uint32_t retransmissions;
@@ -103,7 +80,31 @@ void pktcnt_fast_print(void)
         rx_pam,
         rx_sol);
 }
+#else
+
+enum {
+    TYPE_TIMER,
+    TYPE_STARTUP,
+    TYPE_PKT_TX,
+    TYPE_PKT_RX,
+};
+
+typedef struct {
+    char id[24];
+} pktcnt_ctx_t;
+
+
+static char pktcnt_stack[PKTCNT_STACKSIZE];
+static kernel_pid_t pktcnt_pid = KERNEL_PID_UNDEF;
+static msg_t pktcnt_msg_queue[PKTCNT_MSG_QUEUE_SIZE];
+static pktcnt_ctx_t ctx;
+#ifdef MODULE_GNRC_IPV6
+static char src[IPV6_ADDR_MAX_STR_LEN], dst[IPV6_ADDR_MAX_STR_LEN];
 #endif
+
+const char *keyword = "PKT";
+const char *typestr[] = { "TIMER", "STARTUP", "PKT_TX", "PKT_RX", };
+
 
 
 
@@ -831,3 +832,4 @@ static void _log_tx(gnrc_pktsnip_t *pkt)
 #endif
     (void)pkt;
 }
+#endif
