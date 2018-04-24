@@ -656,7 +656,7 @@ static void _isr(netdev_t *netdev)
 #endif
                     case AT86RF2XX_TRX_STATE__TRAC_NO_ACK:
 #ifdef MODULE_PKTCNT_FAST
-                        netdev_evt_tx_noack++
+                        netdev_evt_tx_noack++;
 #endif
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_NOACK);
                         DEBUG("[at86rf2xx] TX NO_ACK\n");
