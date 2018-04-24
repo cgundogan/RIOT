@@ -595,7 +595,8 @@ static int get_from_sixlo_dispatch(uint8_t *data, uint8_t *protnum,
     else if ((data[0] & SIXLOWPAN_FRAG_DISP_MASK) == SIXLOWPAN_FRAG_1_DISP) {
         /* we don't care about fragmentation, right? Right??!? ;-) */
         return get_from_sixlo_dispatch(&data[sizeof(sixlowpan_frag_t)], protnum,
-                                       src, dst, src_port, dst_port);
+                                       src, dst, src_port, dst_port) +
+               sizeof(sixlowpan_frag_t);
     }
     else {
         printf("WARNING: unexpected 6Lo dispatch 0x%02x\n", data[0]);
