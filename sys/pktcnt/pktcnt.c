@@ -68,6 +68,12 @@ uint32_t tx_data;
 uint32_t rx_interest;
 uint32_t rx_data;
 uint32_t netdev_evt_tx_noack;
+uint32_t tx_pam;
+uint32_t tx_nam;
+uint32_t tx_sol;
+uint32_t rx_nam;
+uint32_t rx_pam;
+uint32_t rx_sol;
 
 void pktcnt_fast_print(void)
 {
@@ -76,7 +82,8 @@ void pktcnt_fast_print(void)
     gnrc_netapi_get(netif->pid, NETOPT_STATS, 0, &stats,
                               sizeof(&stats));
     printf("STATS;%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
-        "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
+      "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
+      "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
         retransmissions,
         tx_interest,
         tx_data,
@@ -88,7 +95,13 @@ void pktcnt_fast_print(void)
         stats->tx_mcast_count,
         stats->tx_bytes,
         stats->tx_success,
-        stats->tx_failed);
+        stats->tx_failed,
+        tx_pam,
+        tx_nam,
+        tx_sol,
+        rx_nam,
+        rx_pam,
+        rx_sol);
 }
 #endif
 
