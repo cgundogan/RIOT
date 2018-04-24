@@ -592,6 +592,11 @@ static int get_from_sixlo_dispatch(uint8_t *data, uint8_t *protnum,
             }
         }
     }
+    else if ((data[0] & SIXLOWPAN_FRAG_DISP_MASK) == SIXLOWPAN_FRAG_1_DISP) {
+        /* we don't care about fragmentation, right? Right??!? ;-) */
+        return get_from_sixlo_dispatch(&data[sizeof(sixlowpan_frag_t)], protnum,
+                                       src, dst, src_port, dst_port);
+    }
     else {
         printf("WARNING: unexpected 6Lo dispatch 0x%02x\n", data[0]);
         return -1;
@@ -609,6 +614,11 @@ void pktcnt_log_rx(gnrc_pktsnip_t *pkt)
         uint16_t src_port = 0, dst_port = 0;
         uint8_t protnum = 0;
 
+        if ((payload[0] & SIXLOWPAN_FRAG_DISP_MASK) == SIXLOWPAN_FRAG_N_DISP) {
+            log_l2_rx(pkt);
+            puts("6Lo n-frag");
+            return;
+        }
         offset = get_from_sixlo_dispatch(payload, &protnum, src, dst,
                                          &src_port, &dst_port);
         if (offset < 0) {
