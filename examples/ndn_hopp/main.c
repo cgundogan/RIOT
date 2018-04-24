@@ -470,7 +470,7 @@ void *_consumer_event_loop(void *arg)
         content[content_len]='\0';
 #ifdef MODULE_PKTCNT_FAST
         uint64_t now = xtimer_now_usec64();
-        printf("PUB;%s;%lu.%06lu\n", name,
+        printf("PUB;%s;%lu%06lu\n", name,
             (unsigned long)div_u64_by_1000000(now),
             (unsigned long)now % US_PER_SEC);
 #endif
