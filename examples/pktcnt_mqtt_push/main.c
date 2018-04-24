@@ -153,6 +153,10 @@ static int pktcnt_start(int argc, char **argv)
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+    /* start the publishing thread */
+    thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
+                  pub_gen, NULL, "i3-pub-gen");
+
     return 0;
 }
 
@@ -166,10 +170,6 @@ int main(void)
     /* start the emcute thread */
     thread_create(mqtt_stack, sizeof(mqtt_stack), EMCUTE_PRIO, 0,
                   emcute_thread, NULL, "emcute");
-
-    /* start the publishing thread */
-    thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
-                  pub_gen, NULL, "i3-pub-gen");
 
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];

@@ -26,6 +26,7 @@
 #include "od.h"
 #include "fmt.h"
 #include "thread.h"
+#include "random.h"
 #include "xtimer.h"
 
 #define ENABLE_DEBUG (0)

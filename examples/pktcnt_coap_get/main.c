@@ -42,6 +42,7 @@ static int pktcnt_start(int argc, char **argv)
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+    gcoap_cli_init();
     return 0;
 }
 
@@ -55,7 +56,6 @@ int main(void)
 {
     /* for the thread running the shell */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
-    gcoap_cli_init();
     puts("gcoap example app");
 
     /* start shell */
