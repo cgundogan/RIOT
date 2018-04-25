@@ -173,6 +173,7 @@ int pktcnt_init(void)
 
 void pktcnt_timer_init(void)
 {
+    puts("");   /* clear buffer from reboot */
     strcpy(ctx.id, "00");
     log_event(TYPE_TIMER);
     memset(ctx.id, 0, sizeof(ctx.id));
