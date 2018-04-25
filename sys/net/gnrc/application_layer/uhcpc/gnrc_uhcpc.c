@@ -102,7 +102,7 @@ void uhcp_handle_prefix(uint8_t *prefix, uint8_t prefix_len, uint16_t lifetime, 
     gnrc_netapi_set(gnrc_wireless_interface, NETOPT_IPV6_ADDR_REMOVE, 0,
                     &_prefix, sizeof(_prefix));
     /* print_str("gnrc_uhcpc: uhcp_handle_prefix(): configured new prefix "); */
-    ipv6_addr_print((ipv6_addr_t*)prefix);
+    /* ipv6_addr_print((ipv6_addr_t*)prefix); */
     /* puts("/64"); */
 
     if (!ipv6_addr_is_unspecified(&_prefix)) {
