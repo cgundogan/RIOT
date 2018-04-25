@@ -490,6 +490,9 @@ static int _req_start(int argc, char **argv)
     }
 
     if (i_am_root) {
+        /* we unset this flah here so the
+         * function ccnl_app_RX() won't print shit */
+        i_am_root = false;
         return 0;
     }
     /* unset local producer function for producer nodes */
@@ -571,9 +574,6 @@ static int _hopp_end(int argc, char **argv) {
     }
     printf("RANK: %u\n", dodag.rank);
 #endif
-    /* we unset this flah here so the
-     * function ccnl_app_RX() won't print shit */
-    i_am_root = false;
     return 0;
 }
 
