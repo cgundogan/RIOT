@@ -72,6 +72,7 @@ static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 
 static int my_macid = -1;
 static char my_macid_str[4];
+bool i_am_root = false;
 
 #define MACMAPSZ (367)
 static const char macmap[MACMAPSZ][24] = {
@@ -473,6 +474,7 @@ void *_consumer_event_loop(void *arg)
             delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
             xtimer_usleep(delay);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
+            /* s consists of PREFIX and mac_id as it comes from the fib */
             snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
             a[1]= req_uri;
             _ccnl_interest(2, (char **)a);
@@ -498,61 +500,51 @@ static int _req_start(int argc, char **argv)
     return 0;
 }
 
-static int _pktcnt_start(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
-#ifdef MODULE_PKTCNT
-    /* init pktcnt */
-    if (pktcnt_init() != PKTCNT_OK) {
-        puts("error: unable to initialize pktcnt");
-        return 1;
+int produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, int id)
+{
+    (void)pkt;
+    char name[40];
+    int offs = CCNL_MAX_PACKET_SIZE;
+
+    char buffer[33];
+    int len = sprintf(buffer, "%s", I3_DATA);
+    buffer[len]='\0';
+
+    int name_len = sprintf(name, "/%s/%s/gasval/%04d", PREFIX, my_macid_str, id);
+    name[name_len]='\0';
+
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+    int arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) buffer,
+        len, NULL, NULL, &offs, _out);
+
+    ccnl_prefix_free(prefix);
+
+    unsigned char *olddata;
+    unsigned char *data = olddata = _out + offs;
+
+    unsigned typ;
+
+    if (ccnl_ndntlv_dehead(&data, &arg_len, (int*) &typ, &len) || typ != NDN_TLV_Data) {
+        puts("ERROR in producer_func");
+        return -1;
     }
-    pktcnt_running=1;
-#endif
+
+    struct ccnl_content_s *c = 0;
+    struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
+    c = ccnl_content_new(&pk);
+    ccnl_content_add2cache(relay, c);
     return 0;
 }
 
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
                    struct ccnl_pkt_s *pkt){
     (void)from;
-
     if(pkt->pfx->compcnt == 4) { // /PREFIX/NODE_NAME/gasval/BLA
         /* match PREFIX and ID and "gasval*/
         if (!memcmp(pkt->pfx->comp[0], PREFIX, pkt->pfx->complen[0]) &&
             !memcmp(pkt->pfx->comp[1], my_macid_str, pkt->pfx->complen[1]) &&
             !memcmp(pkt->pfx->comp[2], "gasval", pkt->pfx->complen[2])) {
-
-            char name[40];
-            int offs = CCNL_MAX_PACKET_SIZE;
-
-            char buffer[33];
-            int len = sprintf(buffer, "%s", I3_DATA);
-            buffer[len]='\0';
-
-            int name_len = sprintf(name, "/%s/%s/gasval/%.*s", PREFIX, my_macid_str,
-                pkt->pfx->complen[3], pkt->pfx->comp[3]);
-            name[name_len]='\0';
-
-            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
-            int arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) buffer,
-                len, NULL, NULL, &offs, _out);
-
-            ccnl_prefix_free(prefix);
-
-            unsigned char *olddata;
-            unsigned char *data = olddata = _out + offs;
-
-            unsigned typ;
-
-            if (ccnl_ndntlv_dehead(&data, &arg_len, (int*) &typ, &len) || typ != NDN_TLV_Data) {
-                puts("ERROR in producer_func");
-                return false;
-            }
-
-            struct ccnl_content_s *c = 0;
-            struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
-            c = ccnl_content_new(&pk);
-            ccnl_content_add2cache(relay, c);
+            return produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[3]));
         }
     }
     return 0;
@@ -565,6 +557,9 @@ static int _root(int argc, char **argv)
 
     char name[5];
     int name_len = sprintf(name, "/%s", PREFIX);
+
+    i_am_root = true;
+
     hopp_root_start(name, name_len);
     return 0;
 }
@@ -621,12 +616,43 @@ static int _publish(int argc, char **argv)
     return 0;
 }
 
+#ifdef MODULE_PKTCNT_FAST
+static int _pktcnt_p(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    pktcnt_fast_print();
+    return 0;
+}
+#else
+static int _pktcnt_start(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+#ifdef MODULE_HOPP
+    printf("RANK: %u\n", dodag.rank);
+#endif
+#ifdef MODULE_PKTCNT
+    /* init pktcnt */
+    if (pktcnt_init() != PKTCNT_OK) {
+        return 1;
+    }
+    pktcnt_running=1;
+#endif
+    return 0;
+}
+#endif
+
 static const shell_command_t shell_commands[] = {
     { "hr", "start HoPP root", _root },
     { "hp", "publish data", _publish },
     { "he", "HoPP end", _hopp_end },
-    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
     { "req_start", "start periodic content requests", _req_start },
+#ifdef MODULE_PKTCNT_FAST
+    { "pktcnt_p", "print variables of pktcnt_fast module", _pktcnt_p },
+#else
+    { "pktcnt_start", "start pktcnt module", _pktcnt_start },
+#endif
     { NULL, NULL, NULL }
 };
 
@@ -692,6 +718,11 @@ int main(void)
     }
 
     hopp_set_cb_published(cb_published);
+#endif
+
+#ifdef MODULE_PKTCNT_FAST
+    bool set = true;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
 #endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];

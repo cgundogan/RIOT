@@ -44,6 +44,10 @@ CFLAGS += -DPKTCNT_STACKSIZE=768
 CFLAGS += -DCOMPAS_PREFIX_LEN=3
 CFLAGS += -DCOMPAS_NAME_SUFFIX_LEN=15
 
+ifneq (,$(filter pktcnt_fast,$(USEMODULE)))
+  USEMODULE += netstats_l2
+endif
+
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
