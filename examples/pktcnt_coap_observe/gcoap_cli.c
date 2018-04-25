@@ -40,8 +40,8 @@
 #ifndef I3_MAX_WAIT
 #define I3_MAX_WAIT (1)
 #endif
-#ifndef I3_MAX_RESP
-#define I3_MAX_RESP     (3600U)
+#ifndef I3_MAX_REQ
+#define I3_MAX_REQ      (3600U)
 #endif
 
 static char data_gen_stack[DATA_GEN_STACK_SIZE];
@@ -342,7 +342,7 @@ static void *data_gen(void *arg)
                 len = gcoap_finish(&pdu, strlen(i3_payload), COAP_FORMAT_JSON);
                 gcoap_obs_send(&buf[0], len, &_resources[1]);
                 num_response++;
-                if (num_response >= I3_MAX_RESP) {
+                if (num_response >= I3_MAX_REQ) {
                     return NULL;
                 }
                 break;
