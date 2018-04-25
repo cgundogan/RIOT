@@ -655,8 +655,8 @@ bool hopp_publish_content(const char *name, size_t name_len,
         struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, (int *)&content_len);
         struct ccnl_content_s *c = ccnl_content_new(&pk);
 
-        msg_t mr, ms = { .type = CCNL_MSG_ADD_CS, .content.ptr = c };
-        msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+        msg_t ms = { .type = CCNL_MSG_ADD_CS, .content.ptr = c };
+        msg_send(&ms, _ccnl_event_loop_pid);
 
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
