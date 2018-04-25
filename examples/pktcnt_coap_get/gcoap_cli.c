@@ -72,8 +72,8 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
         return;
     }
 
-    char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS)
-                            ? "Success" : "Error";
+    /* char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS) */
+    /*                         ? "Success" : "Error"; */
     /* printf("gcoap: response %s, code %1u.%02u", class_str, */
     /*                                             coap_get_code_class(pdu), */
     /*                                             coap_get_code_detail(pdu)); */
@@ -220,7 +220,7 @@ int gcoap_cli_cmd(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "info") == 0) {
-        uint8_t open_reqs = gcoap_op_state();
+        /* uint8_t open_reqs = gcoap_op_state(); */
 
         /* printf("CoAP server is listening on port %u\n", GCOAP_PORT); */
         /* printf(" CLI requests sent: %u\n", req_count); */
@@ -262,7 +262,7 @@ int gcoap_cli_cmd(int argc, char **argv)
         }
 
         /* printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu), */
-               (unsigned) len);
+        /*        (unsigned) len); */
         if (!_send(&buf[0], len, argv[apos], argv[apos+1])) {
             /* puts("gcoap_cli: msg send failed"); */
         }
@@ -288,7 +288,7 @@ int gcoap_cli_cmd(int argc, char **argv)
     }
     else {
         /* printf("usage: %s <get|post|put> [-c] <addr>[%%iface] <port> <path> [data]\n", */
-               argv[0]);
+        /*        argv[0]); */
         /* printf("Options\n"); */
         /* printf("    -c  Send confirmably (defaults to non-confirmable)\n"); */
         return 1;

@@ -79,8 +79,8 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
         return;
     }
 
-    char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS)
-                            ? "Success" : "Error";
+    /* char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS) */
+    /*                         ? "Success" : "Error"; */
     /* printf("gcoap: response %s, code %1u.%02u", class_str, */
     /*                                             coap_get_code_class(pdu), */
     /*                                             coap_get_code_detail(pdu)); */
@@ -166,7 +166,7 @@ int gcoap_cli_cmd(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "info") == 0) {
-        uint8_t open_reqs = gcoap_op_state();
+        /* uint8_t open_reqs = gcoap_op_state(); */
 
         /* printf("CoAP server is listening on port %u\n", GCOAP_PORT); */
         /* printf("CoAP open requests: %u\n", open_reqs); */
@@ -252,7 +252,7 @@ static void *data_gen(void *arg)
         if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
             for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
                 if (!ipv6_addr_is_link_local(&addrs[i])) {
-                    char addr_str[IPV6_ADDR_MAX_STR_LEN];
+                    /* char addr_str[IPV6_ADDR_MAX_STR_LEN]; */
                     /* printf("Global address %s configured\n", */
                     /*        ipv6_addr_to_str(addr_str, &addrs[i], */
                     /*                         sizeof(addr_str))); */
