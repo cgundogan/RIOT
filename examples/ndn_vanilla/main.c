@@ -476,6 +476,12 @@ void *_consumer_event_loop(void *arg)
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             /* s consists of PREFIX and mac_id as it comes from the fib */
             snprintf(req_uri, 40, "%s/gasval/%04d", s, i);
+#ifdef MODULE_PKTCNT_FAST
+            uint64_t now = xtimer_now_usec64();
+            printf("PUB;%s;%lu%06lu\n", req_uri,
+                (unsigned long)div_u64_by_1000000(now),
+                (unsigned long)now % US_PER_SEC);
+#endif
             a[1]= req_uri;
             _ccnl_interest(2, (char **)a);
         }
