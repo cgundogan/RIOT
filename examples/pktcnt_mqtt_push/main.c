@@ -56,6 +56,9 @@
 static char pub_gen_stack[PUB_GEN_STACK_SIZE];
 
 static char mqtt_stack[THREAD_STACKSIZE_DEFAULT];
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
 static const char *payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
 static char client_id[(2 * GNRC_NETIF_L2ADDR_MAXLEN) + 1];
 static sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT,
@@ -80,16 +83,16 @@ static inline uint32_t _next_msg(void)
 static void *pub_gen(void *arg)
 {
     (void)arg;
-    printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5));
+    /* printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5)); */
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         xtimer_usleep(_next_msg());
 
         /* publish sensor data */
         if (emcute_pub(&t, payload, strlen(payload), flags) != EMCUTE_OK) {
-            puts("error: failed to publish data");
+            /* puts("error: failed to publish data"); */
         }
         else {
-            puts("published sensor data");
+            /* puts("published sensor data"); */
         }
 
     }
@@ -102,6 +105,16 @@ static void *emcute_thread(void *arg)
     emcute_run(I3_PORT, client_id);
     return NULL;    /* should never be reached */
 }
+
+#ifdef MODULE_PKTCNT_FAST
+static int pktcnt_fast(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    pktcnt_fast_print();
+    return 0;
+}
+#endif
 
 static int pktcnt_start(int argc, char **argv)
 {
@@ -122,39 +135,51 @@ static int pktcnt_start(int argc, char **argv)
         }
         if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
             for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+#ifdef MODULE_PKTCNT_FAST
+                if (ipv6_addr_is_link_local(&addrs[i]) &&
+                    (pktcnt_addr_str[0] == '\0')) {
+                    fmt_bytes_hex(pktcnt_addr_str, &addrs[i].u8[8], 8);
+                    pktcnt_addr_str[16] = '\0';
+                }
+                else
+#endif
                 if (!ipv6_addr_is_link_local(&addrs[i])) {
-                    char addr_str[IPV6_ADDR_MAX_STR_LEN];
-                    printf("Global address %s configured\n",
-                           ipv6_addr_to_str(addr_str, &addrs[i],
-                                            sizeof(addr_str)));
+                    /* char addr_str[IPV6_ADDR_MAX_STR_LEN]; */
+                    /* printf("Global address %s configured\n", */
+                    /*        ipv6_addr_to_str(addr_str, &addrs[i], */
+                    /*                         sizeof(addr_str))); */
                     unbootstrapped = false;
+#ifndef MODULE_PKTCNT_FAST
                     break;
+#endif
                 }
             }
         }
     }
+#ifndef MODULE_PKTCNT_FAST
     if (pktcnt_init() != PKTCNT_OK) {
-        puts("error: unable to initialize pktcnt");
+        /* puts("error: unable to initialize pktcnt"); */
         return 1;
     }
+#endif
     /* broker will sometimes approve connection but then say there was an
      * unexpected REGISTER */
     while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
-        char ipv6_str[IPV6_ADDR_MAX_STR_LEN];
-        printf("error: unable to connect to [%s]:%i\n",
-               ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr,
-                                sizeof(ipv6_str)), (int)gw.port);
+        /* char ipv6_str[IPV6_ADDR_MAX_STR_LEN]; */
+        /* printf("error: unable to connect to [%s]:%i\n", */
+        /*        ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr, */
+        /*                         sizeof(ipv6_str)), (int)gw.port); */
         xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
                                           EMCUTE_T_RETRY * US_PER_SEC * 2));
     }
-    puts("successfully connected to broker");
+    /* puts("successfully connected to broker"); */
     /* now register out topic */
     while (emcute_reg(&t) != EMCUTE_OK) {
-        puts("error: unable to register topic " I3_TOPIC "\n");
+        /* puts("error: unable to register topic " I3_TOPIC "\n"); */
         xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
                                           EMCUTE_T_RETRY * US_PER_SEC * 2));
     }
-    printf("successfully registered topic %s under ID %u\n", t.name, t.id);
+    /* printf("successfully registered topic %s under ID %u\n", t.name, t.id); */
     /* start the publishing thread */
     thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
                   pub_gen, NULL, "i3-pub-gen");
@@ -164,6 +189,9 @@ static int pktcnt_start(int argc, char **argv)
 
 static const shell_command_t shell_commands[] = {
     { "pktcnt", "Start pktcnt", pktcnt_start },
+#ifdef MODULE_PKTCNT_FAST
+    { "pktcnt_fast", "Fast counters", pktcnt_fast },
+#endif
     { NULL, NULL, NULL }
 };
 

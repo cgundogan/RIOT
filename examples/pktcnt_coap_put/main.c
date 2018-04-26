@@ -32,15 +32,27 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 extern int gcoap_cli_cmd(int argc, char **argv);
 extern void gcoap_cli_init(void);
 
+#ifdef MODULE_PKTCNT_FAST
+static int pktcnt_fast(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    pktcnt_fast_print();
+    return 0;
+}
+#endif
+
 static int pktcnt_start(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
     /* init pktcnt */
+#ifndef MODULE_PKTCNT_FAST
     if (pktcnt_init() != PKTCNT_OK) {
         puts("error: unable to initialize pktcnt");
         return 1;
     }
+#endif
     gcoap_cli_init();
     return 0;
 }
@@ -48,6 +60,9 @@ static int pktcnt_start(int argc, char **argv)
 static const shell_command_t shell_commands[] = {
     { "coap", "CoAP example", gcoap_cli_cmd },
     { "pktcnt", "Start pktcnt", pktcnt_start },
+#ifdef MODULE_PKTCNT_FAST
+    { "pktcnt_fast", "Fast counters", pktcnt_fast },
+#endif
     { NULL, NULL, NULL }
 };
 
