@@ -27,6 +27,9 @@
 #include "fmt.h"
 #include "random.h"
 #include "xtimer.h"
+#include "net/netopt.h"
+#include "pktcnt.h"
+#include "net/gnrc/netapi.h"
 #include "net/gnrc/ipv6/nib/ft.h"
 #include "ps.h"
 
@@ -56,6 +59,10 @@
 
 static char req_gen_stack[REQ_GEN_STACK_SIZE];
 
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
+
 /*
  * Response callback.
  */
@@ -78,6 +85,13 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     /* printf("gcoap: response %s, code %1u.%02u", class_str, */
     /*                                             coap_get_code_class(pdu), */
     /*                                             coap_get_code_detail(pdu)); */
+#ifdef MODULE_PKTCNT_FAST
+    printf("%1u.%02u;%u-%s\n",
+           coap_get_code_class(pdu),
+           coap_get_code_detail(pdu),
+           coap_get_id(pdu),
+           pktcnt_addr_str);
+#endif
     if (pdu->payload_len) {
         if (pdu->content_type == COAP_FORMAT_TEXT
                 || pdu->content_type == COAP_FORMAT_LINK
@@ -174,6 +188,13 @@ int gcoap_cli_cmd(int argc, char **argv)
 
         /* printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu), */
         /*        (unsigned) len); */
+#ifdef MODULE_PKTCNT_FAST
+        printf("%1u.%02u;%u-%s\n",
+               coap_get_code_class(&pdu),
+               coap_get_code_detail(&pdu),
+               coap_get_id(&pdu),
+               pktcnt_addr_str);
+#endif
         if (!_send(&buf[0], len, (ipv6_addr_t *)argv[apos], argv[apos+1])) {
             /* puts("gcoap_cli: msg send failed"); */
         }
@@ -244,6 +265,24 @@ static void *req_gen(void *arg)
             break;
         }
     }
+#ifdef MODULE_PKTCNT_FAST
+    netopt_enable_t set = NETOPT_ENABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
+    if (netif != NULL) {
+        int res;
+        ipv6_addr_t addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+
+        if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
+            for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+                if (ipv6_addr_is_link_local(&addrs[i]) &&
+                    (pktcnt_addr_str[0] == '\0')) {
+                    fmt_bytes_hex(pktcnt_addr_str, &addrs[i].u8[8], 8);
+                    pktcnt_addr_str[16] = '\0';
+                }
+            }
+        }
+    }
+#endif
     evtimer_init_msg(&req_timer);
 
     /* Trigger CoAP gets for all downstream nodes in FIB */
