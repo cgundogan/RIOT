@@ -50,6 +50,9 @@
 #endif
 
 static char data_gen_stack[DATA_GEN_STACK_SIZE];
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
 static char *i3_args[] = {
         "coap",
         "put",
@@ -84,6 +87,13 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     /* printf("gcoap: response %s, code %1u.%02u", class_str, */
     /*                                             coap_get_code_class(pdu), */
     /*                                             coap_get_code_detail(pdu)); */
+#ifdef MODULE_PKTCNT_FAST
+    printf("%1u.%02u;%u-%s\n",
+           coap_get_code_class(pdu),
+           coap_get_code_detail(pdu),
+           coap_get_id(pdu),
+           pktcnt_addr_str);
+#endif
     if (pdu->payload_len) {
         if (pdu->content_type == COAP_FORMAT_TEXT
                 || pdu->content_type == COAP_FORMAT_LINK
@@ -209,6 +219,13 @@ int gcoap_cli_cmd(int argc, char **argv)
 
         /* printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu), */
         /*        (unsigned) len); */
+#ifdef MODULE_PKTCNT_FAST
+        printf("%1u.%02u;%u-%s\n",
+               coap_get_code_class(&pdu),
+               coap_get_code_detail(&pdu),
+               coap_get_id(&pdu),
+               pktcnt_addr_str);
+#endif
         if (!_send(&buf[0], len, argv[apos], argv[apos+1])) {
             /* puts("gcoap_cli: msg send failed"); */
         }
@@ -251,13 +268,23 @@ static void *data_gen(void *arg)
         xtimer_sleep(1);
         if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
             for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+#ifdef MODULE_PKTCNT_FAST
+                if (ipv6_addr_is_link_local(&addrs[i]) &&
+                    (pktcnt_addr_str[0] == '\0')) {
+                    fmt_bytes_hex(pktcnt_addr_str, &addrs[i].u8[8], 8);
+                    pktcnt_addr_str[16] = '\0';
+                }
+                else
+#endif
                 if (!ipv6_addr_is_link_local(&addrs[i])) {
                     /* char addr_str[IPV6_ADDR_MAX_STR_LEN]; */
                     /* printf("Global address %s configured\n", */
                     /*        ipv6_addr_to_str(addr_str, &addrs[i], */
                     /*                         sizeof(addr_str))); */
                     unbootstrapped = false;
+#ifndef MODULE_PKTCNT_FAST
                     break;
+#endif
                 }
             }
         }

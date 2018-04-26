@@ -38,6 +38,8 @@
 #define NDN_DATA_TYPE       (0x06U)
 
 #ifdef MODULE_PKTCNT_FAST
+#include "net/netstats.h"
+
 /* following counters are only for fast mode*/
 uint32_t retransmissions;
 uint32_t tx_interest;
@@ -52,12 +54,26 @@ uint32_t rx_nam;
 uint32_t rx_pam;
 uint32_t rx_sol;
 
+#ifdef MODULE_GNRC_IPV6
+char pktcnt_addr_str[17];
+#endif
+
 void pktcnt_fast_print(void)
 {
     netstats_t *stats;
-    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    gnrc_netif_t *netif;
+#if GNRC_NETIF_NUMOF > 1
+    netif = NULL;
+    while ((netif = gnrc_netif_iter(netif))) {
+        if (gnrc_netapi_get(netif->pid, NETOPT_IS_WIRED, 0, NULL, 0) != 1) {
+            break;
+        }
+    }
+#else
+    netif = gnrc_netif_iter(NULL);
+#endif
     gnrc_netapi_get(netif->pid, NETOPT_STATS, 0, &stats,
-                              sizeof(&stats));
+                    sizeof(&stats));
     printf("STATS;%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
       "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
       "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
@@ -80,6 +96,13 @@ void pktcnt_fast_print(void)
         rx_pam,
         rx_sol);
 }
+
+void pktcnt_timer_init(void)
+{
+    puts("");   /* clear buffer from reboot */
+    puts("PKT 00 TIMER 0.00000");   /* fake timer here, I need this to sync my bootstrapping */
+}
+
 #else
 
 enum {

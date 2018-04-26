@@ -36,6 +36,10 @@
 #define GCOAP_RESOURCE_WRONG_METHOD -1
 #define GCOAP_RESOURCE_NO_PATH -2
 
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
+
 /* Internal functions */
 static void *_event_loop(void *arg);
 static void _listen(sock_udp_t *sock);
@@ -96,6 +100,7 @@ static char _msg_stack[GCOAP_STACK_SIZE];
 static msg_t _msg_queue[GCOAP_MSG_QUEUE_SIZE];
 static sock_udp_t _sock;
 
+#include "fmt.h"
 
 /* Event/Message loop for gcoap _pid thread. */
 static void *_event_loop(void *arg)
@@ -133,11 +138,14 @@ static void *_event_loop(void *arg)
                 /* reduce retries remaining, double timeout and resend */
                 else {
                     memo->send_limit--;
-                    unsigned i        = COAP_MAX_RETRANSMIT - memo->send_limit;
-                    uint32_t timeout  = ((uint32_t)COAP_ACK_TIMEOUT << i) * US_PER_SEC;
-                    uint32_t variance = ((uint32_t)COAP_ACK_VARIANCE << i) * US_PER_SEC;
-                    timeout = random_uint32_range(timeout, timeout + variance);
+                    uint32_t timeout  = COAP_ACK_TIMEOUT * US_PER_SEC;
 
+#ifdef MODULE_PKTCNT_FAST
+                    unsigned i        = COAP_MAX_RETRANSMIT - memo->send_limit;
+                    printf("RT-%u;%u-%s\n",
+                           i, ntohs(((coap_hdr_t *)memo->msg.data.pdu_buf)->id),
+                           pktcnt_addr_str);
+#endif
                     ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
                                                   memo->msg.data.pdu_len,
                                                   &memo->remote_ep);

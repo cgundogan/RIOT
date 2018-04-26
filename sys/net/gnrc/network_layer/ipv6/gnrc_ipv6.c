@@ -701,10 +701,23 @@ static inline bool _pkt_not_for_me(gnrc_netif_t **netif, ipv6_hdr_t *hdr)
 #if defined(MODULE_PKTCNT_FAST) && \
     defined(MODULE_GNRC_UDP) && \
     defined(MODULE_GNRC_SIXLOWPAN_BORDER_ROUTER_DEFAULT)
+#include "fmt.h"
+#include "net/udp.h"
+
+static unsigned _code_class(uint8_t code)
+{
+    return code >> 5;
+}
+
+static unsigned _code_detail(uint8_t code)
+{
+    return code & 0x1f;
+}
+
 static void log_coap(uint8_t *payload)
 {
     uint8_t code = payload[1];
-    printf("CoAP %u.%02u %u", _code_class(code), _code_detail(code),
+    printf("%u.%02u;%u-", _code_class(code), _code_detail(code),
            (((uint16_t)payload[2]) << 8) | (payload[3]));
 }
 
@@ -734,10 +747,10 @@ static void log_mqtt(uint8_t *payload)
             msgid = (((uint16_t)payload[type_offset + 4]) << 8) | payload[type_offset + 5];
             break;
         default:
-            printf("MQTT %02x", type);
+            printf("%02x;", type);
             return;
     }
-    printf("MQTT %02x %u", type, msgid);
+    printf("%02x;%u-", type, msgid);
 }
 #endif
 
@@ -892,7 +905,10 @@ static void _receive(gnrc_pktsnip_t *pkt)
             if (hdr->nh == PROTNUM_UDP) {
                 gnrc_pktsnip_t *udp = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_UDP);
                 udp_hdr_t *udp_hdr;
+                uint8_t *iid;
                 uint8_t *udp_payload;
+                char addr_str[17];
+                uint16_t port;
 
                 if (udp != NULL) {
                     udp_hdr = udp->data;
@@ -902,17 +918,34 @@ static void _receive(gnrc_pktsnip_t *pkt)
                     udp_hdr = pkt->data;
                     udp_payload = (uint8_t *)(udp_hdr + 1);
                 }
-                ipv6_addr_to_str(addr_str, &hdr->src, sizeof(addr_str));
-                switch (udp_hdr->dst_port) {
+                if ((byteorder_ntohs(udp_hdr->src_port) == COAP_PORT) ||
+                    (byteorder_ntohs(udp_hdr->src_port) == MQTT_PORT)) {
+                    /* packet comes from upstream */
+                    iid = &hdr->src.u8[8];
+                    port = byteorder_ntohs(udp_hdr->src_port);
+                }
+                else {
+                    /* packet comes from upstream */
+                    if (hdr->src.u16[0].u16 == 0xfeaf) {
+                        iid = &hdr->dst.u8[8];
+                    }
+                    else {
+                        iid = &hdr->src.u8[8];
+                    }
+                    port = byteorder_ntohs(udp_hdr->dst_port);
+                }
+                fmt_bytes_hex(addr_str, iid, 8);
+                addr_str[16] = '\0';
+                switch (port) {
                     case COAP_PORT:
-                        printf("Forwarding ")
+                        printf("FWD-");
                         log_coap(udp_payload);
-                        printf(" from %s\n", addr_str);
+                        printf("%s\n", addr_str);
                         break;
                     case MQTT_PORT:
-                        printf("Forwarding ")
+                        printf("FWD-");
                         log_mqtt(udp_payload);
-                        printf(" from %s\n", addr_str);
+                        printf("%s\n", addr_str);
                         break;
                     default:
                         break;

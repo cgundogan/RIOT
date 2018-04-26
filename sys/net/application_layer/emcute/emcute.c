@@ -60,6 +60,10 @@ static volatile uint8_t waiton = 0xff;
 static volatile uint16_t waitonid = 0;
 static volatile int result;
 
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
+
 static size_t set_len(uint8_t *buf, size_t len)
 {
     if (len < (0xff - 7)) {
@@ -100,6 +104,35 @@ static int syncsend(uint8_t resp, size_t len, bool unlock)
     thread_flags_clear(TFLAGS_ANY);
 
     for (unsigned retries = 0; retries <= EMCUTE_N_RETRY; retries++) {
+#ifdef MODULE_PKTCNT_FAST
+        if (retries > 0) {
+            uint16_t msgid = 0U;
+            uint8_t type_offset = (tbuf[0] != 0x01) ? 1 : 3;
+            uint8_t msgid_set = 1U;
+            uint8_t type = tbuf[type_offset];
+
+            switch (type) {
+                case REGISTER:
+                    msgid = (((uint16_t)tbuf[type_offset + 3]) << 8) | tbuf[type_offset + 4];
+                    break;
+                case PUBLISH:
+                    msgid = (((uint16_t)tbuf[type_offset + 4]) << 8) | tbuf[type_offset + 5];
+                    break;
+                case SUBSCRIBE:
+                    msgid = (((uint16_t)tbuf[type_offset + 2]) << 8) | tbuf[type_offset + 3];
+                    break;
+                default:
+                    msgid_set = 0U;
+                    break;
+            }
+            if (msgid_set) {
+                printf("RT-%u;%u-%s\n", retries, msgid, pktcnt_addr_str);
+            }
+            else {
+                printf("RT-%u;T%02x-%s\n", retries, type, pktcnt_addr_str);
+            }
+        }
+#endif
         DEBUG("[emcute] syncsend: sending round %i\n", retries);
         sock_udp_send(&sock, tbuf, len, &gateway);
 
@@ -132,6 +165,14 @@ static void on_disconnect(void)
 
 static void on_ack(uint8_t type, int id_pos, int ret_pos, int res_pos)
 {
+#ifdef MODULE_PKTCNT_FAST
+    if (id_pos) {
+        printf("%02x;%u-%s\n", type, get_u16(&rbuf[id_pos]), pktcnt_addr_str);
+    }
+    else {
+        printf("%02x;%s\n", type, pktcnt_addr_str);
+    }
+#endif
     if ((waiton == type) &&
         (!id_pos || (waitonid == byteorder_bebuftohs(&rbuf[id_pos])))) {
         if (!ret_pos || (rbuf[ret_pos] == ACCEPT)) {
@@ -275,6 +316,9 @@ int emcute_con(sock_udp_ep_t *remote, bool clean, const char *will_topic,
         memcpy(&tbuf[pos], will_msg, will_msg_len);
     }
 
+#ifdef MODULE_PKTCNT_FAST
+    printf("%02x;%s\n", CONNECT, pktcnt_addr_str);
+#endif
     res = syncsend(CONNACK, len, true);
     if (res != EMCUTE_OK) {
         gateway.port = 0;
@@ -316,6 +360,9 @@ int emcute_reg(emcute_topic_t *topic)
     waitonid = id_next++;
     memcpy(&tbuf[6], topic->name, strlen(topic->name));
 
+#ifdef MODULE_PKTCNT_FAST
+    printf("%02x;%u-%s\n", REGISTER, waitonid, pktcnt_addr_str);
+#endif
     int res = syncsend(REGACK, (size_t)tbuf[0], true);
     if (res > 0) {
         topic->id = (uint16_t)res;
@@ -354,6 +401,9 @@ int emcute_pub(emcute_topic_t *topic, const void *data, size_t len,
     pos += 2;
     memcpy(&tbuf[pos], data, len);
 
+#ifdef MODULE_PKTCNT_FAST
+    printf("%02x;%u-%s\n", PUBLISH, waitonid, pktcnt_addr_str);
+#endif
     if (flags & EMCUTE_QOS_1) {
         res = syncsend(PUBACK, len, true);
     }

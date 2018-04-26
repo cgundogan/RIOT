@@ -54,6 +54,10 @@ static ssize_t _riot_board_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, vo
 
 static const char *i3_payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
 
+#ifdef MODULE_PKTCNT_FAST
+extern char pktcnt_addr_str[17];
+#endif
+
 /* CoAP resources */
 static const coap_resource_t _resources[] = {
     { "/cli/stats", COAP_GET | COAP_PUT, _stats_handler, NULL },
@@ -158,6 +162,13 @@ static ssize_t _handle_i3_gasval(coap_pkt_t *pdu, uint8_t *buf, size_t len, void
     (void)ctx;
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, i3_payload, strlen(i3_payload));
+#ifdef MODULE_PKTCNT_FAST
+    printf("%1u.%02u;%u-%s\n",
+           coap_get_code_class(pdu),
+           coap_get_code_detail(pdu),
+           coap_get_id(pdu),
+           pktcnt_addr_str);
+#endif
     return gcoap_finish(pdu, strlen(i3_payload), COAP_FORMAT_JSON);
 }
 
@@ -340,6 +351,13 @@ static void *data_gen(void *arg)
                 DEBUG("gcoap_cli: creating /i3/gasval notification\n");
                 strcpy((char *)pdu.payload, i3_payload);
                 len = gcoap_finish(&pdu, strlen(i3_payload), COAP_FORMAT_JSON);
+#ifdef MODULE_PKTCNT_FAST
+                printf("%1u.%02u;%u-%s\n",
+                       coap_get_code_class(&pdu),
+                       coap_get_code_detail(&pdu),
+                       coap_get_id(&pdu),
+                       pktcnt_addr_str);
+#endif
                 gcoap_obs_send(&buf[0], len, &_resources[1]);
                 num_response++;
                 if (num_response >= I3_MAX_REQ) {
@@ -360,6 +378,25 @@ static void *data_gen(void *arg)
 
 void gcoap_cli_init(void)
 {
+#ifdef MODULE_PKTCNT_FAST
+    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    netopt_enable_t set = NETOPT_ENABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
+    if (netif != NULL) {
+        int res;
+        ipv6_addr_t addrs[GNRC_NETIF_IPV6_ADDRS_NUMOF];
+
+        if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
+            for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {
+                if (ipv6_addr_is_link_local(&addrs[i]) &&
+                    (pktcnt_addr_str[0] == '\0')) {
+                    fmt_bytes_hex(pktcnt_addr_str, &addrs[i].u8[8], 8);
+                    pktcnt_addr_str[16] = '\0';
+                }
+            }
+        }
+    }
+#endif
     gcoap_register_listener(&_listener);
     thread_create(data_gen_stack, DATA_GEN_STACK_SIZE, DATA_GEN_PRIO,
                   THREAD_CREATE_STACKTEST, data_gen, NULL, "i3-data-gen");
