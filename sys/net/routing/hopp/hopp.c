@@ -447,20 +447,17 @@ static void hopp_nce_del(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
     if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
-#if 0
-        msg_t mr, ms = { .type = CCNL_MSG_IN_CS, .content.ptr = nce->name.name };
-        msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
-        if (!mr.content.value) {
-            hopp_nce_del(dodag, nce);
-            return false;
-        }
-#endif
         if (nce->retries > 0) {
             nce->retries--;
             hopp_send_nam(dodag, nce);
             return true;
         }
         else {
+            msg_t mr, ms = { .type = CCNL_MSG_IN_CS, .content.ptr = nce->name.name };
+            msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+            if (!mr.content.value) {
+                hopp_nce_del(dodag, nce);
+            }
             dodag->sol_num = 0xFF;
             hopp_parent_timeout(dodag);
         }
