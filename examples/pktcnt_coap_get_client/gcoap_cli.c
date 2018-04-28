@@ -39,10 +39,10 @@
 #define I3_PORT     "5683"
 #define I3_PATH     "/i3/gasval"
 #ifndef I3_MIN_WAIT
-#define I3_MIN_WAIT (1)
+#define I3_MIN_WAIT (1000)
 #endif
 #ifndef I3_MAX_WAIT
-#define I3_MAX_WAIT (1)
+#define I3_MAX_WAIT (1000)
 #endif
 #ifndef I3_MAX_REQ
 #define I3_MAX_REQ      (3600U)
@@ -243,10 +243,9 @@ static void _send_req(ipv6_addr_t *server) {
 static inline uint32_t _next_msg(void)
 {
 #if I3_MIN_WAIT < I3_MAX_WAIT
-    return random_uint32_range(I3_MIN_WAIT * MS_PER_SEC,
-                               I3_MAX_WAIT * MS_PER_SEC);
+    return random_uint32_range(I3_MIN_WAIT, I3_MAX_WAIT);
 #else
-    return I3_MIN_WAIT * MS_PER_SEC;
+    return I3_MIN_WAIT;
 #endif
 }
 
