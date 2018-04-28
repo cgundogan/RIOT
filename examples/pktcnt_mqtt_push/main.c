@@ -40,10 +40,10 @@
                               0, 0, 0, 0, 0, 0, 0, 1 }
 #endif
 #ifndef I3_MIN_WAIT
-#define I3_MIN_WAIT (1)
+#define I3_MIN_WAIT (1000)
 #endif
 #ifndef I3_MAX_WAIT
-#define I3_MAX_WAIT (1)
+#define I3_MAX_WAIT (1000)
 #endif
 #ifndef I3_MAX_REQ
 #define I3_MAX_REQ      (3600U)
@@ -73,10 +73,10 @@ static const unsigned flags = EMCUTE_QOS_0;
 static inline uint32_t _next_msg(void)
 {
 #if I3_MIN_WAIT < I3_MAX_WAIT
-    return random_uint32_range(I3_MIN_WAIT * MS_PER_SEC,
-                               I3_MAX_WAIT * MS_PER_SEC) * US_PER_MS;
+    return random_uint32_range(I3_MIN_WAIT,
+                               I3_MAX_WAIT) * US_PER_MS;
 #else
-    return I3_MIN_WAIT * US_PER_SEC;
+    return I3_MIN_WAIT * US_PER_MS;
 #endif
 }
 
