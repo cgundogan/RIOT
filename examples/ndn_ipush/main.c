@@ -78,7 +78,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 bool i_am_root = false;
-
+bool hopp_active;
 
 /* state for running pktcnt module */
 uint8_t pktcnt_running = 0;
@@ -573,6 +573,7 @@ static int _hopp_end(int argc, char **argv) {
         return 1;
     }
     printf("RANK: %u\n", dodag.rank);
+    hopp_active=false;
 #endif
     return 0;
 }
@@ -701,6 +702,7 @@ int main(void)
 
     printf("hwaddr: %s, macid: %s\n", my_hwaddr_str, my_macid_str);
 #ifdef MODULE_HOPP
+    hopp_active=true;
     hopp_netif = netif;
     hopp_pid = thread_create(hopp_stack, sizeof(hopp_stack), HOPP_PRIO,
                              THREAD_CREATE_STACKTEST, hopp, &ccnl_relay,
