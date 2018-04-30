@@ -204,6 +204,7 @@ int _ccnl_interest(int argc, char **argv)
     if (argc > 2) {
         if (_intern_fib_add(argv[1], argv[2]) < 0) {
             _interest_usage(argv[0]);
+            puts("_ccnl_interest couldn't send interest");
             return -1;
         }
     }

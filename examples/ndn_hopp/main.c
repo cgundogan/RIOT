@@ -29,7 +29,7 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 #ifdef MODULE_TLSF
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     ((44 * 1024) / sizeof(uint32_t))
+#define TLSF_BUFFER     ((42 * 1024) / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
@@ -75,6 +75,7 @@ uint8_t my_hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char my_hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 bool i_am_root = false;
 gnrc_netif_t *netif;
+bool hopp_active = false;
 
 static char _consumer_stack[CONSUMER_STACKSIZE];
 

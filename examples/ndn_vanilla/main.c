@@ -73,6 +73,7 @@ static unsigned char _out[CCNL_MAX_PACKET_SIZE];
 static int my_macid = -1;
 static char my_macid_str[4];
 bool i_am_root = false;
+bool hopp_active;
 
 #define MACMAPSZ (367)
 static const char macmap[MACMAPSZ][24] = {
@@ -582,6 +583,7 @@ static int _hopp_end(int argc, char **argv) {
         printf("Error sending HOPP_STOP_MSG message to %d. ret=%d\n", hopp_pid, ret);
         return 1;
     }
+    hopp_active=false;
 #endif
     return 0;
 }
@@ -714,6 +716,7 @@ int main(void)
     printf("hwaddr: %s, macid: %s\n", my_hwaddr_str, my_macid_str);
 
 #ifdef MODULE_HOPP
+    hopp_active=true;
     hopp_netif = netif;
     hopp_pid = thread_create(hopp_stack, sizeof(hopp_stack), HOPP_PRIO,
                              THREAD_CREATE_STACKTEST, hopp, &ccnl_relay,
