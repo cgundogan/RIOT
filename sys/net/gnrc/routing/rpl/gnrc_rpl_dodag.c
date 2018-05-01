@@ -339,8 +339,6 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
 
     dodag->my_rank = dodag->instance->of->calc_rank(dodag->parents, 0);
     if (dodag->my_rank != old_rank) {
-        printf("Calculated new rank: %u (old_rank: %u)\n",
-               dodag->my_rank, old_rank);
         trickle_reset_timer(&dodag->trickle);
     }
 
