@@ -304,8 +304,7 @@ static void *req_gen(void *arg)
         switch (msg.type) {
             case I3_SEND_MSG_TYPE: {
                 _server_event_t *event = msg.content.ptr;
-                event->req_count++;
-                if (event->req_count < I3_MAX_REQ) {
+                if (event->req_count++ < I3_MAX_REQ) {
                     event->event.event.offset = _next_msg();
                     evtimer_add_msg(&req_timer, &event->event, sched_active_pid);
                 }
