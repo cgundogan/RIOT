@@ -32,7 +32,7 @@
 #include "pktcnt.h"
 #include "random.h"
 
-#define EMCUTE_PRIO         (THREAD_PRIORITY_MAIN - 1)
+#define EMCUTE_PRIO         (THREAD_PRIORITY_MAIN)
 
 #define I3_TOPIC            "/i3/gasval"
 #ifndef I3_BROKER
