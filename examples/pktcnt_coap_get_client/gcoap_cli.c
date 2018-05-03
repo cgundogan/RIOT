@@ -55,7 +55,7 @@
 #endif
 
 #define REQ_GEN_STACK_SIZE (THREAD_STACKSIZE_MAIN)
-#define REQ_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
+#define REQ_GEN_PRIO       (THREAD_PRIORITY_MAIN)
 
 static char req_gen_stack[REQ_GEN_STACK_SIZE];
 

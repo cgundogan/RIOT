@@ -33,7 +33,7 @@
 #include "debug.h"
 
 #define DATA_GEN_STACK_SIZE (THREAD_STACKSIZE_DEFAULT)
-#define DATA_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
+#define DATA_GEN_PRIO       (THREAD_PRIORITY_MAIN)
 #ifndef I3_MIN_WAIT
 #define I3_MIN_WAIT (1000)
 #endif
