@@ -489,7 +489,7 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
                           first_target->prefix_length);
 
                     gnrc_ipv6_nib_ft_del(&(first_target->target),
-                                         target->prefix_length);
+                                         first_target->prefix_length);
                     gnrc_ipv6_nib_ft_add(&(first_target->target),
                                          first_target->prefix_length, src,
                                          dodag->iface,
