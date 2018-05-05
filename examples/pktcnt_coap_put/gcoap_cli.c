@@ -32,7 +32,7 @@
 #include "debug.h"
 
 #define DATA_GEN_STACK_SIZE (THREAD_STACKSIZE_DEFAULT)
-#define DATA_GEN_PRIO       (THREAD_PRIORITY_MAIN)
+#define DATA_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
 #ifndef I3_SERVER
 #define I3_SERVER   "affe::1"
 #endif
@@ -88,11 +88,11 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     /*                                             coap_get_code_class(pdu), */
     /*                                             coap_get_code_detail(pdu)); */
 #ifdef MODULE_PKTCNT_FAST
-    printf("%1u.%02u;%u-%s\n",
-           coap_get_code_class(pdu),
-           coap_get_code_detail(pdu),
-           coap_get_id(pdu),
-           pktcnt_addr_str);
+    /* printf("%1u.%02u;%u-%s\n", */
+    /*        coap_get_code_class(pdu), */
+    /*        coap_get_code_detail(pdu), */
+    /*        coap_get_id(pdu), */
+    /*        pktcnt_addr_str); */
 #endif
     if (pdu->payload_len) {
         if (pdu->content_type == COAP_FORMAT_TEXT
@@ -288,9 +288,12 @@ static void *data_gen(void *arg)
             }
         }
     }
+    printf("Start sending every [%i, %i] s\n", (int)I3_MIN_WAIT,
+           I3_MAX_WAIT);
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
-        gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
         xtimer_usleep(_next_msg());
+        printf("req: %u\n", i);
+        gcoap_cli_cmd(sizeof(i3_args) / sizeof(i3_args[0]), i3_args);
     }
     return NULL;
 }
