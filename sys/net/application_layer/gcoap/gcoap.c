@@ -38,6 +38,7 @@
 
 #ifdef MODULE_PKTCNT_FAST
 extern char pktcnt_addr_str[17];
+extern uint32_t retransmissions;
 #endif
 
 /* Internal functions */
@@ -115,6 +116,9 @@ static void *_event_loop(void *arg)
     local.family = AF_INET6;
     local.netif  = SOCK_ADDR_ANY_NETIF;
     local.port   = GCOAP_PORT;
+#ifdef MODULE_PKTCNT_FAST
+    retransmissions = 0;
+#endif
 
     int res = sock_udp_create(&_sock, &local, NULL, 0);
     if (res < 0) {
@@ -145,6 +149,7 @@ static void *_event_loop(void *arg)
                     printf("RT-%u;%u-%s\n",
                            i, ntohs(((coap_hdr_t *)memo->msg.data.pdu_buf)->id),
                            pktcnt_addr_str);
+                    retransmissions++;
 #endif
                     ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
                                                   memo->msg.data.pdu_len,

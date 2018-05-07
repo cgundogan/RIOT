@@ -42,6 +42,9 @@
 #define TFLAGS_TIMEOUT      (0x0002)
 #define TFLAGS_ANY          (TFLAGS_RESP | TFLAGS_TIMEOUT)
 
+#ifdef MODULE_PKTCNT_FAST
+extern uint32_t retransmissions;
+#endif
 
 static const char *cli_id;
 static sock_udp_t sock;
@@ -125,6 +128,7 @@ static int syncsend(uint8_t resp, size_t len, bool unlock)
                     msgid_set = 0U;
                     break;
             }
+            retransmissions++;
             if (msgid_set) {
                 printf("RT-%u;%u-%s\n", retries, msgid, pktcnt_addr_str);
             }
@@ -549,6 +553,9 @@ void emcute_run(uint16_t port, const char *id)
     timer.callback = time_evt;
     timer.arg = NULL;
     mutex_init(&txlock);
+#ifdef MODULE_PKTCNT_FAST
+    retransmissions = 0;
+#endif
 
     if (sock_udp_create(&sock, &local, NULL, 0) < 0) {
         LOG_ERROR("[emcute] unable to open UDP socket on port %i\n", (int)port);
