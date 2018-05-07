@@ -264,6 +264,10 @@ static void *data_gen(void *arg)
         gnrc_netif_t *netif = gnrc_netif_iter(NULL);
         int res;
 
+#ifdef MODULE_PKTCNT_FAST
+        netopt_enable_t set = NETOPT_ENABLE;
+        gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
+#endif
         xtimer_sleep(1);
         if ((res = gnrc_netif_ipv6_addrs_get(netif, addrs, sizeof(addrs))) > 0) {
             for (unsigned i = 0; i < (res / sizeof(ipv6_addr_t)); i++) {

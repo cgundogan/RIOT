@@ -28,6 +28,9 @@
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 #ifdef MODULE_PKTCNT_FAST
+#include "net/gnrc/netapi.h"
+#include "net/gnrc/netif.h"
+
 static int pktcnt_fast(int argc, char **argv)
 {
     (void)argc;
@@ -43,6 +46,9 @@ static int pktcnt_start(int argc, char **argv)
     (void)argv;
     /* init pktcnt */
 #ifndef MODULE_PKTCNT_FAST
+    gnrc_netif_t netif = gnrc_netif_iter(NULL);
+    netopt_enable_t set = NETOPT_ENABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_END_IRQ, 0, &set, sizeof(set));
     if (pktcnt_init() != PKTCNT_OK) {
         puts("error: unable to initialize pktcnt");
         return 1;
