@@ -76,7 +76,7 @@ void pktcnt_fast_print(void)
                     sizeof(&stats));
     printf("STATS;%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
       "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";"
-      "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
+      "%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32";%" PRIu32"\n",
         retransmissions,
         tx_interest,
         tx_data,
@@ -89,6 +89,7 @@ void pktcnt_fast_print(void)
         stats->tx_bytes,
         stats->tx_success,
         stats->tx_failed,
+        netdev_evt_tx_noack,
         tx_pam,
         tx_nam,
         tx_sol,
