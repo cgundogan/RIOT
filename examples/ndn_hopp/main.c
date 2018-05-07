@@ -38,6 +38,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
 #define I3_DATA     "{\"id\":\"0x12a77af232\",\"val\":3000}"
+const char *i3_data = "{\"id\":\"0x12a77af232\",\"val\":3000}";
 
 #ifndef NUM_REQUESTS_NODE
 #define NUM_REQUESTS_NODE            (3600u)
@@ -456,26 +457,21 @@ static const char macmap[MACMAPSZ][24] = {
 "03:69:16:36:32:48:33:d6",
 };
 
-extern int _ccnl_interest(int argc, char **argv);
-
 void *_consumer_event_loop(void *arg)
 {
     (void)arg;
     /* periodically request content items */
     static char name[40];
-    static char content[33];
     for (unsigned i=0; i<NUM_REQUESTS_NODE; i++) {
         xtimer_usleep(REQ_DELAY);
-        unsigned name_len = snprintf(name, 40, "/%s/%s/gasval/%04d", PREFIX, my_macid_str, i);
-        int content_len = sprintf(content, "%s", I3_DATA);
-        content[content_len]='\0';
+        unsigned name_len = snprintf(name, 40, "/i3/%s/gasval/%04d", my_macid_str, i);
 #ifdef MODULE_PKTCNT_FAST
         uint64_t now = xtimer_now_usec64();
         printf("PUB;%s;%lu%06lu\n", name,
             (unsigned long)div_u64_by_1000000(now),
             (unsigned long)now % US_PER_SEC);
 #endif
-        hopp_publish_content(name, name_len, (unsigned char*)content, content_len);
+        hopp_publish_content(name, name_len, (unsigned char*)i3_data, 32);
     }
     return 0;
 }
@@ -501,12 +497,11 @@ static int _root(int argc, char **argv)
     (void)argc;
     (void)argv;
 
-    char name[5];
-    int name_len = sprintf(name, "/%s", PREFIX);
+    static const char *name = "/i3";
 
     i_am_root = true;
 
-    hopp_root_start(name, name_len);
+    hopp_root_start(name, strlen(name));
     return 0;
 }
 

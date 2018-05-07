@@ -115,7 +115,7 @@ static void hopp_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_
     hopp_send(pkt, dst_addr, dst_addr_len);
 }
 
-static void hopp_send_sol(compas_dodag_t *dodag)
+static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
 {
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, compas_sol_len() + 2, GNRC_NETTYPE_CCN);
     if (pkt == NULL) {
@@ -130,21 +130,23 @@ static void hopp_send_sol(compas_dodag_t *dodag)
     size_t addr_len = 0;
     uint8_t flags = 0;
 
-
-    if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < 4)) {
-        addr = dodag->parent.face.face_addr;
-        addr_len = dodag->parent.face.face_addr_len;
-    }
-    else {
-        dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
-        /*
-        if (dodag->rank != COMPAS_DODAG_UNDEF) {
-            flags = COMPAS_SOL_FLAGS_TRICKLE;
+    if (!force_bcast) {
+        if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < 4)) {
+            addr = dodag->parent.face.face_addr;
+            addr_len = dodag->parent.face.face_addr_len;
         }
-        */
-        if (dodag->parent.alive) {
-            hopp_parent_timeout(dodag);
+        else {
+            dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
+            /*
+            if (dodag->rank != COMPAS_DODAG_UNDEF) {
+                flags = COMPAS_SOL_FLAGS_TRICKLE;
+            }
+            */
+            if (dodag->parent.alive) {
+                hopp_parent_timeout(dodag);
+            }
         }
+        dodag->sol_num++;
     }
 
     compas_sol_create((compas_sol_t *) (((uint8_t *) pkt->data) + 2), flags);
@@ -153,7 +155,6 @@ static void hopp_send_sol(compas_dodag_t *dodag)
 #endif
     hopp_send(pkt, addr, addr_len);
 
-    dodag->sol_num++;
 }
 
 static void hopp_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
@@ -206,6 +207,7 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
             ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
             evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
             */
+            hopp_send_sol(dodag, true);
             hopp_send_pam(dodag, NULL, 0, false);
         }
 
@@ -247,14 +249,15 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
 
         dodag->sol_num = 0;
 
-        /*
         if ((state == COMPAS_PAM_RET_CODE_PARENT_WORSERANK) && dodag->parent.alive) {
+            /*
             dodag->sol_num = 0xFF;
             hopp_send_sol(dodag);
             dodag->sol_num = 0x0;
+            */
+            hopp_parent_timeout(dodag);
             return;
         }
-        */
 
         evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
 
@@ -545,7 +548,7 @@ void *hopp(void *arg)
             case HOPP_SOL_MSG:
                 if ((dodag.rank != COMPAS_DODAG_ROOT_RANK) &&
                     (dodag.rank == COMPAS_DODAG_UNDEF || !dodag.parent.alive)) {
-                    hopp_send_sol(&dodag);
+                    hopp_send_sol(&dodag, false);
                     ((evtimer_event_t *)&sol_msg_evt)->offset = HOPP_SOL_PERIOD;
                     evtimer_add_msg(&evtimer, &sol_msg_evt, sched_active_pid);
                     if (dodag.sol_num == 3) {
