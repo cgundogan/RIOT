@@ -45,7 +45,7 @@
 #define I3_MAX_WAIT (1000)
 #endif
 #ifndef I3_MAX_REQ
-#define I3_MAX_REQ      (1003U)
+#define I3_MAX_REQ      (2500U)
 #endif
 #ifndef I3_MAX_SERVER
 #define I3_MAX_SERVER   (1U)
