@@ -525,14 +525,13 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
 
                 gnrc_ipv6_nib_ft_del(&(target->target), target->prefix_length);
                 gnrc_ipv6_nib_ft_add(&(target->target), target->prefix_length, src,
-                                     dodag->iface,
-                                     dodag->default_lifetime * dodag->lifetime_unit);
+                                     dodag->iface, 0);
                 break;
 
             case (GNRC_RPL_OPT_TRANSIT):
                 DEBUG("RPL: RPL TRANSIT INFO DAO option parsed\n");
                 *included_opts |= ((uint32_t) 1) << GNRC_RPL_OPT_TRANSIT;
-                gnrc_rpl_opt_transit_t *transit = (gnrc_rpl_opt_transit_t *) opt;
+                /* gnrc_rpl_opt_transit_t *transit = (gnrc_rpl_opt_transit_t *) opt; */
                 if (first_target == NULL) {
                     DEBUG("RPL: Encountered a RPL TRANSIT DAO option without "
                           "a preceding RPL TARGET DAO option\n");
@@ -548,8 +547,7 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
                                          first_target->prefix_length);
                     gnrc_ipv6_nib_ft_add(&(first_target->target),
                                          first_target->prefix_length, src,
-                                         dodag->iface,
-                                         transit->path_lifetime * dodag->lifetime_unit);
+                                         dodag->iface, 0);
 
                     first_target = (gnrc_rpl_opt_target_t *) (((uint8_t *) (first_target)) +
                                    sizeof(gnrc_rpl_opt_t) + first_target->length);
