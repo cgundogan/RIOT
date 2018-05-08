@@ -186,10 +186,12 @@ int pktcnt_init(void)
     log_event(TYPE_STARTUP);
     puts("");
 
-    if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
-                                    PKTCNT_PRIO, THREAD_CREATE_STACKTEST,
-                                    pktcnt_thread, NULL, "pktcnt")) < 0) {
-        return PKTCNT_ERR_INIT;
+    if (pktcnt_pid <= KERNEL_PID_UNDEF) {
+        if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
+                                        PKTCNT_PRIO, THREAD_CREATE_STACKTEST,
+                                        pktcnt_thread, NULL, "pktcnt")) < 0) {
+            return PKTCNT_ERR_INIT;
+        }
     }
 
     return PKTCNT_OK;
