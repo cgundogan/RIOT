@@ -166,6 +166,7 @@ extern "C" {
 #define GNRC_RPL_MSG_TYPE_DAO_HANDLE  (0x0903)
 
 #define GNRC_RPL_MSG_TYPE_DAO_RESET     (0x0904)
+#define GNRC_RPL_MSG_TYPE_KILL          (0x0905)
 
 /**
  * @brief   Infinite rank
