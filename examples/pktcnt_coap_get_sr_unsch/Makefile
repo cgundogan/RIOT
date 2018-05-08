@@ -1,0 +1,77 @@
+# name of your application
+APPLICATION = pktcnt_coap_get_sr_unsch
+
+# If no BOARD is found in the environment, use this default:
+BOARD ?= iotlab-m3
+
+# This has to be the absolute path to the RIOT base directory:
+RIOTBASE ?= $(CURDIR)/../..
+
+## Uncomment to redefine port, for example use 61616 for RFC 6282 UDP compression.
+#GCOAP_PORT = 5683
+#CFLAGS += -DGCOAP_PORT=$(GCOAP_PORT)
+
+## Uncomment to redefine request token length, max 8.
+#GCOAP_TOKENLEN = 2
+#CFLAGS += -DGCOAP_TOKENLEN=$(GCOAP_TOKENLEN)
+
+# Include packages that pull up and auto-init the link layer.
+# NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
+ifeq (native,$(BOARD))
+  USEMODULE += socket_zep
+else
+  USEMODULE += gnrc_netdev_default
+endif
+USEMODULE += auto_init_gnrc_netif
+# Specify the mandatory networking modules
+USEMODULE += gnrc_ipv6_router_default
+USEMODULE += gcoap
+# Additional networking modules that can be dropped if not needed
+USEMODULE += gnrc_icmpv6_echo
+# Add a routing protocol
+USEMODULE += gnrc_rpl
+USEMODULE += auto_init_gnrc_rpl
+
+# Required by gcoap example
+USEMODULE += od
+USEMODULE += fmt
+# Add also the shell, some shell commands
+USEMODULE += shell
+USEMODULE += shell_commands
+USEMODULE += ps
+
+# Test setup secific
+USEMODULE += pktcnt
+
+# Comment this out to disable code in RIOT that does safety checking
+# which is not needed in a production environment but helps in the
+# development process:
+DEVELHELP ?= 1
+
+# Change this to 0 show compiler invocation lines by default:
+QUIET ?= 1
+
+ifneq (,$(DAO_INT))
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=$(DAO_INT)
+else
+  CFLAGS += -DGNRC_RPL_REGULAR_DAO_INTERVAL=5
+endif
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=64
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=64
+CFLAGS += -DGCOAP_MSG_QUEUE_SIZE=32
+CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=32
+include $(RIOTBASE)/Makefile.include
+
+# Set a custom channel if needed
+ifneq (,$(filter cc110x,$(USEMODULE)))          # radio is cc110x sub-GHz
+  DEFAULT_CHANNEL ?= 0
+  CFLAGS += -DCC110X_DEFAULT_CHANNEL=$(DEFAULT_CHANNEL)
+else
+  ifneq (,$(filter at86rf212b,$(USEMODULE)))    # radio is IEEE 802.15.4 sub-GHz
+    DEFAULT_CHANNEL ?= 5
+    CFLAGS += -DIEEE802154_DEFAULT_SUBGHZ_CHANNEL=$(DEFAULT_CHANNEL)
+  else                                          # radio is IEEE 802.15.4 2.4 GHz
+    DEFAULT_CHANNEL ?= 11
+    CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=$(DEFAULT_CHANNEL)
+  endif
+endif
