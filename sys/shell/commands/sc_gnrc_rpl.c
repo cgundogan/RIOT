@@ -377,6 +377,19 @@ static int _gnrc_rpl_set_dao_interval(uint8_t dao_interval)
     return 1;
 }
 
+static int _gnrc_rpl_kill(void)
+{
+    if (gnrc_rpl_pid > KERNEL_PID_UNDEF) {
+        msg_t msg = { .type = GNRC_RPL_MSG_TYPE_KILL };
+
+        msg_send(&msg, gnrc_rpl_pid);
+        printf("Permanently killed RPL\n");
+        return 0;
+    }
+    puts("error: RPL not started.");
+    return 1;
+}
+
 int _gnrc_rpl(int argc, char **argv)
 {
     if ((argc < 2) || (strcmp(argv[1], "show") == 0)) {
@@ -392,6 +405,9 @@ int _gnrc_rpl(int argc, char **argv)
         if (argc == 3) {
             return _gnrc_rpl_instance_remove(argv[2]);
         }
+    }
+    else if (strcmp(argv[1], "kill") == 0) {
+        return _gnrc_rpl_kill();
     }
     else if (strcmp(argv[1], "trickle") == 0) {
         if ((argc == 4) && (strcmp(argv[2], "reset") == 0)) {

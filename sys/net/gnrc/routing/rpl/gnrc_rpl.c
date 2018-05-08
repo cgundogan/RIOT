@@ -305,6 +305,8 @@ static void *_event_loop(void *args)
                     gnrc_rpl_instances[i].dodag.dao_time = (uint8_t)msg.content.value;
                 }
                 break;
+            case GNRC_RPL_MSG_TYPE_KILL:
+                return NULL;
             default:
                 break;
         }
