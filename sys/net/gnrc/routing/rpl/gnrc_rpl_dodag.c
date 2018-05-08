@@ -220,10 +220,8 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
 
         /* set the default route to the next parent for now */
         if (parent->next) {
-            uint32_t now = xtimer_now_usec() / US_PER_SEC;
             gnrc_ipv6_nib_ft_add(NULL, 0,
-                                 &parent->next->addr, dodag->iface,
-                                 (parent->next->lifetime - now));
+                                 &parent->next->addr, dodag->iface, 0);
         }
     }
     LL_DELETE(dodag->parents, parent);
