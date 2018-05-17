@@ -322,6 +322,7 @@ void gnrc_rpl_delay_dao(gnrc_rpl_dodag_t *dodag)
     evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&dodag->dao_event);
     ((evtimer_event_t *)&(dodag->dao_event))->offset = GNRC_RPL_DEFAULT_DAO_DELAY + random_uint32_range(500,2000);
     evtimer_add_msg(&gnrc_rpl_evtimer, &dodag->dao_event, gnrc_rpl_pid);
+    dodag->dao_ft_state = NULL;
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }
@@ -331,6 +332,7 @@ void gnrc_rpl_long_delay_dao(gnrc_rpl_dodag_t *dodag)
     evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&dodag->dao_event);
     ((evtimer_event_t *)&(dodag->dao_event))->offset = GNRC_RPL_REGULAR_DAO_INTERVAL + random_uint32_range(500,2000);
     evtimer_add_msg(&gnrc_rpl_evtimer, &dodag->dao_event, gnrc_rpl_pid);
+    dodag->dao_ft_state = NULL;
     dodag->dao_counter = 0;
     dodag->dao_ack_received = false;
 }

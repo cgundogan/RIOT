@@ -812,8 +812,13 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     /* TODO: nib: dropped support for external transit options for now */
     void *ft_state = NULL;
     gnrc_ipv6_nib_ft_t fte;
-    while(gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &ft_state, &fte)) {
+    void *dao_ft_state_prev = dodag->dao_ft_state;
+    unsigned prefix_nums = 0;
+    bool cont = true;
+
+    do {
         DEBUG("RPL: Send DAO - building transit option\n");
+        cont = gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &(dodag->dao_ft_state), &fte);
 
         if ((pkt = _dao_transit_build(pkt, lifetime, false)) == NULL) {
             DEBUG("RPL: Send DAO - no space left in packet buffer\n");
@@ -829,14 +834,16 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
                 return;
             }
         }
-    }
+    } while ((prefix_nums++ < GNRC_RPL_MAX_DAO_PREFIXES) && cont);
 
-    /* add own address */
-    DEBUG("RPL: Send DAO - building target %s/128\n",
-          ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
-    if ((pkt = _dao_target_build(pkt, me, IPV6_ADDR_BIT_LEN)) == NULL) {
-        DEBUG("RPL: Send DAO - no space left in packet buffer\n");
-        return;
+    if (dao_ft_state_prev == NULL) {
+        /* add own address only for first DAO in sequence */
+        DEBUG("RPL: Send DAO - building target %s/128\n",
+              ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
+        if ((pkt = _dao_target_build(pkt, me, IPV6_ADDR_BIT_LEN)) == NULL) {
+            DEBUG("RPL: Send DAO - no space left in packet buffer\n");
+            return;
+        }
     }
 
     bool local_instance = (inst->id & GNRC_RPL_INSTANCE_ID_MSB) ? true : false;
@@ -1050,7 +1057,13 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6
     }
 
     dodag->dao_ack_received = true;
-    gnrc_rpl_long_delay_dao(dodag);
+    if (dodag->dao_ft_state) {
+        evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&dodag->dao_event);
+        gnrc_rpl_send_DAO(dodag->instance, NULL, dodag->default_lifetime);
+    }
+    else {
+        gnrc_rpl_long_delay_dao(dodag);
+    }
 }
 
 /**
