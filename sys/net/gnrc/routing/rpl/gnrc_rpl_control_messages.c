@@ -53,9 +53,6 @@ static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 #define GNRC_RPL_PREFIX_AUTO_ADDRESS_BIT    (1 << 6)
 #define GNRC_RPL_MAX_DAO_PREFIXES           (4)
 
-void *dao_ft_state = NULL;
-void *dao_ft_state_prev = NULL;
-
 static gnrc_netif_t *_find_interface_with_rpl_mcast(void)
 {
     gnrc_netif_t *netif = NULL;
@@ -467,7 +464,7 @@ bool _parse_options(int msg_type, gnrc_rpl_instance_t *inst, gnrc_rpl_opt_t *opt
                     first_target = target;
                 }
 
-                DEBUG("RPL: adding FT entry %s/%d\n",
+                printf("RPL: adding FT entry %s/%d\n",
                       ipv6_addr_to_str(addr_str, &(target->target), (unsigned)sizeof(addr_str)),
                       target->prefix_length);
 
@@ -805,10 +802,12 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
     /* TODO: nib: dropped support for external transit options for now */
     gnrc_ipv6_nib_ft_t fte;
     bool cont = true;
-    dao_ft_state_prev = dao_ft_state;
+    void *dao_ft_state_prev = dodag->dao_ft_state;
+    unsigned prefix_nums = 0;
+
     do {
         DEBUG("RPL: Send DAO - building transit option\n");
-        cont = gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &dao_ft_state, &fte);
+        cont = gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &(dodag->dao_ft_state), &fte);
 
         if ((pkt = _dao_transit_build(pkt, lifetime, false)) == NULL) {
             DEBUG("RPL: Send DAO - no space left in packet buffer\n");
@@ -817,7 +816,7 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
 
         if (ipv6_addr_is_global(&fte.dst) &&
             !ipv6_addr_is_unspecified(&fte.next_hop)) {
-            DEBUG("RPL: Send DAO - building target %s/%d\n",
+            printf("RPL: Send DAO1 - building target %s/%d\n",
                   ipv6_addr_to_str(addr_str, &fte.dst, sizeof(addr_str)), fte.dst_len);
 
             if ((pkt = _dao_target_build(pkt, &fte.dst, fte.dst_len)) == NULL) {
@@ -829,7 +828,7 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
 
     if (dao_ft_state_prev == NULL) {
         /* add own address only for the first DAO in sequence */
-        DEBUG("RPL: Send DAO - building target %s/128\n",
+        printf("RPL: Send DAO2 - building target %s/128\n",
               ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
         if ((pkt = _dao_target_build(pkt, me, IPV6_ADDR_BIT_LEN)) == NULL) {
             DEBUG("RPL: Send DAO - no space left in packet buffer\n");
@@ -885,6 +884,8 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
 
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
 
+    printf("DAO SND: %s\n", ipv6_addr_to_str(addr_str, destination, sizeof(addr_str)));
+
     GNRC_RPL_COUNTER_INCREMENT(dodag->dao_seq);
 }
 
@@ -936,6 +937,7 @@ void gnrc_rpl_send_DAO_ACK(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, 
 #endif
 
     gnrc_rpl_send(pkt, dodag->iface, NULL, destination, &dodag->dodag_id);
+    printf("DAO_ACK SND: %s\n", ipv6_addr_to_str(addr_str, destination, sizeof(addr_str)));
 }
 
 void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src, ipv6_addr_t *dst,
@@ -943,6 +945,7 @@ void gnrc_rpl_recv_DAO(gnrc_rpl_dao_t *dao, kernel_pid_t iface, ipv6_addr_t *src
 {
     (void)iface;
     (void)dst;
+    printf("DAO RCV: %s\n", ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
 
 #ifdef MODULE_NETSTATS_RPL
     gnrc_rpl_netstats_rx_DAO(&gnrc_rpl_netstats, len, (dst && !ipv6_addr_is_multicast(dst)));
@@ -1012,6 +1015,8 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6
     (void)dst;
     (void)len;
 
+    printf("DAO_ACK RCV: %s\n", ipv6_addr_to_str(addr_str, src, sizeof(addr_str)));
+
     gnrc_rpl_instance_t *inst = NULL;
     gnrc_rpl_dodag_t *dodag = NULL;
 
@@ -1048,7 +1053,7 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6
     }
 
     dodag->dao_ack_received = true;
-    if (dao_ft_state) {
+    if (dodag->dao_ft_state) {
         gnrc_rpl_send_DAO(dodag->instance, NULL, dodag->default_lifetime);
     }
     else {

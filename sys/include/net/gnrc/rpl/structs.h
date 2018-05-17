@@ -290,6 +290,7 @@ struct gnrc_rpl_dodag {
     uint8_t dio_opts;               /**< options in the next DIO
                                          (see @ref GNRC_RPL_REQ_DIO_OPTS "DIO Options") */
     uint8_t dao_time;               /**< time to schedule a DAO in seconds */
+    void *dao_ft_state;             /**< state while iterating nib routing entries */
     trickle_t trickle;              /**< trickle representation */
 };
 

@@ -40,6 +40,10 @@ USEMODULE += netstats_rpl
 # development process:
 DEVELHELP ?= 1
 
+CFLAGS += -DGNRC_IPV6_NIB_NUMOF=100
+CFLAGS += -DGNRC_IPV6_NIB_OFFL_NUMOF=100
+CFLAGS += -Wno-error=cast-function-type
+
 # Uncomment the following 2 lines to specify static link lokal IPv6 address
 # this might be useful for testing, in cases where you cannot or do not want to
 # run a shell with ifconfig to get the real link lokal address.
