@@ -51,6 +51,10 @@ static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 #define GNRC_RPL_SHIFTED_MOP_MASK           (0x7)
 #define GNRC_RPL_PRF_MASK                   (0x7)
 #define GNRC_RPL_PREFIX_AUTO_ADDRESS_BIT    (1 << 6)
+#define GNRC_RPL_MAX_DAO_PREFIXES           (4)
+
+void *dao_ft_state = NULL;
+void *dao_ft_state_prev = NULL;
 
 static gnrc_netif_t *_find_interface_with_rpl_mcast(void)
 {
@@ -799,15 +803,18 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
 
     /* add external and RPL FT entries */
     /* TODO: nib: dropped support for external transit options for now */
-    void *ft_state = NULL;
     gnrc_ipv6_nib_ft_t fte;
-    while(gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &ft_state, &fte)) {
+    bool cont = true;
+    dao_ft_state_prev = dao_ft_state;
+    do {
         DEBUG("RPL: Send DAO - building transit option\n");
+        cont = gnrc_ipv6_nib_ft_iter(NULL, dodag->iface, &dao_ft_state, &fte);
 
         if ((pkt = _dao_transit_build(pkt, lifetime, false)) == NULL) {
             DEBUG("RPL: Send DAO - no space left in packet buffer\n");
             return;
         }
+
         if (ipv6_addr_is_global(&fte.dst) &&
             !ipv6_addr_is_unspecified(&fte.next_hop)) {
             DEBUG("RPL: Send DAO - building target %s/%d\n",
@@ -818,14 +825,16 @@ void gnrc_rpl_send_DAO(gnrc_rpl_instance_t *inst, ipv6_addr_t *destination, uint
                 return;
             }
         }
-    }
+    } while ((prefix_nums++ < GNRC_RPL_MAX_DAO_PREFIXES) && cont);
 
-    /* add own address */
-    DEBUG("RPL: Send DAO - building target %s/128\n",
-          ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
-    if ((pkt = _dao_target_build(pkt, me, IPV6_ADDR_BIT_LEN)) == NULL) {
-        DEBUG("RPL: Send DAO - no space left in packet buffer\n");
-        return;
+    if (dao_ft_state_prev == NULL) {
+        /* add own address only for the first DAO in sequence */
+        DEBUG("RPL: Send DAO - building target %s/128\n",
+              ipv6_addr_to_str(addr_str, me, sizeof(addr_str)));
+        if ((pkt = _dao_target_build(pkt, me, IPV6_ADDR_BIT_LEN)) == NULL) {
+            DEBUG("RPL: Send DAO - no space left in packet buffer\n");
+            return;
+        }
     }
 
     bool local_instance = (inst->id & GNRC_RPL_INSTANCE_ID_MSB) ? true : false;
@@ -1039,7 +1048,12 @@ void gnrc_rpl_recv_DAO_ACK(gnrc_rpl_dao_ack_t *dao_ack, kernel_pid_t iface, ipv6
     }
 
     dodag->dao_ack_received = true;
-    gnrc_rpl_long_delay_dao(dodag);
+    if (dao_ft_state) {
+        gnrc_rpl_send_DAO(dodag->instance, NULL, dodag->default_lifetime);
+    }
+    else {
+        gnrc_rpl_long_delay_dao(dodag);
+    }
 }
 
 /**
