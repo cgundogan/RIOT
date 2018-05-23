@@ -18,6 +18,7 @@
 #include "ccnl-pkt-builder.h"
 #include "ccn-lite-riot.h"
 #include "ccnl-producer.h"
+#include "ccnl-callbacks.h"
 
 #include "compas/routing/dodag.h"
 #include "compas/routing/nam.h"
@@ -38,8 +39,6 @@ gnrc_netif_t *hopp_netif;
 kernel_pid_t hopp_pid;
 
 static unsigned char _out[CCNL_MAX_PACKET_SIZE];
-
-extern kernel_pid_t _ccnl_event_loop_pid;
 
 static struct ccnl_face_s *loopback_face;
 static msg_t hopp_q[HOPP_QSZ];
@@ -295,7 +294,7 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
     */
 
-    if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) != 0) {
+    if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) < 0) {
         puts("hopp: failed to send Interest");
     }
     ccnl_prefix_free(prefix);
@@ -456,8 +455,8 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
             return true;
         }
         else {
-            msg_t mr, ms = { .type = CCNL_MSG_IN_CS, .content.ptr = nce->name.name };
-            msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+            msg_t mr, ms = { .type = CCNL_MSG_CS_LOOKUP, .content.ptr = nce->name.name };
+            msg_send_receive(&ms, &mr, ccnl_event_loop_pid);
             if (!mr.content.value) {
                 hopp_nce_del(dodag, nce);
             }
@@ -469,8 +468,11 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     return false;
 }
 
-static int content_send(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt) {
+static int content_send(struct ccnl_relay_s *relay,
+                        struct ccnl_face_s *face,
+                        struct ccnl_pkt_s *pkt) {
     (void) relay;
+    (void) face;
     compas_name_t cname;
     char *s = ccnl_prefix_to_path(pkt->pfx);
     compas_name_init(&cname, s, strlen(s));
@@ -481,11 +483,12 @@ static int content_send(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt) {
         msg_t msg = { .type = HOPP_NAM_DEL_MSG, .content.ptr = n };
         msg_try_send(&msg, hopp_pid);
     }
-    return 1;
+    return 0;
 }
 
-static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p,
-                             struct ccnl_face_s *from)
+static int content_requested(struct ccnl_relay_s *relay,
+                             struct ccnl_face_s *from,
+                             struct ccnl_pkt_s *p)
 {
     (void) relay;
     (void) from;
@@ -513,7 +516,7 @@ static int content_requested(struct ccnl_relay_s *relay, struct ccnl_pkt_s *p,
     }
 
     ccnl_free(s);
-    return 1;
+    return 0;
 }
 
 void *hopp(void *arg)
@@ -533,8 +536,8 @@ void *hopp(void *arg)
     gnrc_netreg_register(GNRC_NETTYPE_CCN_HOPP, &_ne);
     loopback_face = ccnl_get_face_or_create(&ccnl_relay, -1, NULL, 0);
 
-    ccnl_callback_set_data_send(content_send);
-    ccnl_callback_set_data_received(content_requested);
+    ccnl_set_cb_tx_on_data(content_send);
+    ccnl_set_cb_rx_on_data(content_requested);
 
     while (1) {
         msg_t msg;
@@ -593,8 +596,8 @@ void *hopp(void *arg)
                 hopp_parent_timeout(&dodag);
                 break;
             case HOPP_STOP_MSG:
-                ccnl_callback_set_data_send(NULL);
-                ccnl_callback_set_data_received(NULL);
+                ccnl_set_cb_tx_on_data(NULL);
+                ccnl_set_cb_rx_on_data(NULL);
                 return NULL;
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 pkt = (gnrc_pktsnip_t *) msg.content.ptr;
@@ -655,8 +658,8 @@ bool hopp_publish_content(const char *name, size_t name_len,
         struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, (int *)&content_len);
         struct ccnl_content_s *c = ccnl_content_new(&pk);
 
-        msg_t ms = { .type = CCNL_MSG_ADD_CS, .content.ptr = c };
-        msg_send(&ms, _ccnl_event_loop_pid);
+        msg_t ms = { .type = CCNL_MSG_CS_ADD, .content.ptr = c };
+        msg_send(&ms, ccnl_event_loop_pid);
 
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
