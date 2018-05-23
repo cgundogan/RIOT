@@ -49,6 +49,7 @@ USEMODULE += netstats_l2
 #USEMODULE += l2filter_blacklist
 USEMODULE += hopp
 USEMODULE += pktcnt
+USEMODULE += tlsf-malloc
 
 USEPKG += tlsf
 USEPKG += ccn-lite
