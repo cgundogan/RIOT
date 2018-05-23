@@ -685,6 +685,7 @@ ifneq (,$(filter nanocoap_%,$(USEMODULE)))
 endif
 
 ifneq (,$(filter ccn-lite,$(USEPKG)))
+  USEMODULE += evtimer
   USEMODULE += ccn-lite-utils
 endif
 

@@ -23,6 +23,7 @@
 #include "net/gnrc/netif.h"
 #include "ccn-lite-riot.h"
 #include "ccnl-pkt-ndntlv.h"
+#include "ccnl-content.h"
 
 #define BUF_SIZE (64)
 
@@ -130,8 +131,8 @@ int _ccnl_content(int argc, char **argv)
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
     c = ccnl_content_new(&pk);
-    ccnl_content_add2cache(&ccnl_relay, c);
     c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+    ccnl_cs_add(&ccnl_relay, c);
 
     return 0;
 }
