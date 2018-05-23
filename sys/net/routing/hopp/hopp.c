@@ -556,6 +556,7 @@ void *hopp(void *arg)
             case HOPP_SOL_MSG:
                 if ((dodag.rank != COMPAS_DODAG_ROOT_RANK) &&
                     (dodag.rank == COMPAS_DODAG_UNDEF || !dodag.parent.alive)) {
+                    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
                     hopp_send_sol(&dodag, false);
                     ((evtimer_event_t *)&sol_msg_evt)->offset = HOPP_SOL_PERIOD;
                     evtimer_add_msg(&evtimer, &sol_msg_evt, sched_active_pid);
