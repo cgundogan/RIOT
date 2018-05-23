@@ -290,8 +290,8 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
 
     /*
-    msg_t mr, ms = { .type = CCNL_MSG_DEL_CS, .content.ptr = nce->name.name };
-    msg_send_receive(&ms, &mr, _ccnl_event_loop_pid);
+    msg_t mr, ms = { .type = CCNL_MSG_CS_DEL, .content.ptr = prefix };
+    msg_send_receive(&ms, &mr, ccnl_event_loop_pid);
     */
 
     if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) < 0) {
@@ -455,8 +455,13 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
             return true;
         }
         else {
-            msg_t mr, ms = { .type = CCNL_MSG_CS_LOOKUP, .content.ptr = nce->name.name };
+            char name[COMPAS_NAME_LEN + 1];
+            memcpy(name, nce->name.name, nce->name.name_len);
+            name[nce->name.name_len] = '\0';
+            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+            msg_t mr, ms = { .type = CCNL_MSG_CS_LOOKUP, .content.ptr = prefix };
             msg_send_receive(&ms, &mr, ccnl_event_loop_pid);
+            ccnl_prefix_free(prefix);
             if (!mr.content.value) {
                 hopp_nce_del(dodag, nce);
             }
@@ -637,6 +642,32 @@ bool hopp_publish_content(const char *name, size_t name_len,
     static compas_name_t cname;
     compas_name_init(&cname, name, name_len);
     compas_nam_cache_entry_t *nce = compas_nam_cache_add(&dodag, &cname, NULL);
+
+    if (!nce) {
+        uint32_t now = xtimer_now_usec();
+        for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
+            compas_nam_cache_entry_t *nce = &dodag.nam_cache[i];
+            unsigned pos = nce - dodag.nam_cache;
+            unsigned time = now - nce_times[pos];
+            if (nce->in_use && !compas_nam_cache_requested(nce->flags) && (time > HOPP_NAM_STALE_TIME)) {
+                evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                memset(nce, 0, sizeof(*nce));
+                nce = compas_nam_cache_add(&dodag, &cname, NULL);
+            }
+        }
+        if (!nce) {
+            for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
+                compas_nam_cache_entry_t *nce = &dodag.nam_cache[i];
+                unsigned pos = nce - dodag.nam_cache;
+                unsigned time = now - nce_times[pos];
+                if (nce->in_use && (time > HOPP_NAM_STALE_TIME)) {
+                    evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+                    memset(nce, 0, sizeof(*nce));
+                    nce  = compas_nam_cache_add(&dodag, &cname, NULL);
+                }
+            }
+        }
+    }
 
     if (nce) {
         nce->flags |= COMPAS_NAM_CACHE_FLAGS_REQUESTED;
