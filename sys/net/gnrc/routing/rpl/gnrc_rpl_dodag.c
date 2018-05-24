@@ -232,9 +232,7 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
 
         /* set the default route to the next parent for now */
         if (parent->next) {
-            gnrc_ipv6_nib_ft_add(NULL, 0,
-                                 &parent->next->addr, dodag->iface,
-                                 dodag->default_lifetime * dodag->lifetime_unit * MS_PER_SEC);
+            gnrc_ipv6_nib_ft_add(NULL, 0, &parent->next->addr, dodag->iface, 0);
         }
     }
     LL_DELETE(dodag->parents, parent);
@@ -278,8 +276,7 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
 #endif
         if (parent == dodag->parents) {
             gnrc_ipv6_nib_ft_del(NULL, 0);
-            gnrc_ipv6_nib_ft_add(NULL, 0, &parent->addr, dodag->iface,
-                                 dodag->default_lifetime * dodag->lifetime_unit);
+            gnrc_ipv6_nib_ft_add(NULL, 0, &parent->addr, dodag->iface, 0);
         }
 #ifdef MODULE_GNRC_RPL_P2P
         }
@@ -329,8 +326,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     if (dodag->instance->mop != GNRC_RPL_P2P_MOP) {
 #endif
         gnrc_ipv6_nib_ft_del(NULL, 0);
-        gnrc_ipv6_nib_ft_add(NULL, 0, &dodag->parents->addr, dodag->iface,
-                             dodag->default_lifetime * dodag->lifetime_unit);
+        gnrc_ipv6_nib_ft_add(NULL, 0, &dodag->parents->addr, dodag->iface, 0);
 #ifdef MODULE_GNRC_RPL_P2P
     }
 #endif
