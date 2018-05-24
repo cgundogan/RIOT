@@ -34,6 +34,8 @@
 
 #define CCNL_ENC_HOPP (0x08)
 
+extern kernel_pid_t exporter_pid;
+
 char hopp_stack[HOPP_STACKSZ];
 gnrc_netif_t *hopp_netif;
 kernel_pid_t hopp_pid;
@@ -695,6 +697,13 @@ bool hopp_publish_content(const char *name, size_t name_len,
 
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
+
+#if defined(CCNL_RIOT)
+    if (exporter_pid != KERNEL_PID_UNDEF) {
+        msg_t m = { .type = EXPORTER_EVENT_NAM_CACHE_ADD };
+        msg_try_send(&m, exporter_pid);
+    }
+#endif
 
         return true;
     }

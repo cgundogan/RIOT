@@ -78,6 +78,14 @@
 #define HOPP_STOP_MSG               (0xBFF6)
 #endif
 
+#define EXPORTER_PERIODIC               (0xEE00)
+#define EXPORTER_EVENT_PARENT_ADD       (0xEE01)
+#define EXPORTER_EVENT_PARENT_DROP      (0xEE02)
+#define EXPORTER_EVENT_CON_CACHE_ADD    (0xEE03)
+#define EXPORTER_EVENT_NAM_CACHE_ADD    (0xEE04)
+#define EXPORTER_EVENT_NAM_CACHE_DEL    (0xEE05)
+#define EXPORTER_EVENT_PARENT_REFRESH   (0xEE06)
+
 #ifndef HOPP_NAM_STALE_TIME
 #define HOPP_NAM_STALE_TIME         (10 * US_PER_SEC)
 #endif

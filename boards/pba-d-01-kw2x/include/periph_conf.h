@@ -112,14 +112,14 @@ static const uart_conf_t uart_config[] = {
     {
         .dev    = UART0,
         .freq   = CLOCK_CORECLOCK,
-        .pin_rx = GPIO_PIN(PORT_D, 6),
+        .pin_rx = GPIO_PIN(PORT_A, 1),
         .pin_tx = GPIO_PIN(PORT_D, 7),
-        .pcr_rx = PORT_PCR_MUX(3),
+        .pcr_rx = PORT_PCR_MUX(2),
         .pcr_tx = PORT_PCR_MUX(3),
         .irqn   = UART0_RX_TX_IRQn,
         .scgc_addr = &SIM->SCGC4,
         .scgc_bit = SIM_SCGC4_UART0_SHIFT,
-        .mode   = UART_MODE_8N1,
+        .mode = UART_MODE_8E1,
         .type   = KINETIS_UART,
     }
 };
