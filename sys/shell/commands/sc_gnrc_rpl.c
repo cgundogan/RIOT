@@ -363,19 +363,19 @@ int _gnrc_rpl_set_pio(char *inst_id, bool status)
 }
 #endif
 
-static int _gnrc_rpl_set_dao_interval(uint8_t dao_interval)
-{
-    if (gnrc_rpl_pid > KERNEL_PID_UNDEF) {
-        msg_t msg = { .type = GNRC_RPL_MSG_TYPE_DAO_RESET,
-                      .content = { .value = dao_interval } };
+/* static int _gnrc_rpl_set_dao_interval(uint8_t dao_interval) */
+/* { */
+/*     if (gnrc_rpl_pid > KERNEL_PID_UNDEF) { */
+/*         msg_t msg = { .type = GNRC_RPL_MSG_TYPE_DAO_RESET, */
+/*                       .content = { .value = dao_interval } }; */
 
-        msg_send(&msg, gnrc_rpl_pid);
-        printf("Set DAO interval to %us\n", dao_interval);
-        return 0;
-    }
-    puts("error: RPL not started.");
-    return 1;
-}
+/*         msg_send(&msg, gnrc_rpl_pid); */
+/*         printf("Set DAO interval to %us\n", dao_interval); */
+/*         return 0; */
+/*     } */
+/*     puts("error: RPL not started."); */
+/*     return 1; */
+/* } */
 
 static int _gnrc_rpl_kill(void)
 {
@@ -450,13 +450,13 @@ int _gnrc_rpl(int argc, char **argv)
                 }
             }
 #endif
-            if (strcmp(argv[2], "dao") == 0) {
-                uint8_t dao_interval = GNRC_RPL_DEFAULT_DAO_INTERVAL;
-                if (argc > 3) {
-                    dao_interval = (uint8_t)atoi(argv[3]);
-                }
-                return _gnrc_rpl_set_dao_interval(dao_interval);
-            }
+            /* if (strcmp(argv[2], "dao") == 0) { */
+            /*     uint8_t dao_interval = GNRC_RPL_DEFAULT_DAO_INTERVAL; */
+            /*     if (argc > 3) { */
+            /*         dao_interval = (uint8_t)atoi(argv[3]); */
+            /*     } */
+            /*     return _gnrc_rpl_set_dao_interval(dao_interval); */
+            /* } */
         }
     }
 #ifdef MODULE_GNRC_RPL_P2P
