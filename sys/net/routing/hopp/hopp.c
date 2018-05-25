@@ -34,7 +34,9 @@
 
 #define CCNL_ENC_HOPP (0x08)
 
+#ifdef DEMONSTRATOR
 extern kernel_pid_t exporter_pid;
+#endif
 
 char hopp_stack[HOPP_STACKSZ];
 gnrc_netif_t *hopp_netif;
@@ -67,6 +69,13 @@ static void hopp_parent_timeout(compas_dodag_t *dodag)
     dodag->parent.alive = false;
     msg_t m = { .type = HOPP_SOL_MSG, .content.value = 0 };
     msg_try_send(&m, hopp_pid);
+#if defined(DEMONSTRATOR)
+    //if ((dodag->rank != COMPAS_DODAG_UNDEF) && (ccnl->compas_sol_num == 4) && (exporter_pid != KERNEL_PID_UNDEF)) {
+        m.type = EXPORTER_EVENT_PARENT_DROP;
+        m.content.ptr = NULL;
+        msg_try_send(&m, exporter_pid);
+    //}
+#endif
 }
 
 static bool hopp_send(gnrc_pktsnip_t *pkt, uint8_t *addr, uint8_t addr_len)
@@ -218,6 +227,13 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(dodag_prfx, CCNL_SUITE_NDNTLV, NULL, NULL);
 
         if (state == COMPAS_PAM_RET_CODE_NEWPARENT) {
+#if defined(DEMONSTRATOR)
+                if (exporter_pid != KERNEL_PID_UNDEF) {
+                    msg_t m;
+                    m.type = EXPORTER_EVENT_PARENT_ADD;
+                    msg_try_send(&m, exporter_pid);
+                }
+#endif
             sockunion su;
             memset(&su, 0, sizeof(su));
             su.sa.sa_family = AF_PACKET;
@@ -445,6 +461,14 @@ static void hopp_nce_del(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
 {
     unsigned pos = nce - dodag->nam_cache;
     evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
+#if defined(DEMONSTRATOR)
+    if (exporter_pid != KERNEL_PID_UNDEF) {
+        msg_t m;
+        m.type = EXPORTER_EVENT_NAM_CACHE_DEL;
+        m.content.ptr = NULL;
+        msg_try_send(&m, exporter_pid);
+    }
+#endif
     memset(nce, 0, sizeof(*nce));
 }
 
@@ -698,7 +722,7 @@ bool hopp_publish_content(const char *name, size_t name_len,
         msg_t msg = { .type = HOPP_NAM_MSG, .content.ptr = nce };
         msg_try_send(&msg, hopp_pid);
 
-#if defined(CCNL_RIOT)
+#if defined(DEMONSTRATOR)
     if (exporter_pid != KERNEL_PID_UNDEF) {
         msg_t m = { .type = EXPORTER_EVENT_NAM_CACHE_ADD };
         msg_try_send(&m, exporter_pid);
