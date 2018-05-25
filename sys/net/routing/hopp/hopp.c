@@ -227,13 +227,6 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(dodag_prfx, CCNL_SUITE_NDNTLV, NULL, NULL);
 
         if (state == COMPAS_PAM_RET_CODE_NEWPARENT) {
-#if defined(DEMONSTRATOR)
-                if (exporter_pid != KERNEL_PID_UNDEF) {
-                    msg_t m;
-                    m.type = EXPORTER_EVENT_PARENT_ADD;
-                    msg_try_send(&m, exporter_pid);
-                }
-#endif
             sockunion su;
             memset(&su, 0, sizeof(su));
             su.sa.sa_family = AF_PACKET;
@@ -247,16 +240,23 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
         }
 
         if (!dodag->parent.alive) {
+#if defined(DEMONSTRATOR)
+            if (exporter_pid != KERNEL_PID_UNDEF) {
+                msg_t m;
+                m.type = EXPORTER_EVENT_PARENT_ADD;
+                msg_try_send(&m, exporter_pid);
+            }
+#endif
             dodag->parent.alive = true;
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
                     unsigned pos = nce - dodag->nam_cache;
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
-                    nam_msg_evts->msg.type = HOPP_NAM_MSG;
-                    nam_msg_evts->msg.content.ptr = nce;
+                    nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
+                    nam_msg_evts[pos].msg.content.ptr = nce;
                     evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
-                    ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
+                    ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD + (i*200);
                     evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
                 }
             }
@@ -544,6 +544,12 @@ static int content_requested(struct ccnl_relay_s *relay,
             msg.type = HOPP_NAM_MSG;
         }
         msg_try_send(&msg, hopp_pid);
+#if defined(DEMONSTRATOR)
+        if (exporter_pid != KERNEL_PID_UNDEF) {
+            msg_t m = { .type = EXPORTER_EVENT_NAM_CACHE_ADD };
+            msg_try_send(&m, exporter_pid);
+        }
+#endif
     }
 
     ccnl_free(s);
@@ -680,6 +686,7 @@ bool hopp_publish_content(const char *name, size_t name_len,
                 evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
                 memset(nce, 0, sizeof(*nce));
                 nce = compas_nam_cache_add(&dodag, &cname, NULL);
+                break;
             }
         }
         if (!nce) {
@@ -691,6 +698,7 @@ bool hopp_publish_content(const char *name, size_t name_len,
                     evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
                     memset(nce, 0, sizeof(*nce));
                     nce  = compas_nam_cache_add(&dodag, &cname, NULL);
+                    break;
                 }
             }
         }
@@ -711,7 +719,7 @@ bool hopp_publish_content(const char *name, size_t name_len,
         unsigned typ;
         if (ccnl_ndntlv_dehead(&data, (int *)&content_len, (int*) &typ, &len) ||
             typ != NDN_TLV_Data) {
-            return -1;
+            return false;
         }
         struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, (int *)&content_len);
         struct ccnl_content_s *c = ccnl_content_new(&pk);
