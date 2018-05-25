@@ -55,6 +55,9 @@
 #ifndef HOPP_PARENT_TIMEOUT_PERIOD
 #define HOPP_PARENT_TIMEOUT_PERIOD          (HOPP_PARENT_TIMEOUT_PERIOD_BASE + (random_uint32() % HOPP_PARENT_TIMEOUT_PERIOD_JITTER))
 #endif
+#ifndef HOPP_PARENT_MAX_SOLS
+#define HOPP_PARENT_MAX_SOLS                (1)
+#endif
 
 #ifndef HOPP_SOL_MSG
 #define HOPP_SOL_MSG                (0xBEF0)

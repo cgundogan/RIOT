@@ -141,7 +141,7 @@ static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
     uint8_t flags = 0;
 
     if (!force_bcast) {
-        if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < 4)) {
+        if ((dodag->rank != COMPAS_DODAG_UNDEF) && (dodag->sol_num < HOPP_PARENT_MAX_SOLS)) {
             addr = dodag->parent.face.face_addr;
             addr_len = dodag->parent.face.face_addr_len;
         }
