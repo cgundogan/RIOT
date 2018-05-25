@@ -305,12 +305,11 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     su.linklayer.sll_halen = nce->face.face_addr_len;
     memcpy(su.linklayer.sll_addr, nce->face.face_addr, nce->face.face_addr_len);
     struct ccnl_face_s* to = ccnl_get_face_or_create(relay, 0, &(su.sa), sizeof(su.sa));
+    to->flags |= CCNL_FACE_FLAGS_STATIC;
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
 
-    /*
-    msg_t mr, ms = { .type = CCNL_MSG_CS_DEL, .content.ptr = prefix };
-    msg_send_receive(&ms, &mr, ccnl_event_loop_pid);
-    */
+    msg_t ms = { .type = CCNL_MSG_CS_DEL, .content.ptr = prefix };
+    msg_try_send(&ms, ccnl_event_loop_pid);
 
     if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) < 0) {
         puts("hopp: failed to send Interest");
