@@ -26,9 +26,6 @@ static msg_t _main_q[MAIN_QSZ];
 uint8_t hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 
-#define TLSF_BUFFER     ((40 * 1024) / sizeof(uint32_t))
-static uint32_t _tlsf_heap[TLSF_BUFFER];
-
 static int _root(int argc, char **argv)
 {
     if (argc == 2) {
@@ -61,7 +58,6 @@ static const shell_command_t shell_commands[] = {
 
 int main(void)
 {
-    tlsf_add_global_pool(_tlsf_heap, sizeof(_tlsf_heap));
     msg_init_queue(_main_q, MAIN_QSZ);
 
     ccnl_core_init();

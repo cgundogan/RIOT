@@ -86,8 +86,8 @@ extern "C" {
  * @name    Socket types
  * @{
  */
-#define SOCK_DGRAM      (1)     /**< Datagram socket */
-#define SOCK_RAW        (2)     /**< Raw socket */
+#define SOCK_DGRAM      (2)     /**< Datagram socket */
+#define SOCK_RAW        (1)     /**< Raw socket */
 #define SOCK_SEQPACKET  (3)     /**< Sequenced-packet socket */
 #define SOCK_STREAM     (4)     /**< Stream socket */
 /** @} */

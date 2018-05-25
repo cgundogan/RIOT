@@ -9,6 +9,17 @@ BOARD_WHITELIST := fox iotlab-m3 msba2 mulle native pba-d-01-kw2x samr21-xpro
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
 
+
+ifneq (,$(filter $(BOARD),native))
+    USEMODULE += socket_zep
+    USEMODULE += gnrc
+    USEMODULE += gnrc_pktdump
+    TERMFLAGS ?= -z [::]:17755,[::1]:17754
+endif
+ifeq (,$(filter $(BOARD),native))
+    USEMODULE += gnrc_netdev_default
+endif
+
 CFLAGS += -DDEVELHELP
 CFLAGS += -DUSE_LINKLAYER
 #CFLAGS += -DUSE_RONR
@@ -38,7 +49,7 @@ USEMODULE += shell
 USEMODULE += shell_commands
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
-USEMODULE += gnrc_netdev_default
+USEMODULE += evtimer
 USEMODULE += auto_init_gnrc_netif
 USEMODULE += timex
 USEMODULE += xtimer
