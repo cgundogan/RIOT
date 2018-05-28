@@ -292,7 +292,6 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
         case GCOAP_RESOURCE_NO_PATH:
             return gcoap_response(pdu, buf, len, COAP_CODE_PATH_NOT_FOUND);
         case GCOAP_RESOURCE_FOUND:
-            /* find observe registration for resource */
             _find_obs_memo_resource(&resource_memo, resource);
             break;
     }
