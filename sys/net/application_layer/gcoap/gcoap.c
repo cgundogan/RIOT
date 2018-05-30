@@ -313,6 +313,7 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
             else if (_endpoints_equal(remote, resource_memo->observer)) {
                 /* accept new token for resource */
                 memo = resource_memo;
+                observer = resource_memo->observer;
             }
         }
         /* initialize new registration request */
