@@ -56,6 +56,16 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, struct ccnl_face_s *from)
+{
+    (void) relay;
+    (void) from;
+
+    char *s = ccnl_prefix_to_path(pkt->pfx);
+    printf("PUB;%s;%.*s\n", s, pkt->contlen, pkt->content);
+    ccnl_free(s);
+}
+
 int main(void)
 {
     msg_init_queue(_main_q, MAIN_QSZ);
@@ -89,7 +99,11 @@ int main(void)
         return 1;
     }
 
-    //hopp_set_cb_published(cb_published);
+    hopp_set_cb_published(cb_published);
+
+#ifdef HOPP_ROOT
+    hopp_root_start("/i3", 3);
+#endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
