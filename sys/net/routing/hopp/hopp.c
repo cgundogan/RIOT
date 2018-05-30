@@ -62,22 +62,6 @@ void hopp_set_cb_published(hopp_cb_published cb)
     cb_published = cb;
 }
 
-static void hopp_parent_timeout(compas_dodag_t *dodag)
-{
-    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pto_msg_evt);
-    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
-    dodag->parent.alive = false;
-    msg_t m = { .type = HOPP_SOL_MSG, .content.value = 0 };
-    msg_try_send(&m, hopp_pid);
-#if defined(DEMONSTRATOR)
-    //if ((dodag->rank != COMPAS_DODAG_UNDEF) && (ccnl->compas_sol_num == 4) && (exporter_pid != KERNEL_PID_UNDEF)) {
-        m.type = EXPORTER_EVENT_PARENT_DROP;
-        m.content.ptr = NULL;
-        msg_try_send(&m, exporter_pid);
-    //}
-#endif
-}
-
 static bool hopp_send(gnrc_pktsnip_t *pkt, uint8_t *addr, uint8_t addr_len)
 {
     gnrc_pktsnip_t *hdr = gnrc_netif_hdr_build(NULL, 0, addr, addr_len);
@@ -125,6 +109,22 @@ static void hopp_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_
     hopp_send(pkt, dst_addr, dst_addr_len);
 }
 
+static void hopp_parent_timeout(compas_dodag_t *dodag)
+{
+    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pto_msg_evt);
+    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
+    dodag->parent.alive = false;
+    msg_t m = { .type = HOPP_SOL_MSG, .content.value = 0 };
+    msg_try_send(&m, hopp_pid);
+#if defined(DEMONSTRATOR)
+    //if ((dodag->rank != COMPAS_DODAG_UNDEF) && (ccnl->compas_sol_num == 4) && (exporter_pid != KERNEL_PID_UNDEF)) {
+        m.type = EXPORTER_EVENT_PARENT_DROP;
+        m.content.ptr = NULL;
+        msg_try_send(&m, exporter_pid);
+    //}
+#endif
+}
+
 static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
 {
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, compas_sol_len() + 2, GNRC_NETTYPE_CCN);
@@ -146,7 +146,6 @@ static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
             addr_len = dodag->parent.face.face_addr_len;
         }
         else {
-            dodag->flags |= COMPAS_DODAG_FLAGS_FLOATING;
             /*
             if (dodag->rank != COMPAS_DODAG_UNDEF) {
                 flags = COMPAS_SOL_FLAGS_TRICKLE;
@@ -272,6 +271,7 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
             hopp_send_sol(dodag);
             dodag->sol_num = 0x0;
             */
+            hopp_send_sol(dodag, true);
             hopp_parent_timeout(dodag);
             return;
         }
@@ -386,10 +386,14 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
 static void hopp_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol,
                             uint8_t *dst_addr, uint8_t dst_addr_len)
 {
-    if ((dodag->rank == COMPAS_DODAG_UNDEF) || (compas_dodag_floating(dodag->flags))) {
+    if (dodag->rank == COMPAS_DODAG_UNDEF) {
         return;
     }
 
+/*
+    if (compas_dodag_floating(dodag->flags)) {
+        return;
+    }
     bool empty = false;
     for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
         compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
@@ -402,13 +406,10 @@ static void hopp_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol,
     if (!empty) {
         return;
     }
+*/
 
     if (compas_sol_reset_trickle(sol->flags)) {
-        trickle_init(&dodag->trickle, HOPP_TRICKLE_IMIN, HOPP_TRICKLE_IMAX, HOPP_TRICKLE_REDCONST);
-        uint64_t trickle_int = trickle_next(&dodag->trickle);
-        evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
-        ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
-        evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
+        hopp_trickle_reset(dodag);
     }
     else {
         hopp_send_pam(dodag, dst_addr, dst_addr_len, false);
@@ -588,17 +589,14 @@ void *hopp(void *arg)
                 if ((dodag.rank != COMPAS_DODAG_ROOT_RANK) &&
                     (dodag.rank == COMPAS_DODAG_UNDEF || !dodag.parent.alive)) {
                     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
+                    if (dodag.sol_num >= 3) {
+                        dodag.flags |= COMPAS_DODAG_FLAGS_FLOATING;
+                        hopp_send_pam(&dodag, NULL, 0, false);
+                        hopp_trickle_reset(&dodag);
+                    }
                     hopp_send_sol(&dodag, false);
                     ((evtimer_event_t *)&sol_msg_evt)->offset = HOPP_SOL_PERIOD;
                     evtimer_add_msg(&evtimer, &sol_msg_evt, sched_active_pid);
-                    if (dodag.sol_num == 3) {
-                        dodag.flags |= COMPAS_DODAG_FLAGS_FLOATING;
-                        trickle_init(&dodag.trickle, HOPP_TRICKLE_IMIN, HOPP_TRICKLE_IMAX, HOPP_TRICKLE_REDCONST);
-                        uint64_t trickle_int = trickle_next(&dodag.trickle);
-                        evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
-                        ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
-                        evtimer_add_msg(&evtimer, &pam_msg_evt, sched_active_pid);
-                    }
                 }
                 break;
             case HOPP_PAM_MSG:
@@ -661,11 +659,7 @@ void hopp_root_start(const char *prefix, size_t prefix_len)
 {
     compas_dodag_init_root(&dodag, prefix, prefix_len);
     compas_dodag_print(&dodag);
-    trickle_init(&dodag.trickle, HOPP_TRICKLE_IMIN, HOPP_TRICKLE_IMAX, HOPP_TRICKLE_REDCONST);
-    uint64_t trickle_int = trickle_next(&dodag.trickle);
-    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
-    ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
-    evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
+    hopp_trickle_reset(&dodag);
 }
 
 bool hopp_publish_content(const char *name, size_t name_len,
@@ -673,6 +667,11 @@ bool hopp_publish_content(const char *name, size_t name_len,
 {
     static compas_name_t cname;
     compas_name_init(&cname, name, name_len);
+
+    if (dodag.rank == COMPAS_DODAG_UNDEF) {
+        return false;
+    }
+
     compas_nam_cache_entry_t *nce = compas_nam_cache_add(&dodag, &cname, NULL);
 
     if (!nce) {
@@ -740,4 +739,13 @@ bool hopp_publish_content(const char *name, size_t name_len,
     }
 
     return false;
+}
+
+void hopp_trickle_reset(compas_dodag_t *dodag)
+{
+    evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pam_msg_evt);
+    trickle_init(&dodag->trickle, HOPP_TRICKLE_IMIN, HOPP_TRICKLE_IMAX, HOPP_TRICKLE_REDCONST);
+    uint64_t trickle_int = trickle_next(&dodag->trickle);
+    ((evtimer_event_t *)&pam_msg_evt)->offset = trickle_int;
+    evtimer_add_msg(&evtimer, &pam_msg_evt, hopp_pid);
 }

@@ -31,7 +31,7 @@
 #endif
 
 #ifndef HOPP_SOL_PERIOD_BASE
-#define HOPP_SOL_PERIOD_BASE        (4 * MS_PER_SEC)
+#define HOPP_SOL_PERIOD_BASE        (1 * MS_PER_SEC)
 #endif
 #ifndef HOPP_SOL_PERIOD_JITTER
 #define HOPP_SOL_PERIOD_JITTER      (1 * MS_PER_SEC)
@@ -39,10 +39,10 @@
 #define HOPP_SOL_PERIOD             (HOPP_SOL_PERIOD_BASE + (random_uint32() % HOPP_SOL_PERIOD_JITTER))
 
 #ifndef HOPP_NAM_PERIOD_BASE
-#define HOPP_NAM_PERIOD_BASE        (1 * MS_PER_SEC)
+#define HOPP_NAM_PERIOD_BASE        (200)
 #endif
 #ifndef HOPP_NAM_PERIOD_JITTER
-#define HOPP_NAM_PERIOD_JITTER      (500)
+#define HOPP_NAM_PERIOD_JITTER      (100)
 #endif
 #define HOPP_NAM_PERIOD             (HOPP_NAM_PERIOD_BASE + (random_uint32() % HOPP_NAM_PERIOD_JITTER))
 
@@ -111,5 +111,6 @@ void hopp_root_start(const char *prefix, size_t prefix_len);
 bool hopp_publish_content(const char *name, size_t name_len,
                           unsigned char *content, size_t content_len);
 void hopp_set_cb_published(hopp_cb_published cb);
+void hopp_trickle_reset(compas_dodag_t *dodag);
 
 #endif /* HOPP_H */
