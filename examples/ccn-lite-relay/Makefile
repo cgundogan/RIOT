@@ -24,12 +24,18 @@ CFLAGS += -DNEEDS_PACKET_CRAFTING
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+USEMODULE += socket_zep
+USEMODULE += gnrc
+USEMODULE += gnrc_pktdump
+TERMFLAGS ?= -z [::]:17755,[::1]:17754
+USEPKG += compas
+
 USEMODULE += ps
 USEMODULE += shell
 USEMODULE += shell_commands
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
-USEMODULE += gnrc_netdev_default
+#USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 # This application dumps received packets to STDIO using the pktdump module
 USEMODULE += gnrc_pktdump

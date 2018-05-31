@@ -84,8 +84,12 @@
 #include "net/skald.h"
 #endif
 
-#ifdef MODULE_NDN_RIOT
-#include "ndn-riot/ndn.h"
+#ifdef MODULE_TLSF_MALLOC
+#include "tlsf-malloc.h"
+#ifndef TLSF_BUFFER
+#define TLSF_BUFFER     ((10 * 1024) / sizeof(uint32_t))
+#endif
+static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
 #define ENABLE_DEBUG (0)
@@ -234,6 +238,10 @@ void auto_init(void)
 #ifdef MODULE_NETDEV_TAP
     extern void auto_init_netdev_tap(void);
     auto_init_netdev_tap();
+#endif
+
+#ifdef MODULE_TLSF_MALLOC
+    tlsf_add_global_pool(_tlsf_heap, sizeof(_tlsf_heap));
 #endif
 
 #ifdef MODULE_SOCKET_ZEP
