@@ -177,24 +177,24 @@ static void *pktcnt_thread(void *args)
 int pktcnt_init(void)
 {
     /* find link layer address of lowpan device: use first device for now */
-    gnrc_netif_t *dev = gnrc_netif_iter(NULL);
-    if ((dev == NULL) || (dev->l2addr_len == 0)) {
-        return PKTCNT_ERR_INIT;
-    }
-    gnrc_netif_addr_to_str(dev->l2addr, dev->l2addr_len, ctx.id);
-
-    log_event(TYPE_STARTUP);
-    puts("");
-
     if (pktcnt_pid <= KERNEL_PID_UNDEF) {
+        gnrc_netif_t *dev = gnrc_netif_iter(NULL);
+        if ((dev == NULL) || (dev->l2addr_len == 0)) {
+            return PKTCNT_ERR_INIT;
+        }
+        gnrc_netif_addr_to_str(dev->l2addr, dev->l2addr_len, ctx.id);
+
+        log_event(TYPE_STARTUP);
+        puts("");
+
         if ((pktcnt_pid = thread_create(pktcnt_stack, sizeof(pktcnt_stack),
                                         PKTCNT_PRIO, THREAD_CREATE_STACKTEST,
                                         pktcnt_thread, NULL, "pktcnt")) < 0) {
             return PKTCNT_ERR_INIT;
         }
+        return PKTCNT_OK;
     }
-
-    return PKTCNT_OK;
+    return PKTCNT_ERR_INIT;
 }
 
 void pktcnt_timer_init(void)
