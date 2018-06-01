@@ -1,2 +1,2 @@
 INCLUDES += -I$(PKGDIRBASE)/compas/include
-CFLAGS += -DRIOT $(INCLUDES)
+CFLAGS += -DRIOT

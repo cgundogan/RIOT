@@ -5,7 +5,8 @@ PKG_LICENSE="LGPL 2.1"
 
 .PHONY: all
 
-all: TARGET_ARCH:=
+CFLAGS += $(INCLUDES)
+
 all: git-download
 	$(MAKE) -C $(PKG_BUILDDIR)
 	cp $(PKG_BUILDDIR)/libcompas.a ${BINDIR}/compas.a
