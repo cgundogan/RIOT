@@ -26,7 +26,7 @@ USEMODULE += auto_init_gnrc_netif
 USEMODULE += gnrc_sock_udp
 USEMODULE += gnrc_ipv6_router_default
 # Include MQTT-SN
-USEMODULE += emcute
+USEMODULE += asymcute
 USEMODULE += pktcnt
 USEMODULE += fmt
 # Add a routing protocol

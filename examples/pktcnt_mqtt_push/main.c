@@ -23,16 +23,17 @@
 #include <stdlib.h>
 
 #include "fmt.h"
+#include "mutex.h"
 #include "shell.h"
 #include "thread.h"
 #include "xtimer.h"
-#include "net/emcute.h"
+#include "net/asymcute.h"
 #include "net/gnrc/netif.h"
 #include "net/ipv6/addr.h"
 #include "pktcnt.h"
 #include "random.h"
 
-#define EMCUTE_PRIO         (THREAD_PRIORITY_MAIN)
+#define LISTENER_PRIO       (THREAD_PRIORITY_MAIN - 1)
 
 #define I3_TOPIC            "/i3/gasval"
 #ifndef I3_BROKER
@@ -48,10 +49,22 @@
 #ifndef I3_MAX_REQ
 #define I3_MAX_REQ      (3600U)
 #endif
-#define I3_PORT             EMCUTE_DEFAULT_PORT
+#define I3_PORT            (MQTTSN_DEFAULT_PORT)
 
 #define PUB_GEN_STACK_SIZE (THREAD_STACKSIZE_MAIN)
 #define PUB_GEN_PRIO       (THREAD_PRIORITY_MAIN - 1)
+
+#ifndef REQ_CTX_NUMOF
+#define REQ_CTX_NUMOF       (128U)
+#endif
+
+
+typedef enum {
+    _UNINITIALIZED = 0,
+    _CONNECTING,
+    _REGISTERING,
+    _PUBLISHING,
+} i3_state_t;
 
 static char pub_gen_stack[PUB_GEN_STACK_SIZE];
 
@@ -63,12 +76,27 @@ static const char *payload = "{\"id\":\"0x12a77af232\",\"val\":3000}";
 static char client_id[(2 * GNRC_NETIF_L2ADDR_MAXLEN) + 1];
 static sock_udp_ep_t gw = { .family = AF_INET6, .port = I3_PORT,
                             .addr = { .ipv6 = I3_BROKER } };
-static emcute_topic_t t = { I3_TOPIC, 0 };
 #ifdef I3_CONFIRMABLE
-static const unsigned flags = EMCUTE_QOS_1;
+static const unsigned flags = MQTTSN_QOS_1;
 #else
-static const unsigned flags = EMCUTE_QOS_0;
+static const unsigned flags = MQTTSN_QOS_0;
 #endif
+static mutex_t _sync = MUTEX_INIT_LOCKED;
+static asymcute_con_t _connection;
+static asymcute_req_t _reqs[REQ_CTX_NUMOF];
+static asymcute_topic_t _topic;
+static i3_state_t _state;
+
+static asymcute_req_t *_get_req_ctx(void)
+{
+    for (unsigned i = 0; i < REQ_CTX_NUMOF; i++) {
+        if (!asymcute_req_in_use(&_reqs[i])) {
+            return &_reqs[i];
+        }
+    }
+    puts("error: no request context available\n");
+    return NULL;
+}
 
 static inline uint32_t _next_msg(void)
 {
@@ -80,30 +108,67 @@ static inline uint32_t _next_msg(void)
 #endif
 }
 
+static void _connect(void)
+{
+    asymcute_req_t *req = _get_req_ctx();
+    _state = _CONNECTING;
+    asymcute_connect(&_connection, req, &gw, client_id, true, NULL);
+}
+
+static void _on_con_evt(asymcute_req_t *req, unsigned evt_type)
+{
+    (void)req;
+    switch (_state) {
+        case _CONNECTING:
+            if (evt_type == ASYMCUTE_CONNECTED) {
+                asymcute_req_t *reg_req = _get_req_ctx();
+                _state = _REGISTERING;
+                asymcute_topic_init(&_topic, I3_TOPIC, 0);
+                asymcute_register(&_connection, reg_req, &_topic);
+            }
+            else {
+                _connect();
+            }
+        case _REGISTERING:
+            if (evt_type == ASYMCUTE_REGISTERED) {
+                _state = _PUBLISHING;
+                mutex_unlock(&_sync);
+            }
+            else {
+                _connect();
+            }
+            break;
+        default:
+            if (evt_type == ASYMCUTE_DISCONNECTED) {
+                /* lost connection to broker */
+                mutex_lock(&_sync);
+                _connect();
+            }
+            break;
+    }
+}
+
 static void *pub_gen(void *arg)
 {
     (void)arg;
     /* printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5)); */
+    _connect();
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         xtimer_usleep(_next_msg());
 
+        asymcute_req_t *req = _get_req_ctx();
+        if (req == NULL) {
+            continue;
+        }
+        /* wait for `_topic` to be registered */
+        mutex_lock(&_sync);
         /* publish sensor data */
-        if (emcute_pub(&t, payload, strlen(payload), flags) != EMCUTE_OK) {
-            /* puts("error: failed to publish data"); */
-        }
-        else {
-            /* puts("published sensor data"); */
-        }
+        asymcute_publish(&_connection, req, &_topic, payload, strlen(payload),
+                         flags);
+        mutex_unlock(&_sync);
 
     }
     return NULL;
-}
-
-static void *emcute_thread(void *arg)
-{
-    (void)arg;
-    emcute_run(I3_PORT, client_id);
-    return NULL;    /* should never be reached */
 }
 
 #ifdef MODULE_PKTCNT_FAST
@@ -166,24 +231,6 @@ static int pktcnt_start(int argc, char **argv)
         return 1;
     }
 #endif
-    /* broker will sometimes approve connection but then say there was an
-     * unexpected REGISTER */
-    while (emcute_con(&gw, true, NULL, NULL, 0, flags) != EMCUTE_OK) {
-        /* char ipv6_str[IPV6_ADDR_MAX_STR_LEN]; */
-        /* printf("error: unable to connect to [%s]:%i\n", */
-        /*        ipv6_addr_to_str(ipv6_str, (ipv6_addr_t *)&gw.addr, */
-        /*                         sizeof(ipv6_str)), (int)gw.port); */
-        xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
-                                          EMCUTE_T_RETRY * US_PER_SEC * 2));
-    }
-    /* puts("successfully connected to broker"); */
-    /* now register out topic */
-    while (emcute_reg(&t) != EMCUTE_OK) {
-        /* puts("error: unable to register topic " I3_TOPIC "\n"); */
-        xtimer_usleep(random_uint32_range(EMCUTE_T_RETRY * US_PER_SEC,
-                                          EMCUTE_T_RETRY * US_PER_SEC * 2));
-    }
-    /* printf("successfully registered topic %s under ID %u\n", t.name, t.id); */
     /* start the publishing thread */
     thread_create(pub_gen_stack, sizeof(pub_gen_stack), PUB_GEN_PRIO, 0,
                   pub_gen, NULL, "i3-pub-gen");
@@ -202,8 +249,8 @@ static const shell_command_t shell_commands[] = {
 int main(void)
 {
     /* start the emcute thread */
-    thread_create(mqtt_stack, sizeof(mqtt_stack), EMCUTE_PRIO, 0,
-                  emcute_thread, NULL, "emcute");
+    asymcute_listener_run(&_connection, mqtt_stack, sizeof(mqtt_stack),
+                          LISTENER_PRIO, _on_con_evt);
 
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];
