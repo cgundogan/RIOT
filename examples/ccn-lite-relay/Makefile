@@ -20,6 +20,7 @@ CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
+CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=15
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
@@ -34,6 +35,7 @@ USEMODULE += auto_init_gnrc_netif
 # This application dumps received packets to STDIO using the pktdump module
 USEMODULE += gnrc_pktdump
 USEMODULE += prng_xorshift
+USEMODULE += netstats_l2
 
 USEPKG += ccn-lite
 
