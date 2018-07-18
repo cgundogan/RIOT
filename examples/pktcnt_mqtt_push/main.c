@@ -152,6 +152,8 @@ static void *pub_gen(void *arg)
 {
     (void)arg;
     /* printf("pktcnt: MQTT-SN QoS%d push setup\n\n", (flags >> 5)); */
+    /* don't send all connection requests at once but space out over 2 sec */
+    xtimer_usleep(random_uint32_range(0, 2U * US_PER_SEC));
     _connect();
     for (unsigned i = 0; i < I3_MAX_REQ; i++) {
         xtimer_usleep(_next_msg());
