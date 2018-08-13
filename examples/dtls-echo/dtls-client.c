@@ -48,6 +48,11 @@
 #define DEFAULT_US_DELAY 100
 #endif
 
+uint32_t conn_start = 0;
+uint32_t conn_stop = 0;
+uint32_t start_data=0;
+uint32_t stop_data=0;
+
 static int dtls_connected = 0; /* This is handled by Tinydtls callbacks */
 
 /* TinyDTLS callback for detecting the state of the DTLS channel. */
@@ -242,10 +247,13 @@ static int _read_from_peer_handler(struct dtls_context_t *ctx,
     (void) ctx;
     (void) session;
 
+    (void)data;
+    (void)len;
+/*
     printf("Client: got DTLS Data App -- ");
     for (size_t i = 0; i < len; i++)
         printf("%c", data[i]);
-    puts(" --");
+    puts(" --");*/
 
     /*
      * NOTE: To answer the other peer uses dtls_write(). E.g.
@@ -261,6 +269,9 @@ ssize_t try_send(struct dtls_context_t *ctx, session_t *dst, uint8 *buf, size_t 
     int res = 0;
 
     res = dtls_write(ctx, dst, buf, len);
+
+    printf("conn time %"PRIu32 "\n", start_data- conn_start);
+    printf("0,%u,%lu\n", len, (unsigned long) stop_data-start_data);
 
     if (res >= 0) {
         memmove(buf, buf + res, len - res);
@@ -395,6 +406,8 @@ static void client_send(char *addr_str, char *data)
 
     /* NOTE: dtls_init() must be called previous to this (see main.c) */
 
+    conn_start = xtimer_now_usec();
+
     dtls_context = _init_dtls(&sock, &local, &remote, &dst, addr_str);
     if (!dtls_context) {
         puts("ERROR: Client unable to load context!");
@@ -477,17 +490,30 @@ static void client_send(char *addr_str, char *data)
     sock_udp_close(&sock);
     dtls_connected = 0;
     DEBUG("Client DTLS session finished\n");
-
+    conn_stop = xtimer_now_usec();
+    printf("conn close %"PRIu32"\n",conn_stop - stop_data);
     return;
 }
 
 int udp_client_cmd(int argc, char **argv)
 {
-    if (argc != 3) {
-        printf("usage: %s <addr> <data> \n", argv[0]);
+    if (argc != 4) {
+        printf("usage: %s <addr> <len> <num>\n", argv[0]);
         return 1;
     }
-    client_send(argv[1], argv[2]);
+    int num = atoi(argv[3]);
+    int len = atoi(argv[2]);
+    if(len > DTLS_MAX_BUF) {
+        printf("Error DTLS_MAX_BUF is %i\n", DTLS_MAX_BUF);
+        return 0;
+    }
+    char testbuf[DTLS_MAX_BUF];
+    memset(testbuf, 1, DTLS_MAX_BUF);
+    testbuf[len] = '\0';
+
+    for (int i=0; i < num; i++) {
+        client_send(argv[1], testbuf);
+    }
 
     return 0;
 }

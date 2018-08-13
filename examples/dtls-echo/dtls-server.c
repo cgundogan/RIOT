@@ -130,20 +130,31 @@ static void dtls_handle_read(dtls_context_t *ctx)
     return;
 }
 
+uint32_t verify_stop=0;
+uint32_t verify_start=0;
 /* Reception of a DTLS Application data record. */
 static int _read_from_peer_handler(struct dtls_context_t *ctx,
                                    session_t *session, uint8 *data, size_t len)
 {
-    size_t i;
+    (void)ctx;
+    (void)session;
+    (void)data;
+    (void)len;
 
+    verify_stop = xtimer_now_usec();
+    printf("1,%u,%lu\n", len, (unsigned long) verify_stop-verify_start);
+
+/*
+    size_t i;
     printf("\nServer: got DTLS Data App: --- ");
     for (i = 0; i < len; i++) {
         printf("%c", data[i]);
     }
-    puts(" ---\t(echo!)");
+    puts(" ---\t(echo!)");*/
 
     /* echo back the application data rcvd. */
-    return dtls_write(ctx, session, data, len);
+    //return dtls_write(ctx, session, data, len);
+    return 0;
 }
 
 /* Handles the DTLS communication with the other peer. */

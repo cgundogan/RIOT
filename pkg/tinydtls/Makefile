@@ -10,11 +10,17 @@ CFLAGS += -D_XOPEN_SOURCE=600
 
 .PHONY: all
 
+DTLS_PATH := /media/Data/org.eclipse.tinydtls
 all: git-download
+	rm -rf $(PKG_BUILDDIR) && mkdir -p $(PKG_BUILDDIR)
+	cd $(DTLS_PATH) && git checkout $(PKG_VERSION)
+	rsync -a $(DTLS_PATH)/ $(dir $(PKG_BUILDDIR)/tinydtls) --exclude='.git/'
 	@cp $(PKG_BUILDDIR)/Makefile.riot $(PKG_BUILDDIR)/Makefile
 	@cp $(PKG_BUILDDIR)/aes/Makefile.riot $(PKG_BUILDDIR)/aes/Makefile
 	@cp $(PKG_BUILDDIR)/ecc/Makefile.riot $(PKG_BUILDDIR)/ecc/Makefile
 	"$(MAKE)" -C $(PKG_BUILDDIR)
+
+
 
 include $(RIOTBASE)/pkg/pkg.mk
 
