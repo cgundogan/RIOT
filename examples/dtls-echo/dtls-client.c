@@ -53,6 +53,10 @@ uint32_t conn_stop = 0;
 uint32_t start_data=0;
 uint32_t stop_data=0;
 
+uint32_t delta_conn_start=0;
+uint32_t delta_conn_end=0;
+uint32_t delta_encrypt=0;
+
 static int dtls_connected = 0; /* This is handled by Tinydtls callbacks */
 
 /* TinyDTLS callback for detecting the state of the DTLS channel. */
@@ -270,8 +274,8 @@ ssize_t try_send(struct dtls_context_t *ctx, session_t *dst, uint8 *buf, size_t 
 
     res = dtls_write(ctx, dst, buf, len);
 
-    printf("conn time %"PRIu32 "\n", start_data- conn_start);
-    printf("0,%u,%lu\n", len, (unsigned long) stop_data-start_data);
+    delta_conn_start = start_data- conn_start;
+    delta_encrypt = stop_data-start_data;
 
     if (res >= 0) {
         memmove(buf, buf + res, len - res);
@@ -491,7 +495,8 @@ static void client_send(char *addr_str, char *data)
     dtls_connected = 0;
     DEBUG("Client DTLS session finished\n");
     conn_stop = xtimer_now_usec();
-    printf("conn close %"PRIu32"\n",conn_stop - stop_data);
+    delta_conn_end = conn_stop - stop_data;
+
     return;
 }
 
@@ -513,7 +518,12 @@ int udp_client_cmd(int argc, char **argv)
 
     for (int i=0; i < num; i++) {
         client_send(argv[1], testbuf);
+
+        xtimer_sleep(1);
+        // format client=0, data length, connection setup time, data encription time, connection close time
+        printf("0,%u,%"PRIu32",%"PRIu32",%"PRIu32"\n", len, delta_encrypt, delta_conn_start, delta_conn_end);
     }
+
 
     return 0;
 }

@@ -59,6 +59,10 @@ typedef struct {
     sock_udp_ep_t *remote;
 } dtls_remote_peer_t;
 
+uint32_t verify_stop=0;
+uint32_t verify_start=0;
+uint32_t delta_decrypt=0;
+
 static kernel_pid_t _dtls_server_pid = KERNEL_PID_UNDEF;
 
 #define READER_QUEUE_SIZE (8U)
@@ -130,8 +134,6 @@ static void dtls_handle_read(dtls_context_t *ctx)
     return;
 }
 
-uint32_t verify_stop=0;
-uint32_t verify_start=0;
 /* Reception of a DTLS Application data record. */
 static int _read_from_peer_handler(struct dtls_context_t *ctx,
                                    session_t *session, uint8 *data, size_t len)
@@ -142,7 +144,10 @@ static int _read_from_peer_handler(struct dtls_context_t *ctx,
     (void)len;
 
     verify_stop = xtimer_now_usec();
-    printf("1,%u,%lu\n", len, (unsigned long) verify_stop-verify_start);
+    delta_decrypt = verify_stop-verify_start;
+
+    // format server=1, data length, DUMMY, data decryption time, dummy
+    printf("1,%u,0,%"PRIu32",0\n", len, delta_decrypt);
 
 /*
     size_t i;

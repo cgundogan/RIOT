@@ -1,6 +1,6 @@
 PKG_NAME=tinydtls
 PKG_URL=https://git.eclipse.org/r/tinydtls/org.eclipse.tinydtls
-PKG_VERSION=84f1f4e3ca13101a5a9aedeaf08039636c4f34dd
+PKG_VERSION=f5953d1d473bf239922fc91613ec55250a97377d
 PKG_LICENSE=EPL-1.0,EDL-1.0
 
 CFLAGS += -Wno-implicit-fallthrough
