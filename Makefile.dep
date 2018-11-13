@@ -205,11 +205,6 @@ ifneq (,$(filter gnrc_sixlowpan_iphc,$(USEMODULE)))
   USEMODULE += gnrc_sixlowpan_iphc_nhc
 endif
 
-ifneq (,$(filter gnrc_sixlowpan,$(USEMODULE)))
-  USEMODULE += gnrc_ipv6
-  USEMODULE += sixlowpan
-endif
-
 ifneq (,$(filter gnrc_sixlowpan_ctx,$(USEMODULE)))
   USEMODULE += ipv6_addr
   USEMODULE += xtimer

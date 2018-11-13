@@ -60,7 +60,7 @@ static void _dump_snip(gnrc_pktsnip_t *pkt)
             gnrc_netif_hdr_print(pkt->data);
             break;
 #endif
-#ifdef MODULE_GNRC_SIXLOWPAN
+#if defined(MODULE_GNRC_SIXLOWPAN) && defined(MODULE_GNRC_IPV6)
         case GNRC_NETTYPE_SIXLOWPAN:
             printf("NETTYPE_SIXLOWPAN (%i)\n", pkt->type);
             sixlowpan_print(pkt->data, pkt->size);

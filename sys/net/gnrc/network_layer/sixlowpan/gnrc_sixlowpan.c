@@ -34,6 +34,16 @@
 
 static kernel_pid_t _pid = KERNEL_PID_UNDEF;
 
+#if 0
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+#include "icnlowpan.h"
+#ifndef ICNL_SCRATCH_SIZE
+#define ICNL_SCRATCH_SIZE (2048)
+#endif
+uint8_t icnl_scratch[ICNL_SCRATCH_SIZE];
+#endif
+#endif
+
 #if ENABLE_DEBUG
 static char _stack[GNRC_SIXLOWPAN_STACK_SIZE + THREAD_EXTRA_STACKSIZE_PRINTF];
 #else
@@ -67,18 +77,12 @@ void gnrc_sixlowpan_dispatch_recv(gnrc_pktsnip_t *pkt, void *context,
 
     (void)context;
     (void)page;
-#ifdef MODULE_CCN_LITE
-    type = GNRC_NETTYPE_UNDEF;
-    for (gnrc_pktsnip_t *ptr = pkt; (ptr || (type == GNRC_NETTYPE_UNDEF));
-         ptr = ptr->next) {
-        if ((ptr->next) && (ptr->next->type == GNRC_NETTYPE_NETIF)) {
-            type = ptr->type;
-        }
-    }
-#else   /* MODULE_CCN_LITE */
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+    type = GNRC_NETTYPE_CCN;
+#else   /* MODULE_GNRC_ICNLOWPAN_HC */
     /* just assume normal IPv6 traffic */
     type = GNRC_NETTYPE_IPV6;
-#endif  /* MODULE_CCN_LITE */
+#endif  /* MODULE_GNRC_ICNLOWPAN_HC */
     if (!gnrc_netapi_dispatch_receive(type,
                                       GNRC_NETREG_DEMUX_CTX_ALL, pkt)) {
         DEBUG("6lo: No receivers for this packet found\n");
@@ -219,6 +223,20 @@ static void _receive(gnrc_pktsnip_t *pkt)
         return;
     }
 #endif
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+    else if (true) {
+        DEBUG("6lo: received ICNLoWPAN datagram\n");
+
+        /*
+        printf("r;1;%u\n", pkt->size);
+        unsigned actual_len = icnl_decode(icnl_scratch, pkt->data, pkt->size, NULL);
+        printf("r;2;%u\n", actual_len);
+        gnrc_pktsnip_t *pkt2 = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
+        pkt = gnrc_pktbuf_replace_snip(pkt, pkt, pkt2);
+        */
+        pkt->type = GNRC_NETTYPE_CCN;
+    }
+#endif
     else {
         DEBUG("6lo: dispatch %02" PRIx8 " ... is not supported\n",
               dispatch[0]);
@@ -290,6 +308,20 @@ static void _send(gnrc_pktsnip_t *pkt)
 #ifdef MODULE_GNRC_SIXLOWPAN_IPHC
     if (netif->flags & GNRC_NETIF_FLAGS_6LO_HC) {
         gnrc_sixlowpan_iphc_send(pkt, NULL, 0);
+        return;
+    }
+#endif
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+    if (netif->flags & GNRC_NETIF_FLAGS_ICNLOWPAN_HC) {
+        /*
+        printf("s;1;%u\n", datagram_size);
+        unsigned actual_len = icnl_encode(icnl_scratch, ICNL_PROTO_NDN_HC, pkt->next->data, pkt->next->size, NULL, 0, NULL);
+        printf("s;2;%u\n", actual_len);
+        gnrc_pktsnip_t *pkt2 = gnrc_pktbuf_add(NULL, icnl_scratch, actual_len, GNRC_NETTYPE_CCN);
+        pkt = gnrc_pktbuf_replace_snip(pkt, pkt->next, pkt2);
+        datagram_size = gnrc_pkt_len(pkt->next);
+        */
+        gnrc_sixlowpan_multiplex_by_size(pkt, datagram_size, netif, 0);
         return;
     }
 #endif
