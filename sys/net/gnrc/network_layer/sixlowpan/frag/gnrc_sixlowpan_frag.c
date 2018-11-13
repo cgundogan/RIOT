@@ -19,6 +19,7 @@
 #include "kernel_types.h"
 #include "net/gnrc/pktbuf.h"
 #include "net/gnrc/netapi.h"
+#include "net/gnrc/netreg.h"
 #include "net/gnrc/netif/hdr.h"
 #include "net/gnrc/sixlowpan/frag.h"
 #include "net/gnrc/sixlowpan/internal.h"
@@ -369,7 +370,17 @@ void gnrc_sixlowpan_frag_rbuf_dispatch_when_complete(gnrc_sixlowpan_rbuf_t *rbuf
         new_netif_hdr->lqi = netif_hdr->lqi;
         new_netif_hdr->rssi = netif_hdr->rssi;
         LL_APPEND(rbuf->pkt, netif);
+
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+        rbuf->pkt->type = GNRC_NETTYPE_SIXLOWPAN;
+
+        if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_SIXLOWPAN, GNRC_NETREG_DEMUX_CTX_ALL, rbuf->pkt)) {
+            DEBUG("6lo rbuf: error sending reassembled frame to sixlowpan\n");
+        }
+#else
         gnrc_sixlowpan_dispatch_recv(rbuf->pkt, NULL, 0);
+#endif
+
         gnrc_sixlowpan_frag_rbuf_remove(rbuf);
     }
 }

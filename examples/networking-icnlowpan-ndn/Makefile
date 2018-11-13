@@ -1,7 +1,7 @@
-APPLICATION = ccn-lite-relay
+APPLICATION = networking-icnlowpan-ndn
 
 # If no BOARD is found in the environment, use this default:
-BOARD ?= native
+BOARD ?= samr21-xpro
 
 BOARD_WHITELIST := fox iotlab-m3 msba2 mulle native pba-d-01-kw2x samr21-xpro
 
@@ -20,10 +20,13 @@ CFLAGS += -DCCNL_UAPI_H_
 CFLAGS += -DUSE_SUITE_NDNTLV
 CFLAGS += -DNEEDS_PREFIX_MATCHING
 CFLAGS += -DNEEDS_PACKET_CRAFTING
-CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=17
+CFLAGS += -DIEEE802154_DEFAULT_PANID=0x15
+CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=15
 CFLAGS += -DDEBUG_ASSERT_VERBOSE
-CFLAGS += -DCCNL_MAX_PACKET_SIZE=1024
-CFLAGS_OPT := -O0
+CFLAGS += -DCCNL_MAX_PACKET_SIZE=256
+CFLAGS += -DCCNL_MAX_PREFIX_SIZE=40
+CFLAGS += -DCCNL_CACHE_SIZE=5
+#CFLAGS_OPT := -O0
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
@@ -36,7 +39,7 @@ USEMODULE += shell_commands
 USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 # This application dumps received packets to STDIO using the pktdump module
-USEMODULE += gnrc_pktdump
+#USEMODULE += gnrc_pktdump
 USEMODULE += prng_xorshift
 USEMODULE += netstats_l2
 USEMODULE += gnrc_sixlowpan_frag

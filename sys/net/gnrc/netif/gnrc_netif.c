@@ -1248,6 +1248,11 @@ static void _init_from_device(gnrc_netif_t *netif)
             netif->ipv6.mtu = tmp;
 #endif
 #endif
+#ifdef MODULE_GNRC_ICNLOWPAN_HC
+            res = dev->driver->get(dev, NETOPT_MAX_PACKET_SIZE, &tmp, sizeof(tmp));
+            netif->sixlo.max_frag_size = tmp;
+            netif->flags |= GNRC_NETIF_FLAGS_ICNLOWPAN_HC;
+#endif
             break;
 #endif  /* MODULE_NETDEV_IEEE802154 */
 #ifdef MODULE_NETDEV_ETH

@@ -169,7 +169,11 @@ static struct ccnl_face_s *_intern_face_get(char *addr_str)
 static int _intern_fib_add(char *pfx, char *addr_str)
 {
     int suite = CCNL_SUITE_NDNTLV;
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(pfx, suite, NULL);
+    char s[CCNL_MAX_PREFIX_SIZE];
+
+    memcpy(s, pfx, strlen(pfx));
+
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(s, suite, NULL);
     if (!prefix) {
         puts("Error: prefix could not be created!");
         return -1;

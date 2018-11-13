@@ -119,6 +119,11 @@ enum {
 #define GNRC_NETIF_FLAGS_6LO_BACKBONE              (0x00000800U)
 
 /**
+ * @brief   This interface uses ICNLoWPAN header compression
+ */
+#define GNRC_NETIF_FLAGS_ICNLOWPAN_HC              (0x00001000U)
+
+/**
  * @brief   Mask for @ref gnrc_mac_tx_feedback_t
  */
 #define GNRC_NETIF_FLAGS_MAC_TX_FEEDBACK_MASK      (0x00006000U)
