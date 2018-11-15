@@ -26,7 +26,15 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #endif
 
 #ifndef MAX_REQS
-#define MAX_REQS (1000U)
+#define MAX_REQS (10000U)
+#endif
+
+#ifndef DELAY
+#define DELAY (100U * 1000U)
+#endif
+
+#ifndef URI
+#define URI "/HAW/BT7/Room/481/A/Temp"
 #endif
 
 static netstats_t *stats;
@@ -45,7 +53,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, sizeof(payload)/sizeof(payload[0]), NULL);
     ccnl_content_add2cache(relay, c);
 
-    if (!memcmp(pkt->pfx->comp[6], "0999", strlen("0999"))) {
+    if (!memcmp(pkt->pfx->comp[6], "9999", strlen("9999"))) {
         printf("s;%u;%u;%u;%u;%u;%u;%u\n",
                (unsigned) stats->rx_count,
                (unsigned) stats->rx_bytes,
@@ -77,15 +85,15 @@ static int _start_exp(int argc, char **argv)
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
-        char s[CCNL_MAX_PREFIX_SIZE] = "/HAW/BT7/Room/481/A/Temp";
-        snprintf (s, CCNL_MAX_PREFIX_SIZE, "/HAW/BT7/Room/481/A/Temp/%04u", i);
+        char s[CCNL_MAX_PREFIX_SIZE] = URI;
+        snprintf (s, CCNL_MAX_PREFIX_SIZE, URI "/%04u", i);
 
-        printf("i;%s\n", s);
+        printf("i;%u;%s\n", i, s);
 
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(s, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, _int_buf, INTBUFSIZE, NULL);
         ccnl_prefix_free(prefix);
-        xtimer_usleep(200 * 1000);
+        xtimer_usleep(DELAY);
     }
 
     printf("s;%u;%u;%u;%u;%u;%u;%u\n",
@@ -126,6 +134,9 @@ int main(void)
         puts("Error registering at network interface!");
         return -1;
     }
+
+    uint16_t src_len = 8;
+    gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
 
 #ifdef MODULE_GNRC_ICNLOWPAN_HC
     gnrc_nettype_t netreg_type = GNRC_NETTYPE_SIXLOWPAN;
