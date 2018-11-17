@@ -24,9 +24,13 @@ CFLAGS += -DIEEE802154_DEFAULT_PANID=0x15
 CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=15
 #CFLAGS += -DDEBUG_ASSERT_VERBOSE
 CFLAGS += -DCCNL_MAX_PACKET_SIZE=256
-CFLAGS += -DCCNL_MAX_PREFIX_SIZE=40
+CFLAGS += -DCCNL_MAX_PREFIX_SIZE=128
 CFLAGS += -DCCNL_CACHE_SIZE=5
 CFLAGS += -DCCNL_MAX_INTEREST_RETRANSMIT=0
+#CFLAGS += -DMAX_REQS=1000U
+#CFLAGS += -DICNL_PREFIX_CUT="0x08,0x03,'H','A','W',0x08,0x03,'B','T','7',0x08,0x04,'R','o','o','m',0x00"
+#CFLAGS += -DICNL_PREFIX_CUT_LEN=16
+
 #CFLAGS_OPT := -O0
 
 # Change this to 0 show compiler invocation lines by default:
@@ -43,7 +47,7 @@ USEMODULE += auto_init_gnrc_netif
 #USEMODULE += gnrc_pktdump
 USEMODULE += prng_xorshift
 USEMODULE += netstats_l2
-#USEMODULE += gnrc_sixlowpan_frag
+USEMODULE += gnrc_sixlowpan_frag
 #USEMODULE += gnrc_sixlowpan
 
 USEPKG += ccn-lite

@@ -33,8 +33,12 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define DELAY (100U * 1000U)
 #endif
 
-#ifndef URI
-#define URI "/HAW/BT7/Room/481/A/Temp"
+#ifndef ICNL_URI
+#define ICNL_URI "/HAW/BT7/Room/481/A/Temp"
+#endif
+
+#ifndef ICNL_PREFIX
+#define ICNL_PREFIX "/HAW"
 #endif
 
 static netstats_t *stats;
@@ -49,10 +53,11 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     char s[CCNL_MAX_PREFIX_SIZE];
 
     ccnl_prefix_to_str(pkt->pfx, s, CCNL_MAX_PREFIX_SIZE);
-    printf("d;%s\n", s);
+    //printf("d;%s\n", s);
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, sizeof(payload)/sizeof(payload[0]), NULL);
     ccnl_content_add2cache(relay, c);
 
+	/*
     if (!memcmp(pkt->pfx->comp[6], "9999", strlen("9999"))) {
         printf("s;%u;%u;%u;%u;%u;%u;%u\n",
                (unsigned) stats->rx_count,
@@ -63,6 +68,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
                (unsigned) stats->tx_success,
                (unsigned) stats->tx_failed);
     }
+	*/
 
     return 0;
 }
@@ -77,24 +83,40 @@ static int _enable_local_p(int argc, char **argv)
     return 0;
 }
 
-static int _start_exp(int argc, char **argv)
+void start_exp(void)
 {
-    (void) argc;
-    (void) argv;
-
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
-        char s[CCNL_MAX_PREFIX_SIZE] = URI;
-        snprintf (s, CCNL_MAX_PREFIX_SIZE, URI "/%04u", i);
+        char s[CCNL_MAX_PREFIX_SIZE] = ICNL_URI;
+        snprintf (s, CCNL_MAX_PREFIX_SIZE, ICNL_URI "/%04u", i);
 
-        printf("i;%u;%s\n", i, s);
+        //printf("i;%u;%s\n", i, s);
 
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(s, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, _int_buf, INTBUFSIZE, NULL);
         ccnl_prefix_free(prefix);
         xtimer_usleep(DELAY);
     }
+
+	/*
+    printf("s;%u;%u;%u;%u;%u;%u;%u\n",
+           (unsigned) stats->rx_count,
+           (unsigned) stats->rx_bytes,
+           (unsigned) (stats->tx_unicast_count + stats->tx_mcast_count),
+           (unsigned) stats->tx_mcast_count,
+           (unsigned) stats->tx_bytes,
+           (unsigned) stats->tx_success,
+           (unsigned) stats->tx_failed);
+   */
+
+	puts("exp_done");
+}
+
+static int _get_stats(int argc, char **argv)
+{
+	(void) argc;
+	(void) argv;
 
     printf("s;%u;%u;%u;%u;%u;%u;%u\n",
            (unsigned) stats->rx_count,
@@ -104,6 +126,15 @@ static int _start_exp(int argc, char **argv)
            (unsigned) stats->tx_bytes,
            (unsigned) stats->tx_success,
            (unsigned) stats->tx_failed);
+	return 0;
+}
+
+static int _start_exp(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+
+    start_exp();
 
     return 0;
 }
@@ -111,6 +142,7 @@ static int _start_exp(int argc, char **argv)
 static const shell_command_t shell_commands[] = {
     { "sp", "start producer", _enable_local_p },
     { "start", "start consumer", _start_exp },
+    { "stats", "get stats", _get_stats },
     { NULL, NULL, NULL },
 };
 
@@ -119,7 +151,7 @@ int main(void)
     tlsf_add_global_pool(_tlsf_heap, sizeof(_tlsf_heap));
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
 
-    puts("Basic CCN-Lite example");
+    puts("experiment_started");
 
     ccnl_core_init();
 
@@ -135,8 +167,9 @@ int main(void)
         return -1;
     }
 
-    uint16_t src_len = 8;
+    uint16_t src_len = 8U;
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
+    //gnrc_netapi_get(hopp_netif->pid, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
 
 #ifdef MODULE_GNRC_ICNLOWPAN_HC
     gnrc_nettype_t netreg_type = GNRC_NETTYPE_SIXLOWPAN;
@@ -151,13 +184,13 @@ int main(void)
     gnrc_netreg_register(GNRC_NETTYPE_CCN_CHUNK, &dump);
 #endif
 
-    char defpfxs[CCNL_MAX_PREFIX_SIZE] = "/HAW";
+    char defpfxs[CCNL_MAX_PREFIX_SIZE] = ICNL_PREFIX;
     struct ccnl_prefix_s *defpfx = ccnl_URItoPrefix(defpfxs, CCNL_SUITE_NDNTLV, NULL);
     (void) defpfx;
 
 
-    //uint8_t relay_addr[] = { 0x79, 0x64, 0x1E, 0x7D, 0x4A, 0x9B, 0xBD, 0x22 };
-    uint8_t relay_addr[] = { 0xBD, 0x22 };
+    uint8_t relay_addr[] = { 0x79, 0x64, 0x1E, 0x7D, 0x4A, 0x9B, 0xBD, 0x22 };
+    //uint8_t relay_addr[] = { 0xBD, 0x22 };
 
     sockunion sun;
     sun.sa.sa_family = AF_PACKET;
@@ -173,6 +206,13 @@ int main(void)
         printf("Error adding to the FIB\n");
         return -1;
     }
+
+#ifdef NODE_PRODUCER
+    ccnl_set_local_producer(producer_func);
+#endif
+#ifdef NODE_CONSUMER
+    start_exp();
+#endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);

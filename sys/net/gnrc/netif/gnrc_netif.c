@@ -40,6 +40,11 @@
 
 #define _NETIF_NETAPI_MSG_QUEUE_SIZE    (8)
 
+#include "xtimer.h"
+uint32_t networking_send_after_netif = 0;
+extern uint32_t networking_send_before_netif;
+extern uint32_t  networking_send_before_lowpan;
+
 static gnrc_netif_t _netifs[GNRC_NETIF_NUMOF];
 
 static void _update_l2addr_from_dev(gnrc_netif_t *netif);
@@ -1452,6 +1457,8 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
                 /* we are the only ones supposed to touch this variable,
                  * so no acquire necessary */
                 dev->stats.tx_success++;
+                networking_send_after_netif = xtimer_now_usec();
+                printf("t;%lu;%lu;%lu\n", networking_send_before_lowpan, networking_send_before_netif, networking_send_after_netif);
                 break;
 #endif
             default:

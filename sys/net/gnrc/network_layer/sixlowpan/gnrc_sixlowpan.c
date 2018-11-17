@@ -24,6 +24,8 @@
 #include "net/gnrc/netif.h"
 #include "net/sixlowpan.h"
 
+#include "xtimer.h"
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -58,6 +60,9 @@ static void _send(gnrc_pktsnip_t *pkt);
 /* Main event loop for 6LoWPAN */
 static void *_event_loop(void *args);
 
+uint32_t networking_send_before_netif = 0;
+extern uint32_t  networking_send_before_lowpan;
+
 kernel_pid_t gnrc_sixlowpan_init(void)
 {
     if (_pid > KERNEL_PID_UNDEF) {
@@ -83,6 +88,7 @@ void gnrc_sixlowpan_dispatch_recv(gnrc_pktsnip_t *pkt, void *context,
     /* just assume normal IPv6 traffic */
     type = GNRC_NETTYPE_IPV6;
 #endif  /* MODULE_GNRC_ICNLOWPAN_HC */
+
     if (!gnrc_netapi_dispatch_receive(type,
                                       GNRC_NETREG_DEMUX_CTX_ALL, pkt)) {
         DEBUG("6lo: No receivers for this packet found\n");
@@ -147,6 +153,7 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
               (unsigned int)datagram_size, netif->sixlo.max_frag_size);
         gnrc_pktbuf_release_error(pkt, EMSGSIZE);
     }
+    networking_send_before_netif = xtimer_now_usec();
 }
 
 static void _receive(gnrc_pktsnip_t *pkt)
