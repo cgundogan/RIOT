@@ -59,7 +59,17 @@ static fib_entry_t _fib_entries[GNRC_IPV6_FIB_TABLE_SIZE];
 fib_table_t gnrc_ipv6_fib_table;
 #endif
 
+extern uint32_t networking_send_netif1;
+extern uint32_t networking_send_netif2;
+extern uint32_t networking_send_netifdelta;
 extern uint32_t networking_send_net;
+extern uint32_t networking_send_app;
+
+extern uint32_t networking_recv_app;
+extern uint32_t networking_recv_net;
+extern uint32_t networking_recv_netif1;
+extern uint32_t networking_recv_netif2;
+extern uint32_t networking_recv_netifdelta;
 
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 
@@ -274,6 +284,7 @@ static void *_event_loop(void *args)
 
         switch (msg.type) {
             case GNRC_NETAPI_MSG_TYPE_RCV:
+                networking_recv_net = xtimer_now_usec();
                 DEBUG("ipv6: GNRC_NETAPI_MSG_TYPE_RCV received\n");
                 _receive(msg.content.ptr);
                 break;
@@ -498,6 +509,12 @@ static void _send_unicast(gnrc_pktsnip_t *pkt, bool prep_hdr,
 #endif
         networking_send_net = xtimer_now_usec();
         _send_to_iface(netif, pkt);
+        printf("tx;%lu;%lu;%lu;%lu\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta);
+        networking_send_netifdelta = 0;
+#ifdef NODE_PRODUCER
+        printf("rx;%lu;%lu;%lu;%lu\n", networking_send_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta);
+        networking_recv_netifdelta = 0;
+#endif
     }
 }
 

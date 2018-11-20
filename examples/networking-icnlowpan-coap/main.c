@@ -27,11 +27,17 @@ static ipv6_addr_t dst_ipv6_addr;
 
 static netstats_t *stats;
 
-uint32_t networking_send_netifdelta = 0;
 uint32_t networking_send_netif1 = 0;
 uint32_t networking_send_netif2 = 0;
+uint32_t networking_send_netifdelta = 0;
 uint32_t networking_send_net = 0;
 uint32_t networking_send_app = 0;
+
+uint32_t networking_recv_app = 0;
+uint32_t networking_recv_net = 0;
+uint32_t networking_recv_netif1 = 0;
+uint32_t networking_recv_netif2 = 0;
+uint32_t networking_recv_netifdelta = 0;
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
@@ -54,6 +60,7 @@ static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void 
     const char payload[payload_len];
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, payload, sizeof(payload));
+    networking_send_app = xtimer_now_usec();
     return gcoap_finish(pdu, sizeof(payload), COAP_FORMAT_TEXT);
 }
 
@@ -70,6 +77,11 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
         printf("gcoap: error in response\n");
         return;
     }
+    networking_recv_app = xtimer_now_usec();
+#ifdef NODE_CONSUMER
+    printf("rx;%lu;%lu;%lu;%lu\n", networking_recv_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta);
+    networking_recv_netifdelta = 0;
+#endif
 }
 
 void gcoap_send(void)
@@ -172,8 +184,8 @@ int main(void)
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
-#ifdef NODE_CONSUMER
-#endif
+    netopt_enable_t opt = NETOPT_ENABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
 
     /* start shell */
     char line_buf[SHELL_DEFAULT_BUFSIZE];
