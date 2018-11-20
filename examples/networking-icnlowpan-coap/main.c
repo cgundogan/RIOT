@@ -25,8 +25,13 @@ static ipv6_addr_t dst_ipv6_addr;
 #define ICNL_URI "/HAW/BT7/Room/481/A/Temp"
 #endif
 
-uint32_t networking_send_before_netif = 0;
-uint32_t networking_send_before_lowpan = 0;
+static netstats_t *stats;
+
+uint32_t networking_send_netifdelta = 0;
+uint32_t networking_send_netif1 = 0;
+uint32_t networking_send_netif2 = 0;
+uint32_t networking_send_net = 0;
+uint32_t networking_send_app = 0;
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
@@ -99,6 +104,7 @@ static int _start_exp(int argc, char **argv)
     (void) argv;
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
+        networking_send_app = xtimer_now_usec();
         //printf("i;%u;%s\n", i, ICNL_URI "/0000");
         gcoap_send();
         xtimer_usleep(DELAY);
@@ -159,6 +165,12 @@ int main(void)
 #endif
     gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
 #endif
+
+    gnrc_netif_t *netif;
+    netif = gnrc_netif_iter(NULL);
+    uint16_t src_len = 8U;
+    gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
+    gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
 #ifdef NODE_CONSUMER
 #endif

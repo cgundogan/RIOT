@@ -60,9 +60,6 @@ static void _send(gnrc_pktsnip_t *pkt);
 /* Main event loop for 6LoWPAN */
 static void *_event_loop(void *args);
 
-extern uint32_t networking_send_before_netif;
-extern uint32_t  networking_send_before_lowpan;
-
 kernel_pid_t gnrc_sixlowpan_init(void)
 {
     if (_pid > KERNEL_PID_UNDEF) {
@@ -120,9 +117,11 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
     size_t datagram_size = gnrc_pkt_len(pkt->next);
     DEBUG("6lo: iface->sixlo.max_frag_size = %u for interface %i\n",
           netif->sixlo.max_frag_size, netif->pid);
+
     if ((netif->sixlo.max_frag_size == 0) ||
         (datagram_size <= netif->sixlo.max_frag_size)) {
         DEBUG("6lo: Dispatch for sending\n");
+
         gnrc_sixlowpan_dispatch_send(pkt, NULL, page);
     }
 #ifdef MODULE_GNRC_SIXLOWPAN_FRAG
@@ -153,7 +152,6 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
               (unsigned int)datagram_size, netif->sixlo.max_frag_size);
         gnrc_pktbuf_release_error(pkt, EMSGSIZE);
     }
-    networking_send_before_netif = xtimer_now_usec();
 }
 
 static void _receive(gnrc_pktsnip_t *pkt)

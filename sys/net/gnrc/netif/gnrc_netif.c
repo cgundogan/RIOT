@@ -41,9 +41,13 @@
 #define _NETIF_NETAPI_MSG_QUEUE_SIZE    (8)
 
 #include "xtimer.h"
-uint32_t networking_send_after_netif = 0;
-extern uint32_t networking_send_before_netif;
-extern uint32_t  networking_send_before_lowpan;
+extern uint32_t networking_send_netif1;
+extern uint32_t networking_send_netif2;
+extern uint32_t networking_send_netifdelta;
+
+extern uint32_t networking_recv_netif1;
+extern uint32_t networking_recv_netif2;
+extern uint32_t networking_recv_netifdelta;
 
 static gnrc_netif_t _netifs[GNRC_NETIF_NUMOF];
 
@@ -1360,6 +1364,7 @@ static void *_gnrc_netif_thread(void *args)
                 dev->driver->isr(dev);
                 break;
             case GNRC_NETAPI_MSG_TYPE_SND:
+                networking_send_netif1 = xtimer_now_usec();
                 DEBUG("gnrc_netif: GNRC_NETDEV_MSG_TYPE_SND received\n");
                 res = netif->ops->send(netif, msg.content.ptr);
                 if (res < 0) {
@@ -1440,7 +1445,10 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
         DEBUG("gnrc_netif: event triggered -> %i\n", event);
         switch (event) {
             case NETDEV_EVENT_RX_COMPLETE: {
+                    networking_recv_netif2 = xtimer_now_usec();
                     gnrc_pktsnip_t *pkt = netif->ops->recv(netif);
+                    networking_recv_netif1 = xtimer_now_usec();
+                    networking_recv_netifdelta += networking_recv_netif1 - networking_recv_netif2;
 
                     if (pkt) {
                         _pass_on_packet(pkt);
@@ -1457,10 +1465,12 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
                 /* we are the only ones supposed to touch this variable,
                  * so no acquire necessary */
                 dev->stats.tx_success++;
-                networking_send_after_netif = xtimer_now_usec();
-                printf("t;%lu;%lu;%lu\n", networking_send_before_lowpan, networking_send_before_netif, networking_send_after_netif);
                 break;
 #endif
+            case NETDEV_EVENT_TX_STARTED:
+                networking_send_netif2 = xtimer_now_usec();
+                networking_send_netifdelta += networking_send_netif2 - networking_send_netif1;
+                break;
             default:
                 DEBUG("gnrc_netif: warning: unhandled event %u.\n", event);
         }

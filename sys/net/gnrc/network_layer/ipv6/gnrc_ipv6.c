@@ -59,6 +59,8 @@ static fib_entry_t _fib_entries[GNRC_IPV6_FIB_TABLE_SIZE];
 fib_table_t gnrc_ipv6_fib_table;
 #endif
 
+extern uint32_t networking_send_net;
+
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 
 kernel_pid_t gnrc_ipv6_pid = KERNEL_PID_UNDEF;
@@ -494,6 +496,7 @@ static void _send_unicast(gnrc_pktsnip_t *pkt, bool prep_hdr,
 #ifdef MODULE_NETSTATS_IPV6
         netif->ipv6.stats.tx_unicast_count++;
 #endif
+        networking_send_net = xtimer_now_usec();
         _send_to_iface(netif, pkt);
     }
 }

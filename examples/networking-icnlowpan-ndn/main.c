@@ -47,6 +47,18 @@ static unsigned payload_len = 0;
 
 static unsigned char _int_buf[INTBUFSIZE];
 
+uint32_t networking_send_netif1 = 0;
+uint32_t networking_send_netif2 = 0;
+uint32_t networking_send_netifdelta = 0;
+uint32_t networking_send_net = 0;
+uint32_t networking_send_app = 0;
+
+uint32_t networking_recv_app = 0;
+uint32_t networking_recv_net = 0;
+uint32_t networking_recv_netif1 = 0;
+uint32_t networking_recv_netif2 = 0;
+uint32_t networking_recv_netifdelta = 0;
+
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
 {
     (void) from;
@@ -58,6 +70,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     //printf("d;%s\n", s);
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, payload_len, NULL);
     ccnl_content_add2cache(relay, c);
+    networking_send_app = xtimer_now_usec();
 
     /*
     if (!memcmp(pkt->pfx->comp[6], "9999", strlen("9999"))) {
@@ -92,6 +105,8 @@ void start_exp(void)
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
+        networking_send_app = xtimer_now_usec();
+
         static char s[CCNL_MAX_PREFIX_SIZE];
         memset(s, '\0', CCNL_MAX_PREFIX_SIZE);
 
@@ -101,6 +116,8 @@ void start_exp(void)
 
         struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(s, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, _int_buf, INTBUFSIZE, NULL);
+        //printf("t;%lu;%lu;%lu;%lu\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta);
+        //networking_send_netifdelta = 0;
         ccnl_prefix_free(prefix);
         xtimer_usleep(DELAY);
     }
@@ -181,6 +198,9 @@ int main(void)
     gnrc_nettype_t netreg_type = GNRC_NETTYPE_SIXLOWPAN;
     gnrc_netapi_set(netif->pid, NETOPT_PROTO, 0, &netreg_type, sizeof(gnrc_nettype_t));
 #endif
+
+    netopt_enable_t opt = NETOPT_ENABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
 
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
