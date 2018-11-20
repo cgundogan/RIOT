@@ -147,7 +147,7 @@ extern int _cord_ep_handler(int argc, char **argv);
 #endif
 
 const shell_command_t _shell_command_list[] = {
-    {"reboot", "Reboot the node", _reboot_handler},
+    {"rreboot", "Reboot the node", _reboot_handler},
 #ifdef MODULE_CONFIG
     {"id", "Gets or sets the node's id.", _id_handler},
 #endif
