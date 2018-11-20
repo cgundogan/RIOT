@@ -36,6 +36,8 @@ CFLAGS += -DCCNL_MAX_INTEREST_RETRANSMIT=0
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+ICNL_DISABLE ?= 0
+
 USEMODULE += ps
 USEMODULE += shell
 USEMODULE += shell_commands

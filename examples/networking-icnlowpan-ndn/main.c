@@ -43,18 +43,20 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 static netstats_t *stats;
 
+static unsigned payload_len = 0;
+
 static unsigned char _int_buf[INTBUFSIZE];
 
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
 {
     (void) from;
-    static const char payload[4];
+    const char payload[payload_len];
 
     char s[CCNL_MAX_PREFIX_SIZE];
 
     ccnl_prefix_to_str(pkt->pfx, s, CCNL_MAX_PREFIX_SIZE);
     //printf("d;%s\n", s);
-    struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, sizeof(payload)/sizeof(payload[0]), NULL);
+    struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, payload_len, NULL);
     ccnl_content_add2cache(relay, c);
 
 	/*
@@ -77,6 +79,8 @@ static int _enable_local_p(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
+
+    payload_len = atoi(argv[1]);
 
     ccnl_set_local_producer(producer_func);
 
@@ -207,11 +211,13 @@ int main(void)
         return -1;
     }
 
+#if 0
 #ifdef NODE_PRODUCER
     ccnl_set_local_producer(producer_func);
 #endif
 #ifdef NODE_CONSUMER
     start_exp();
+#endif
 #endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
