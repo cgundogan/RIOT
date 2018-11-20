@@ -31,6 +31,8 @@ uint32_t networking_send_before_lowpan = 0;
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
 
+static unsigned payload_len = 0;
+
 static const coap_resource_t _resources[] = {
     { ICNL_URI "/0000", COAP_GET, _payload_handler, NULL },
 };
@@ -44,7 +46,7 @@ static gcoap_listener_t _listener = {
 static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void *ctx)
 {
     (void)ctx;
-    char payload[4];
+    const char payload[payload_len];
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, payload, sizeof(payload));
     return gcoap_finish(pdu, sizeof(payload), COAP_FORMAT_TEXT);
@@ -107,8 +109,36 @@ static int _start_exp(int argc, char **argv)
     return 0;
 }
 
+static int _enable_local_p(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+
+    payload_len = atoi(argv[1]);
+
+    return 0;
+}
+
+static int _get_stats(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+
+    printf("s;%u;%u;%u;%u;%u;%u;%u\n",
+           (unsigned) stats->rx_count,
+           (unsigned) stats->rx_bytes,
+           (unsigned) (stats->tx_unicast_count + stats->tx_mcast_count),
+           (unsigned) stats->tx_mcast_count,
+           (unsigned) stats->tx_bytes,
+           (unsigned) stats->tx_success,
+           (unsigned) stats->tx_failed);
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
+    { "sp", "start producer", _enable_local_p },
     { "start", "start consumer", _start_exp },
+    { "stats", "get stats", _get_stats },
     { NULL, NULL, NULL }
 };
 
