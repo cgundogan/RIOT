@@ -59,7 +59,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, payload_len, NULL);
     ccnl_content_add2cache(relay, c);
 
-	/*
+    /*
     if (!memcmp(pkt->pfx->comp[6], "9999", strlen("9999"))) {
         printf("s;%u;%u;%u;%u;%u;%u;%u\n",
                (unsigned) stats->rx_count,
@@ -70,7 +70,7 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
                (unsigned) stats->tx_success,
                (unsigned) stats->tx_failed);
     }
-	*/
+    */
 
     return 0;
 }
@@ -92,7 +92,9 @@ void start_exp(void)
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
-        char s[CCNL_MAX_PREFIX_SIZE] = ICNL_URI;
+        static char s[CCNL_MAX_PREFIX_SIZE];
+        memset(s, '\0', CCNL_MAX_PREFIX_SIZE);
+
         snprintf (s, CCNL_MAX_PREFIX_SIZE, ICNL_URI "/%04u", i);
 
         //printf("i;%u;%s\n", i, s);
@@ -103,7 +105,7 @@ void start_exp(void)
         xtimer_usleep(DELAY);
     }
 
-	/*
+    /*
     printf("s;%u;%u;%u;%u;%u;%u;%u\n",
            (unsigned) stats->rx_count,
            (unsigned) stats->rx_bytes,
@@ -114,13 +116,13 @@ void start_exp(void)
            (unsigned) stats->tx_failed);
    */
 
-	puts("exp_done");
+    puts("exp_done");
 }
 
 static int _get_stats(int argc, char **argv)
 {
-	(void) argc;
-	(void) argv;
+    (void) argc;
+    (void) argv;
 
     printf("s;%u;%u;%u;%u;%u;%u;%u\n",
            (unsigned) stats->rx_count,
@@ -130,7 +132,7 @@ static int _get_stats(int argc, char **argv)
            (unsigned) stats->tx_bytes,
            (unsigned) stats->tx_success,
            (unsigned) stats->tx_failed);
-	return 0;
+    return 0;
 }
 
 static int _start_exp(int argc, char **argv)
