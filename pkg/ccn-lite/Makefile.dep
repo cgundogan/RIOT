@@ -4,7 +4,7 @@ ifneq (,$(filter ccn-lite,$(USEPKG)))
   USEMODULE += random
   USEMODULE += timex
   USEMODULE += tlsf-malloc
-ifeq ($(ICNL_DISABLE),0)
-  USEPKG += libicnl
 endif
+ifneq (,$(filter libicnl_pseudo,$(USEMODULE)))
+  USEPKG += libicnl
 endif

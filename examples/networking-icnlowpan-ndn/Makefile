@@ -50,7 +50,7 @@ USEMODULE += auto_init_gnrc_netif
 #USEMODULE += gnrc_pktdump
 USEMODULE += prng_xorshift
 USEMODULE += netstats_l2
-USEMODULE += gnrc_sixlowpan_frag
+#USEMODULE += gnrc_sixlowpan_frag
 #USEMODULE += gnrc_sixlowpan
 
 USEPKG += ccn-lite

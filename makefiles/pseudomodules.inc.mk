@@ -128,3 +128,5 @@ PSEUDOMODULES += skald_eddystone
 PSEUDOMODULES += ds18_optimized
 
 # Packages may also add modules to PSEUDOMODULES in their `Makefile.include`.
+
+PSEUDOMODULES += libicnl_pseudo

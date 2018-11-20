@@ -14,22 +14,25 @@ static ipv6_addr_t dst_ipv6_addr;
 #endif
 
 #ifndef MAX_REQS
-#define MAX_REQS (10000U)
+#define MAX_REQS (1000U)
 #endif
 
 #ifndef DELAY
 #define DELAY (100U * 1000U)
 #endif
 
-#ifndef URI
-#define URI "/HAW/BT7/Room/481/A/Temp"
+#ifndef ICNL_URI
+#define ICNL_URI "/HAW/BT7/Room/481/A/Temp"
 #endif
+
+uint32_t networking_send_before_netif = 0;
+uint32_t networking_send_before_lowpan = 0;
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
 
 static const coap_resource_t _resources[] = {
-    { URI "/0000", COAP_GET, _payload_handler, NULL },
+    { ICNL_URI "/0000", COAP_GET, _payload_handler, NULL },
 };
 
 static gcoap_listener_t _listener = {
@@ -73,7 +76,7 @@ void gcoap_send(void)
     unsigned msg_type = COAP_TYPE_NON;
     //msg_type = COAP_TYPE_CON;
 
-    gcoap_req_init(&pdu, &buf[0], GCOAP_PDU_BUF_SIZE, code_pos+1, URI "/0000");
+    gcoap_req_init(&pdu, &buf[0], GCOAP_PDU_BUF_SIZE, code_pos+1, ICNL_URI "/0000");
     coap_hdr_set_type(pdu.hdr, msg_type);
     len = gcoap_finish(&pdu, 0, COAP_FORMAT_NONE);
 
@@ -94,10 +97,12 @@ static int _start_exp(int argc, char **argv)
     (void) argv;
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
-        printf("i;%u;%s\n", i, URI "/0000");
+        //printf("i;%u;%s\n", i, ICNL_URI "/0000");
         gcoap_send();
         xtimer_usleep(DELAY);
     }
+
+    puts("exp_done");
 
     return 0;
 }
@@ -117,10 +122,10 @@ int main(void)
     size_t l2addr_len = 0;
 #ifdef NODE_CONSUMER
     ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b64:1e7d:4a9b:bd22");
-    l2addr_len = gnrc_netif_addr_from_str("BD:22", l2addr);
+    l2addr_len = gnrc_netif_addr_from_str("79:64:1E:7D:4A:9B:BD:22", l2addr);
 #elif NODE_PRODUCER
     ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b62:1b6d:89cc:89ca");
-    l2addr_len = gnrc_netif_addr_from_str("89:CA", l2addr);
+    l2addr_len = gnrc_netif_addr_from_str("79:62:1B:6D:89:CC:89:CA", l2addr);
 #endif
     gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
 #endif

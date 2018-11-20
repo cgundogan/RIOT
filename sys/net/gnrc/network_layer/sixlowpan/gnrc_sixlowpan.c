@@ -60,7 +60,7 @@ static void _send(gnrc_pktsnip_t *pkt);
 /* Main event loop for 6LoWPAN */
 static void *_event_loop(void *args);
 
-uint32_t networking_send_before_netif = 0;
+extern uint32_t networking_send_before_netif;
 extern uint32_t  networking_send_before_lowpan;
 
 kernel_pid_t gnrc_sixlowpan_init(void)
