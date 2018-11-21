@@ -46,12 +46,17 @@ uint8_t icnl_scratch[ICNL_SCRATCH_SIZE];
 #endif
 #endif
 
+extern uint32_t networking_recv_netif1;
+extern uint32_t networking_recv_netif2;
+extern uint32_t networking_recv_netifdelta;
+
 #if ENABLE_DEBUG
 static char _stack[GNRC_SIXLOWPAN_STACK_SIZE + THREAD_EXTRA_STACKSIZE_PRINTF];
 #else
 static char _stack[GNRC_SIXLOWPAN_STACK_SIZE];
 #endif
 
+extern uint32_t networking_send_netif1;
 
 /* handles GNRC_NETAPI_MSG_TYPE_RCV commands */
 static void _receive(gnrc_pktsnip_t *pkt);
@@ -100,6 +105,7 @@ void gnrc_sixlowpan_dispatch_send(gnrc_pktsnip_t *pkt, void *context,
     (void)page;
     assert(pkt->type == GNRC_NETTYPE_NETIF);
     gnrc_netif_hdr_t *hdr = pkt->data;
+    networking_send_netif1 = xtimer_now_usec();
     if (gnrc_netapi_send(hdr->if_pid, pkt) < 1) {
         DEBUG("6lo: unable to send %p over interface %u\n", (void *)pkt,
               hdr->if_pid);
@@ -156,6 +162,8 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
 
 static void _receive(gnrc_pktsnip_t *pkt)
 {
+    networking_recv_netif1 = xtimer_now_usec();
+    networking_recv_netifdelta += networking_recv_netif1 - networking_recv_netif2;
     gnrc_pktsnip_t *payload;
     uint8_t *dispatch;
 

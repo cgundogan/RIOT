@@ -32,7 +32,9 @@ uint32_t networking_send_netif2 = 0;
 uint32_t networking_send_netifdelta = 0;
 uint32_t networking_send_net = 0;
 uint32_t networking_send_app = 0;
+uint32_t networking_send_lowpan = 0;
 
+uint32_t networking_recv_lowpan = 0;
 uint32_t networking_recv_app = 0;
 uint32_t networking_recv_net = 0;
 uint32_t networking_recv_netif1 = 0;
@@ -79,7 +81,7 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     }
     networking_recv_app = xtimer_now_usec();
 #ifdef NODE_CONSUMER
-    printf("rx;%lu;%lu;%lu;%lu\n", networking_recv_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta);
+    printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_recv_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta, networking_recv_lowpan);
     networking_recv_netifdelta = 0;
 #endif
 }

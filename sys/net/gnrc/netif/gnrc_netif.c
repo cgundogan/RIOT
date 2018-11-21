@@ -1364,7 +1364,6 @@ static void *_gnrc_netif_thread(void *args)
                 dev->driver->isr(dev);
                 break;
             case GNRC_NETAPI_MSG_TYPE_SND:
-                networking_send_netif1 = xtimer_now_usec();
                 DEBUG("gnrc_netif: GNRC_NETDEV_MSG_TYPE_SND received\n");
                 res = netif->ops->send(netif, msg.content.ptr);
                 if (res < 0) {
@@ -1447,8 +1446,6 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
             case NETDEV_EVENT_RX_COMPLETE: {
                     networking_recv_netif2 = xtimer_now_usec();
                     gnrc_pktsnip_t *pkt = netif->ops->recv(netif);
-                    networking_recv_netif1 = xtimer_now_usec();
-                    networking_recv_netifdelta += networking_recv_netif1 - networking_recv_netif2;
 
                     if (pkt) {
                         _pass_on_packet(pkt);

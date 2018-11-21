@@ -47,12 +47,14 @@ static unsigned payload_len = 0;
 
 static unsigned char _int_buf[INTBUFSIZE];
 
+uint32_t networking_send_lowpan = 0;
 uint32_t networking_send_netif1 = 0;
 uint32_t networking_send_netif2 = 0;
 uint32_t networking_send_netifdelta = 0;
 uint32_t networking_send_net = 0;
 uint32_t networking_send_app = 0;
 
+uint32_t networking_recv_lowpan = 0;
 uint32_t networking_recv_app = 0;
 uint32_t networking_recv_net = 0;
 uint32_t networking_recv_netif1 = 0;
