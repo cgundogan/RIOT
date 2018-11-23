@@ -221,7 +221,15 @@ int main(void)
     (void) defpfx;
 
 
+#if defined(NODE_CONSUMER) || defined(NODE_FORWARDER)
+#if defined(NODE_CONSUMER) && (MULTIHOP)
+    uint8_t relay_addr[] = { 0x79, 0x64, 0x0C, 0x7D, 0x9F, 0x31, 0x02, 0xEE };
+#elif defined(NODE_CONSUMER)
     uint8_t relay_addr[] = { 0x79, 0x64, 0x1E, 0x7D, 0x4A, 0x9B, 0xBD, 0x22 };
+#endif
+#ifdef NODE_FORWARDER
+    uint8_t relay_addr[] = { 0x79, 0x64, 0x1E, 0x7D, 0x4A, 0x9B, 0xBD, 0x22 };
+#endif
     //uint8_t relay_addr[] = { 0xBD, 0x22 };
 
     sockunion sun;
@@ -238,6 +246,7 @@ int main(void)
         printf("Error adding to the FIB\n");
         return -1;
     }
+#endif
 
 #if 0
 #ifdef NODE_PRODUCER
