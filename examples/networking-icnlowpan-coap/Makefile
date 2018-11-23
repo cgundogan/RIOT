@@ -27,17 +27,23 @@ BOARD_INSUFFICIENT_MEMORY := arduino-duemilanove arduino-mega2560 arduino-uno \
 CFLAGS += -DIEEE802154_DEFAULT_PANID=0x15
 CFLAGS += -DIEEE802154_DEFAULT_CHANNEL=15
 CFLAGS += -DGNRC_IPV6_NIB_CONF_NO_RTR_SOL
-#CFLAGS += -DDEBUG_ASSERT_VERBOSE
+CFLAGS += -DDEBUG_ASSERT_VERBOSE
+
+#CFLAGS += -DGNRC_NETIF_IPV6_ADDRS_NUMOF=10 \
+#          -DGNRC_NETIF_IPV6_GROUPS_NUMOF=5 -DGNRC_IPV6_NIB_NUMOF=12 \
+#          -DGNRC_IPV6_NIB_OFFL_NUMOF=5 # be able to configure at least one route
 
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
 USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
-USEMODULE += gnrc_ipv6_default
+USEMODULE += gnrc_ipv6_router_default
 USEMODULE += gcoap
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
+USEMODULE += gnrc_ipv6
+USEMODULE += sixlowpan
 
 # Required by gcoap example
 USEMODULE += od

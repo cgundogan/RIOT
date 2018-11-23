@@ -57,14 +57,18 @@ uint32_t networking_send_app = 0;
 uint32_t networking_recv_lowpan = 0;
 uint32_t networking_recv_app = 0;
 uint32_t networking_recv_net = 0;
+uint32_t networking_recv_netif = 0;
 uint32_t networking_recv_netif1 = 0;
 uint32_t networking_recv_netif2 = 0;
 uint32_t networking_recv_netifdelta = 0;
 
+bool networking_recv_netiffirst = true;
+
+static char payload[256];
+
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
 {
     (void) from;
-    const char payload[payload_len];
 
     char s[CCNL_MAX_PREFIX_SIZE];
 

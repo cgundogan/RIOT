@@ -45,9 +45,12 @@ extern uint32_t networking_send_netif1;
 extern uint32_t networking_send_netif2;
 extern uint32_t networking_send_netifdelta;
 
+extern uint32_t networking_recv_netif;
 extern uint32_t networking_recv_netif1;
 extern uint32_t networking_recv_netif2;
 extern uint32_t networking_recv_netifdelta;
+
+extern bool networking_recv_netiffirst;
 
 static gnrc_netif_t _netifs[GNRC_NETIF_NUMOF];
 
@@ -1445,6 +1448,10 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
         switch (event) {
             case NETDEV_EVENT_RX_COMPLETE: {
                     networking_recv_netif2 = xtimer_now_usec();
+                    if (networking_recv_netiffirst) {
+                        networking_recv_netiffirst = false;
+                        networking_recv_netif = networking_recv_netif2;
+                    }
                     gnrc_pktsnip_t *pkt = netif->ops->recv(netif);
 
                     if (pkt) {

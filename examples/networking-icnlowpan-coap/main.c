@@ -9,8 +9,10 @@
 #define MAIN_QUEUE_SIZE (4)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
-#if defined (NODE_CONSUMER) || defined (NODE_PRODUCER)
+#if defined (NODE_CONSUMER) || defined (NODE_PRODUCER) || defined (NODE_FORWARDER)
+static ipv6_addr_t src_ipv6_addr;
 static ipv6_addr_t dst_ipv6_addr;
+static ipv6_addr_t pfx, nexthop;
 #endif
 
 #ifndef MAX_REQS
@@ -37,14 +39,18 @@ uint32_t networking_send_lowpan = 0;
 uint32_t networking_recv_lowpan = 0;
 uint32_t networking_recv_app = 0;
 uint32_t networking_recv_net = 0;
+uint32_t networking_recv_netif = 0;
 uint32_t networking_recv_netif1 = 0;
 uint32_t networking_recv_netif2 = 0;
 uint32_t networking_recv_netifdelta = 0;
+
+bool networking_recv_netiffirst = true;
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
 
 static unsigned payload_len = 0;
+static char payload[256];
 
 static const coap_resource_t _resources[] = {
     { ICNL_URI "/0000", COAP_GET, _payload_handler, NULL },
@@ -59,11 +65,10 @@ static gcoap_listener_t _listener = {
 static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void *ctx)
 {
     (void)ctx;
-    const char payload[payload_len];
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
-    memcpy(pdu->payload, payload, sizeof(payload));
+    memcpy(pdu->payload, payload, payload_len);
     networking_send_app = xtimer_now_usec();
-    return gcoap_finish(pdu, sizeof(payload), COAP_FORMAT_TEXT);
+    return gcoap_finish(pdu, payload_len, COAP_FORMAT_TEXT);
 }
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
@@ -81,8 +86,9 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     }
     networking_recv_app = xtimer_now_usec();
 #ifdef NODE_CONSUMER
-    printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_recv_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta, networking_recv_lowpan);
+    printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_recv_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
     networking_recv_netifdelta = 0;
+    networking_recv_netiffirst = true;
 #endif
 }
 
@@ -116,6 +122,8 @@ static int _start_exp(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
+
+    ipv6_addr_from_str(&dst_ipv6_addr, "2001:db8::2");
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
         networking_send_app = xtimer_now_usec();
@@ -167,17 +175,49 @@ int main(void)
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     gcoap_register_listener(&_listener);
 
-#if defined (NODE_CONSUMER) || defined (NODE_PRODUCER)
+#if defined (NODE_CONSUMER) || defined (NODE_PRODUCER) || defined (NODE_FORWARDER)
     uint8_t l2addr[GNRC_IPV6_NIB_L2ADDR_MAX_LEN];
     size_t l2addr_len = 0;
-#ifdef NODE_CONSUMER
+    (void) src_ipv6_addr;
+#if defined (NODE_FORWARDER)
     ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b64:1e7d:4a9b:bd22");
     l2addr_len = gnrc_netif_addr_from_str("79:64:1E:7D:4A:9B:BD:22", l2addr);
-#elif NODE_PRODUCER
+    gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
     ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b62:1b6d:89cc:89ca");
     l2addr_len = gnrc_netif_addr_from_str("79:62:1B:6D:89:CC:89:CA", l2addr);
-#endif
     gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
+
+    ipv6_addr_from_str(&pfx, "2001:db8::1");
+    ipv6_addr_from_str(&nexthop, "fe80::7b62:1b6d:89cc:89ca");
+    gnrc_ipv6_nib_ft_add(&pfx, 128, &nexthop, 7, 0);
+    ipv6_addr_from_str(&pfx, "2001:db8::2");
+    ipv6_addr_from_str(&nexthop, "fe80::7b64:1e7d:4a9b:bd22");
+    gnrc_ipv6_nib_ft_add(&pfx, 128, &nexthop, 7, 0);
+#endif
+#if defined (NODE_CONSUMER)
+    ipv6_addr_from_str(&src_ipv6_addr, "2001:db8::1");
+    gnrc_netapi_set(7, NETOPT_IPV6_ADDR, 128 << 8U, &src_ipv6_addr, sizeof(src_ipv6_addr));
+
+    ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b64:c7d:9f31:2ee");
+    l2addr_len = gnrc_netif_addr_from_str("79:64:0C:7D:9F:31:02:EE", l2addr);
+    gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
+
+    ipv6_addr_from_str(&pfx, "2001:db8::2");
+    ipv6_addr_from_str(&nexthop, "fe80::7b64:c7d:9f31:2ee");
+    gnrc_ipv6_nib_ft_add(&pfx, 128, &nexthop, 7, 0);
+#endif
+#if defined (NODE_PRODUCER)
+    ipv6_addr_from_str(&src_ipv6_addr, "2001:db8::2");
+    gnrc_netapi_set(7, NETOPT_IPV6_ADDR, 128 << 8U, &src_ipv6_addr, sizeof(src_ipv6_addr));
+
+    ipv6_addr_from_str(&dst_ipv6_addr, "fe80::7b64:c7d:9f31:2ee");
+    l2addr_len = gnrc_netif_addr_from_str("79:64:0C:7D:9F:31:02:EE", l2addr);
+    gnrc_ipv6_nib_nc_set(&dst_ipv6_addr, 7, l2addr, l2addr_len);
+
+    ipv6_addr_from_str(&pfx, "2001:db8::1");
+    ipv6_addr_from_str(&nexthop, "fe80::7b64:c7d:9f31:2ee");
+    gnrc_ipv6_nib_ft_add(&pfx, 128, &nexthop, 7, 0);
+#endif
 #endif
 
     gnrc_netif_t *netif;

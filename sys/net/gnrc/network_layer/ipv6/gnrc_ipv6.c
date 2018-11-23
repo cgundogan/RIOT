@@ -68,10 +68,13 @@ extern uint32_t networking_send_lowpan;
 
 extern uint32_t networking_recv_app;
 extern uint32_t networking_recv_net;
+extern uint32_t networking_recv_netif;
 extern uint32_t networking_recv_netif1;
 extern uint32_t networking_recv_netif2;
 extern uint32_t networking_recv_netifdelta;
 extern uint32_t networking_recv_lowpan;
+
+extern bool networking_recv_netiffirst;
 
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
 
@@ -514,8 +517,9 @@ static void _send_unicast(gnrc_pktsnip_t *pkt, bool prep_hdr,
         printf("tx;%lu;%lu;%lu;%lu;%lu\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
         networking_send_netifdelta = 0;
 #ifdef NODE_PRODUCER
-        printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_send_app, networking_recv_net, networking_recv_netif2, networking_recv_netifdelta, networking_recv_lowpan);
+        printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
         networking_recv_netifdelta = 0;
+		networking_recv_netiffirst = true;
 #endif
     }
 }
