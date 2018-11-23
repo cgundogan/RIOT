@@ -63,33 +63,24 @@ uint32_t networking_recv_netif2 = 0;
 uint32_t networking_recv_netifdelta = 0;
 
 bool networking_recv_netiffirst = true;
+uint32_t networking_msg_type = 1; // true=Req, false=Resp
 
 static char payload[256];
 
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
 {
+    (void) relay;
     (void) from;
+    (void) pkt;
+    (void) payload;
 
+#if defined(NODE_PRODUCER)
     char s[CCNL_MAX_PREFIX_SIZE];
-
     ccnl_prefix_to_str(pkt->pfx, s, CCNL_MAX_PREFIX_SIZE);
-    //printf("d;%s\n", s);
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, payload_len, NULL);
     ccnl_content_add2cache(relay, c);
+#endif
     networking_send_app = xtimer_now_usec();
-
-    /*
-    if (!memcmp(pkt->pfx->comp[6], "9999", strlen("9999"))) {
-        printf("s;%u;%u;%u;%u;%u;%u;%u\n",
-               (unsigned) stats->rx_count,
-               (unsigned) stats->rx_bytes,
-               (unsigned) (stats->tx_unicast_count + stats->tx_mcast_count),
-               (unsigned) stats->tx_mcast_count,
-               (unsigned) stats->tx_bytes,
-               (unsigned) stats->tx_success,
-               (unsigned) stats->tx_failed);
-    }
-    */
 
     return 0;
 }

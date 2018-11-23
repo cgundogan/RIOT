@@ -74,6 +74,9 @@ extern uint32_t networking_recv_netif2;
 extern uint32_t networking_recv_netifdelta;
 extern uint32_t networking_recv_lowpan;
 
+extern uint8_t networking_src_l2addr[GNRC_IPV6_NIB_L2ADDR_MAX_LEN];
+extern uint8_t networking_dst_l2addr[GNRC_IPV6_NIB_L2ADDR_MAX_LEN];
+
 extern bool networking_recv_netiffirst;
 
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
@@ -350,10 +353,47 @@ static void _send_to_iface(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
 #ifdef MODULE_GNRC_SIXLOWPAN
     if (gnrc_netif_is_6ln(netif)) {
         DEBUG("ipv6: send to 6LoWPAN instead\n");
+        networking_send_net = xtimer_now_usec();
+#ifdef NODE_FORWARDER
+        static uint8_t tmp[16] = { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+        uint8_t *tmp_ptr = pkt->next->data;
+        bool is_req = memcmp(tmp, tmp_ptr + 8, 16) == 0;
+#endif
+
         if (!gnrc_netapi_dispatch_send(GNRC_NETTYPE_SIXLOWPAN, GNRC_NETREG_DEMUX_CTX_ALL, pkt)) {
             DEBUG("ipv6: no 6LoWPAN thread found\n");
             gnrc_pktbuf_release(pkt);
         }
+#if defined(NODE_PRODUCER) || defined(NODE_FORWARDER)
+#if defined(NODE_PRODUCER)
+        printf("rx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+#endif
+#if defined(NODE_FORWARDER)
+        if (is_req) {
+            printf("rx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+        }
+        else {
+            printf("rx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+        }
+#endif
+        networking_recv_netifdelta = 0;
+        networking_recv_netiffirst = true;
+#endif
+#ifdef NODE_CONSUMER
+        printf("tx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+#endif
+#ifdef NODE_PRODUCER
+        printf("tx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+#endif
+#ifdef NODE_FORWARDER
+        if (is_req) {
+            printf("tx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+        }
+        else {
+            printf("tx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+        }
+#endif
+        networking_send_netifdelta = 0;
         return;
     }
 #endif
@@ -512,15 +552,7 @@ static void _send_unicast(gnrc_pktsnip_t *pkt, bool prep_hdr,
 #ifdef MODULE_NETSTATS_IPV6
         netif->ipv6.stats.tx_unicast_count++;
 #endif
-        networking_send_net = xtimer_now_usec();
         _send_to_iface(netif, pkt);
-        printf("tx;%lu;%lu;%lu;%lu;%lu\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
-        networking_send_netifdelta = 0;
-#ifdef NODE_PRODUCER
-        printf("rx;%lu;%lu;%lu;%lu;%lu\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
-        networking_recv_netifdelta = 0;
-		networking_recv_netiffirst = true;
-#endif
     }
 }
 
@@ -884,6 +916,9 @@ static void _receive(gnrc_pktsnip_t *pkt)
             }
             pkt = gnrc_pktbuf_reverse_snips(pkt);
             if (pkt != NULL) {
+#ifdef NODE_FORWARDER
+                networking_send_app = xtimer_now_usec();
+#endif
                 _send(pkt, false);
             }
             else {
