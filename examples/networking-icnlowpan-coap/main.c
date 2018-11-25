@@ -70,8 +70,9 @@ static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void 
     (void)ctx;
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, payload, payload_len);
+    ssize_t tmp=gcoap_finish(pdu, payload_len, COAP_FORMAT_TEXT);
     networking_send_app = xtimer_now_usec();
-    return gcoap_finish(pdu, payload_len, COAP_FORMAT_TEXT);
+    return tmp;
 }
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,

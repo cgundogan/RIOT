@@ -54,6 +54,8 @@ uint32_t networking_send_netifdelta = 0;
 uint32_t networking_send_net = 0;
 uint32_t networking_send_app = 0;
 
+uint32_t networking_content_creation_diff = 0;
+
 uint32_t networking_recv_lowpan = 0;
 uint32_t networking_recv_app = 0;
 uint32_t networking_recv_net = 0;
@@ -73,14 +75,17 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     (void) from;
     (void) pkt;
     (void) payload;
+    (void) networking_content_creation_diff;
 
+    networking_send_app = xtimer_now_usec();
 #if defined(NODE_PRODUCER)
+    networking_content_creation_diff = networking_send_app;
     char s[CCNL_MAX_PREFIX_SIZE];
     ccnl_prefix_to_str(pkt->pfx, s, CCNL_MAX_PREFIX_SIZE);
     struct ccnl_content_s *c = ccnl_mkContentObject(pkt->pfx, (unsigned char*) payload, payload_len, NULL);
     ccnl_content_add2cache(relay, c);
+    networking_content_creation_diff = xtimer_now_usec() - networking_content_creation_diff;
 #endif
-    networking_send_app = xtimer_now_usec();
 
     return 0;
 }
