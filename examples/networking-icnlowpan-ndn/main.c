@@ -41,6 +41,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 #define ICNL_PREFIX "/HAW"
 #endif
 
+#ifndef NETWORKING_VERBOSE
+#define NETWORKING_VERBOSE (1)
+#endif
+
 static netstats_t *stats;
 
 static unsigned payload_len = 0;
@@ -135,7 +139,9 @@ void start_exp(void)
            (unsigned) stats->tx_failed);
    */
 
+#if NETWORKING_VERBOSE
     puts("exp_done");
+#endif
 }
 
 static int _get_stats(int argc, char **argv)
@@ -244,10 +250,15 @@ int main(void)
     }
 #endif
 
-#if 0
 #ifdef NODE_PRODUCER
+    payload_len = 4;
     ccnl_set_local_producer(producer_func);
 #endif
+#ifdef NODE_FORWARDER
+    payload_len = 0;
+    ccnl_set_local_producer(producer_func);
+#endif
+#if 0
 #ifdef NODE_CONSUMER
     start_exp();
 #endif

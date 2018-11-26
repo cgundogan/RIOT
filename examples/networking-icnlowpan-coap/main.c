@@ -33,6 +33,10 @@ static ipv6_addr_t pfx, nexthop;
 #define NETWORKING_VERBOSE (1)
 #endif
 
+#ifndef NETWORKING_ENERGY
+#define NETWORKING_ENERGY (0)
+#endif
+
 static netstats_t *stats;
 
 uint32_t networking_send_netif1 = 0;
@@ -142,7 +146,9 @@ static int _start_exp(int argc, char **argv)
         xtimer_usleep(DELAY);
     }
 
+#if NETWORKING_VERBOSE
     puts("exp_done");
+#endif
 
     return 0;
 }
@@ -250,6 +256,19 @@ int main(void)
 
     netopt_enable_t opt = NETOPT_ENABLE;
     gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
+
+#if NETWORKING_ENERGY
+#ifdef NODE_PRODUCER
+    payload_len = 4;
+#endif
+#endif
+
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+    xtimer_usleep(10 * 1000 * 1000);
+    _start_exp(0, NULL);
+#endif
+#endif
 
     /* start shell */
     char line_buf[SHELL_DEFAULT_BUFSIZE];
