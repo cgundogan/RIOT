@@ -29,6 +29,10 @@ static ipv6_addr_t pfx, nexthop;
 #define ICNL_URI "/HAW/BT7/Room/481/A/Temp"
 #endif
 
+#ifndef NETWORKING_VERBOSE
+#define NETWORKING_VERBOSE (1)
+#endif
+
 static netstats_t *stats;
 
 uint32_t networking_send_netif1 = 0;
@@ -90,9 +94,11 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     }
     networking_recv_app = xtimer_now_usec();
 #ifdef NODE_CONSUMER
+#if NETWORKING_VERBOSE
     printf("rx;%lu;%lu;%lu;%lu;%lu;0\n", networking_recv_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
     networking_recv_netifdelta = 0;
     networking_recv_netiffirst = true;
+#endif
 #endif
 }
 

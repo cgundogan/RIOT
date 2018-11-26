@@ -59,6 +59,10 @@ static fib_entry_t _fib_entries[GNRC_IPV6_FIB_TABLE_SIZE];
 fib_table_t gnrc_ipv6_fib_table;
 #endif
 
+#ifndef NETWORKING_VERBOSE
+#define NETWORKING_VERBOSE (1)
+#endif
+
 extern uint32_t networking_send_netif1;
 extern uint32_t networking_send_netif2;
 extern uint32_t networking_send_netifdelta;
@@ -366,31 +370,45 @@ static void _send_to_iface(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
         }
 #if defined(NODE_PRODUCER) || defined(NODE_FORWARDER)
 #if defined(NODE_PRODUCER)
+#if NETWORKING_VERBOSE
         printf("rx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+#endif
 #endif
 #if defined(NODE_FORWARDER)
         if (is_req) {
+#if NETWORKING_VERBOSE
             printf("rx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+#endif
         }
         else {
+#if NETWORKING_VERBOSE
             printf("rx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
+#endif
         }
 #endif
         networking_recv_netifdelta = 0;
         networking_recv_netiffirst = true;
 #endif
 #ifdef NODE_CONSUMER
+#if NETWORKING_VERBOSE
         printf("tx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
 #endif
+#endif
 #ifdef NODE_PRODUCER
+#if NETWORKING_VERBOSE
         printf("tx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+#endif
 #endif
 #ifdef NODE_FORWARDER
         if (is_req) {
+#if NETWORKING_VERBOSE
             printf("tx;%lu;%lu;%lu;%lu;%lu;1\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+#endif
         }
         else {
+#if NETWORKING_VERBOSE
             printf("tx;%lu;%lu;%lu;%lu;%lu;0\n", networking_send_app, networking_send_net, networking_send_netif2, networking_send_netifdelta, networking_send_lowpan);
+#endif
         }
 #endif
         networking_send_netifdelta = 0;
