@@ -32,6 +32,8 @@
 #include "log.h"
 #include "sched.h"
 
+#include "periph/gpio.h"
+
 #include "net/gnrc/netif.h"
 #include "net/gnrc/netif/internal.h"
 
@@ -1469,11 +1471,23 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
                 /* we are the only ones supposed to touch this variable,
                  * so no acquire necessary */
                 dev->stats.tx_success++;
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+				gpio_set(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
+				gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
+#endif
+#endif
                 break;
 #endif
             case NETDEV_EVENT_TX_STARTED:
                 networking_send_netif2 = xtimer_now_usec();
                 networking_send_netifdelta += networking_send_netif2 - networking_send_netif1;
+#if NETWORKING_ENERGY
+#ifdef NODE_PRODUCER
+				gpio_set(NETWORKING_PRODUCER_TX_START_PIN);
+				gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
+#endif
+#endif
                 break;
             default:
                 DEBUG("gnrc_netif: warning: unhandled event %u.\n", event);

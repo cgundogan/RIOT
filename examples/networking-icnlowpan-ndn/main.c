@@ -7,6 +7,8 @@
 #include "net/gnrc/netif.h"
 #include "net/gnrc/pktdump.h"
 
+#include "periph/gpio.h"
+
 #include "ccnl-pkt-builder.h"
 #include "ccnl-producer.h"
 
@@ -43,6 +45,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #ifndef NETWORKING_VERBOSE
 #define NETWORKING_VERBOSE (1)
+#endif
+
+#ifndef NETWORKING_ENERGY
+#define NETWORKING_ENERGY (0)
 #endif
 
 static netstats_t *stats;
@@ -111,6 +117,12 @@ void start_exp(void)
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+        gpio_set(NETWORKING_CONSUMER_APP_TX_PIN);
+        gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
+#endif
+#endif
         networking_send_app = xtimer_now_usec();
 
         static char s[CCNL_MAX_PREFIX_SIZE];
@@ -258,8 +270,25 @@ int main(void)
     payload_len = 0;
     ccnl_set_local_producer(producer_func);
 #endif
-#if 0
+
+#if NETWORKING_ENERGY
 #ifdef NODE_CONSUMER
+    gpio_init(NETWORKING_CONSUMER_APP_TX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_CONSUMER_APP_RX_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
+    gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
+    gpio_clear(NETWORKING_CONSUMER_APP_RX_PIN);
+#endif
+#ifdef NODE_PRODUCER
+    gpio_init(NETWORKING_PRODUCER_TX_START_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
+#endif
+#endif
+
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+    xtimer_usleep(10 * 1000 * 1000);
     start_exp();
 #endif
 #endif

@@ -5,6 +5,7 @@
 #include "kernel_types.h"
 #include "shell.h"
 #include "net/gnrc/ipv6/nib.h"
+#include "periph/gpio.h"
 
 #define MAIN_QUEUE_SIZE (4)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
@@ -97,6 +98,12 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
         return;
     }
     networking_recv_app = xtimer_now_usec();
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+    gpio_set(NETWORKING_CONSUMER_APP_RX_PIN);
+    gpio_clear(NETWORKING_CONSUMER_APP_RX_PIN);
+#endif
+#endif
 #ifdef NODE_CONSUMER
 #if NETWORKING_VERBOSE
     printf("rx;%lu;%lu;%lu;%lu;%lu;0\n", networking_recv_app, networking_recv_net, networking_recv_netif, networking_recv_netifdelta, networking_recv_lowpan);
@@ -140,6 +147,12 @@ static int _start_exp(int argc, char **argv)
     ipv6_addr_from_str(&dst_ipv6_addr, "2001:db8::2");
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+        gpio_set(NETWORKING_CONSUMER_APP_TX_PIN);
+        gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
+#endif
+#endif
         networking_send_app = xtimer_now_usec();
         //printf("i;%u;%s\n", i, ICNL_URI "/0000");
         gcoap_send();
@@ -260,6 +273,21 @@ int main(void)
 #if NETWORKING_ENERGY
 #ifdef NODE_PRODUCER
     payload_len = 4;
+#endif
+#endif
+
+#if NETWORKING_ENERGY
+#ifdef NODE_CONSUMER
+    gpio_init(NETWORKING_CONSUMER_APP_TX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_CONSUMER_APP_RX_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
+    gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
+    gpio_clear(NETWORKING_CONSUMER_APP_RX_PIN);
+#endif
+#ifdef NODE_PRODUCER
+    gpio_init(NETWORKING_PRODUCER_TX_START_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
 #endif
 #endif
 
