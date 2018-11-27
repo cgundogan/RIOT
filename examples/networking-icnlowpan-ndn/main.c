@@ -77,6 +77,8 @@ uint32_t networking_recv_netifdelta = 0;
 bool networking_recv_netiffirst = true;
 uint32_t networking_msg_type = 1; // true=Req, false=Resp
 
+bool first_tx = true;
+
 static char payload[256];
 
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
@@ -88,6 +90,16 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     (void) networking_content_creation_diff;
 
     networking_send_app = xtimer_now_usec();
+#if NETWORKING_ENERGY
+#ifdef NODE_PRODUCER
+        gpio_set(NETWORKING_PRODUCER_APP_RX_PIN);
+        gpio_clear(NETWORKING_PRODUCER_APP_RX_PIN);
+#endif
+#ifdef NODE_FORWARDER
+        gpio_set(NETWORKING_FORWARDER_APP_RX_PIN);
+        gpio_clear(NETWORKING_FORWARDER_APP_RX_PIN);
+#endif
+#endif
 #if defined(NODE_PRODUCER)
     networking_content_creation_diff = networking_send_app;
     char s[CCNL_MAX_PREFIX_SIZE];
@@ -279,10 +291,28 @@ int main(void)
     gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
     gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
     gpio_clear(NETWORKING_CONSUMER_APP_RX_PIN);
+
+    gpio_init(NETWORKING_CONSUMER_TX_START_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_CONSUMER_TX_START_PIN);
 #endif
 #ifdef NODE_PRODUCER
     gpio_init(NETWORKING_PRODUCER_TX_START_PIN, GPIO_OUT);
     gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
+
+    gpio_init(NETWORKING_PRODUCER_APP_RX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_PRODUCER_APP_RX_PIN);
+    gpio_clear(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN);
+    gpio_clear(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN);
+#endif
+#ifdef NODE_FORWARDER
+    gpio_init(NETWORKING_FORWARDER_APP_RX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_FORWARDER_APP_RX_PIN);
+    gpio_clear(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN);
+    gpio_clear(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN);
 #endif
 #endif
 

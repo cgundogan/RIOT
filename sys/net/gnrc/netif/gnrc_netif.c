@@ -54,6 +54,8 @@ extern uint32_t networking_recv_netifdelta;
 
 extern bool networking_recv_netiffirst;
 
+extern bool first_tx;
+
 static gnrc_netif_t _netifs[GNRC_NETIF_NUMOF];
 
 static void _update_l2addr_from_dev(gnrc_netif_t *netif);
@@ -1449,6 +1451,16 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
         DEBUG("gnrc_netif: event triggered -> %i\n", event);
         switch (event) {
             case NETDEV_EVENT_RX_COMPLETE: {
+#if NETWORKING_ENERGY
+#ifdef NODE_PRODUCER
+                    gpio_set(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN);
+                    gpio_clear(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN);
+#endif
+#ifdef NODE_FORWARDER
+                    gpio_set(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN);
+                    gpio_clear(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN);
+#endif
+#endif
                     networking_recv_netif2 = xtimer_now_usec();
                     if (networking_recv_netiffirst) {
                         networking_recv_netiffirst = false;
@@ -1476,6 +1488,19 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 				gpio_set(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
 				gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
 #endif
+#ifdef NODE_PRODUCER
+				gpio_set(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN);
+				gpio_clear(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN);
+#endif
+#ifdef NODE_FORWARDER
+                if (first_tx) {
+                    first_tx = false;
+                }
+                else {
+                    gpio_set(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN);
+                    gpio_clear(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN);
+                }
+#endif
 #endif
                 break;
 #endif
@@ -1486,6 +1511,10 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 #ifdef NODE_PRODUCER
 				gpio_set(NETWORKING_PRODUCER_TX_START_PIN);
 				gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
+#endif
+#ifdef NODE_CONSUMER
+				gpio_set(NETWORKING_CONSUMER_TX_START_PIN);
+				gpio_clear(NETWORKING_CONSUMER_TX_START_PIN);
 #endif
 #endif
                 break;

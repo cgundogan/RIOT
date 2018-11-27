@@ -34,6 +34,8 @@
 
 #include "net/gnrc/ipv6.h"
 
+#include "periph/gpio.h"
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -765,6 +767,12 @@ static void _send(gnrc_pktsnip_t *pkt, bool prep_hdr)
 /* functions for receiving */
 static inline bool _pkt_not_for_me(gnrc_netif_t **netif, ipv6_hdr_t *hdr)
 {
+#if NETWORKING_ENERGY
+#ifdef NODE_FORWARDER
+	gpio_set(NETWORKING_FORWARDER_APP_RX_PIN);
+	gpio_clear(NETWORKING_FORWARDER_APP_RX_PIN);
+#endif
+#endif
     if (ipv6_addr_is_loopback(&hdr->dst)) {
         return false;
     }

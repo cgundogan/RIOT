@@ -58,6 +58,8 @@ uint32_t networking_recv_netifdelta = 0;
 bool networking_recv_netiffirst = true;
 uint32_t networking_msg_type = 1; // true=Interest, false=Data
 
+bool first_tx = true;
+
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
 static ssize_t _payload_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len, void *ctx);
 
@@ -79,6 +81,12 @@ static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void 
     (void)ctx;
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, payload, payload_len);
+#if NETWORKING_ENERGY
+#ifdef NODE_PRODUCER
+    gpio_set(NETWORKING_PRODUCER_APP_RX_PIN);
+    gpio_clear(NETWORKING_PRODUCER_APP_RX_PIN);
+#endif
+#endif
     ssize_t tmp=gcoap_finish(pdu, payload_len, COAP_FORMAT_TEXT);
     networking_send_app = xtimer_now_usec();
     return tmp;
@@ -284,10 +292,28 @@ int main(void)
     gpio_clear(NETWORKING_CONSUMER_APP_TX_PIN);
     gpio_clear(NETWORKING_CONSUMER_RADIO_TX_DONE_PIN);
     gpio_clear(NETWORKING_CONSUMER_APP_RX_PIN);
+
+    gpio_init(NETWORKING_CONSUMER_TX_START_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_CONSUMER_TX_START_PIN);
 #endif
 #ifdef NODE_PRODUCER
     gpio_init(NETWORKING_PRODUCER_TX_START_PIN, GPIO_OUT);
     gpio_clear(NETWORKING_PRODUCER_TX_START_PIN);
+
+    gpio_init(NETWORKING_PRODUCER_APP_RX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_PRODUCER_APP_RX_PIN);
+    gpio_clear(NETWORKING_PRODUCER_RADIO_RX_DONE_PIN);
+    gpio_clear(NETWORKING_PRODUCER_RADIO_TX_DONE_PIN);
+#endif
+#ifdef NODE_FORWARDER
+    gpio_init(NETWORKING_FORWARDER_APP_RX_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN, GPIO_OUT);
+    gpio_init(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN, GPIO_OUT);
+    gpio_clear(NETWORKING_FORWARDER_APP_RX_PIN);
+    gpio_clear(NETWORKING_FORWARDER_RADIO_RX_DONE_PIN);
+    gpio_clear(NETWORKING_FORWARDER_RADIO_TX_DONE_PIN);
 #endif
 #endif
 
