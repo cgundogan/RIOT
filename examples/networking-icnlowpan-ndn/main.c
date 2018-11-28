@@ -236,6 +236,9 @@ int main(void)
 
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
+    uint8_t retrans = 0U;
+    gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
+
 #ifdef MODULE_PKTDUMP
     gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,
                                                           gnrc_pktdump_pid);

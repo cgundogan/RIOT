@@ -271,9 +271,14 @@ int main(void)
 
     gnrc_netif_t *netif;
     netif = gnrc_netif_iter(NULL);
+
     uint16_t src_len = 8U;
     gnrc_netapi_set(netif->pid, NETOPT_SRC_LEN, 0, &src_len, sizeof(src_len));
+
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
+
+    uint8_t retrans = 0U;
+    gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
 
     netopt_enable_t opt = NETOPT_ENABLE;
     gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
