@@ -77,6 +77,8 @@ uint32_t networking_recv_netifdelta = 0;
 bool networking_recv_netiffirst = true;
 uint32_t networking_msg_type = 1; // true=Req, false=Resp
 
+uint32_t max_sent = 0, max_recvd = 0;
+
 bool first_tx = true;
 
 static char payload[256];
@@ -88,6 +90,10 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
     (void) pkt;
     (void) payload;
     (void) networking_content_creation_diff;
+
+	max_recvd++;
+
+	max_sent++;
 
     networking_send_app = xtimer_now_usec();
 #if NETWORKING_ENERGY
@@ -129,6 +135,7 @@ void start_exp(void)
     memset(_int_buf, '\0', INTBUFSIZE);
 
     for (unsigned i = 0; i < MAX_REQS; i++) {
+		max_sent++;
 #if NETWORKING_ENERGY
 #ifdef NODE_CONSUMER
         gpio_set(NETWORKING_CONSUMER_APP_TX_PIN);
@@ -181,6 +188,8 @@ static int _get_stats(int argc, char **argv)
            (unsigned) stats->tx_bytes,
            (unsigned) stats->tx_success,
            (unsigned) stats->tx_failed);
+    printf("m;%lu;%lu\n", max_sent, max_recvd);
+
     return 0;
 }
 
@@ -238,6 +247,12 @@ int main(void)
 
     uint8_t retrans = 0U;
     gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
 
 #ifdef MODULE_PKTDUMP
     gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,

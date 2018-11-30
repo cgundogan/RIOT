@@ -21,13 +21,16 @@ static ipv6_addr_t nexthop;
 static gnrc_netif_t *netif;
 
 #ifndef DELAY_MIN
-#define DELAY_MIN (100U * 1000U)
+#define DELAY_MIN (500U * 1000U)
 #endif
 #ifndef DELAY_MAX
-#define DELAY_MAX (500U * 1000U)
+#define DELAY_MAX (2U * 500U * 1000U)
 #endif
 #ifndef DELAY_BURST
-#define DELAY_BURST (500U)
+#define DELAY_BURST (random_uint32_range(2,6))
+#endif
+#ifndef BURST_COUNT
+#define BURST_COUNT (100U)
 #endif
 
 static netstats_t *stats;
@@ -75,7 +78,7 @@ static int _start_exp(int argc, char **argv)
     ipv6_addr_from_str(&dst_ipv6_addr, "2001:db7::1");
 
     while (1) {
-		for (unsigned i = 0; i < 50; ++i) {
+		for (unsigned i = 0; i < BURST_COUNT; ++i) {
 			send();
 			xtimer_usleep(DELAY_BURST);
 		}
@@ -113,6 +116,12 @@ int main(void)
 
     uint8_t retrans = 0U;
     gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
+
+    netopt_enable_t opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
 
     _start_exp(0, NULL);
 

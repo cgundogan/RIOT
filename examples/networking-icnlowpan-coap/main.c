@@ -58,6 +58,8 @@ uint32_t networking_recv_netifdelta = 0;
 bool networking_recv_netiffirst = true;
 uint32_t networking_msg_type = 1; // true=Interest, false=Data
 
+static uint32_t max_sent = 0, max_recvd = 0;
+
 bool first_tx = true;
 
 static void _resp_handler(unsigned req_state, coap_pkt_t* pdu, sock_udp_ep_t *remote);
@@ -79,6 +81,11 @@ static gcoap_listener_t _listener = {
 static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void *ctx)
 {
     (void)ctx;
+
+    max_recvd++;
+
+    max_sent++;
+
     gcoap_resp_init(pdu, buf, len, COAP_CODE_CONTENT);
     memcpy(pdu->payload, payload, payload_len);
 #if NETWORKING_ENERGY
@@ -89,6 +96,7 @@ static ssize_t _payload_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, void 
 #endif
     ssize_t tmp=gcoap_finish(pdu, payload_len, COAP_FORMAT_TEXT);
     networking_send_app = xtimer_now_usec();
+
     return tmp;
 }
 
@@ -105,6 +113,11 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
         printf("gcoap: error in response\n");
         return;
     }
+
+    if (req_state != GCOAP_MEMO_RESP) {
+        return;
+    }
+
     networking_recv_app = xtimer_now_usec();
 #if NETWORKING_ENERGY
 #ifdef NODE_CONSUMER
@@ -119,6 +132,10 @@ static void _resp_handler(unsigned req_state, coap_pkt_t* pdu,
     networking_recv_netiffirst = true;
 #endif
 #endif
+
+    if (pdu->payload_len) {
+        max_recvd++;
+    }
 }
 
 void gcoap_send(void)
@@ -145,6 +162,8 @@ void gcoap_send(void)
     memcpy(&remote.addr.ipv6[0], &dst_ipv6_addr.u8[0], sizeof(dst_ipv6_addr.u8));
 
     gcoap_req_send2(buf, len, &remote, _resp_handler);
+
+    max_sent++;
 }
 
 static int _start_exp(int argc, char **argv)
@@ -197,6 +216,8 @@ static int _get_stats(int argc, char **argv)
            (unsigned) stats->tx_bytes,
            (unsigned) stats->tx_success,
            (unsigned) stats->tx_failed);
+    printf("m;%lu;%lu\n", max_sent, max_recvd);
+
     return 0;
 }
 
@@ -283,6 +304,12 @@ int main(void)
     netopt_enable_t opt = NETOPT_ENABLE;
     gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
 
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
+
 #if NETWORKING_ENERGY
 #ifdef NODE_PRODUCER
     payload_len = 4;
@@ -322,10 +349,12 @@ int main(void)
 #endif
 #endif
 
+#if 0
 #if NETWORKING_ENERGY
 #ifdef NODE_CONSUMER
     xtimer_usleep(10 * 1000 * 1000);
     _start_exp(0, NULL);
+#endif
 #endif
 #endif
 
