@@ -20,11 +20,11 @@
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     (15 * 1024 / sizeof(uint32_t))
+#define TLSF_BUFFER     (17 * 1024 / sizeof(uint32_t))
 static uint32_t _tlsf_heap[TLSF_BUFFER];
 
 #ifndef INTBUFSIZE
-#define INTBUFSIZE (256)
+#define INTBUFSIZE (128)
 #endif
 
 #ifndef MAX_REQS
@@ -81,7 +81,7 @@ uint32_t max_sent = 0, max_recvd = 0;
 
 bool first_tx = true;
 
-static char payload[256];
+static char payload[16];
 
 int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt)
 {
@@ -245,14 +245,22 @@ int main(void)
 
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
+    /*
     uint8_t retrans = 0U;
     gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
 
     opt = NETOPT_DISABLE;
-    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+    gnrc_netapi_set(netif->pid, NETOPT_AUTOACK, 0, &opt, sizeof(opt));
 
     opt = NETOPT_DISABLE;
     gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
+
+    retrans = 0;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA_RETRIES, 0, &retrans, sizeof(retrans));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+    */
 
 #ifdef MODULE_PKTDUMP
     gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,

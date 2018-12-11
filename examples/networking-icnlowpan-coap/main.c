@@ -298,17 +298,26 @@ int main(void)
 
     gnrc_netapi_get(netif->pid, NETOPT_STATS, NETSTATS_LAYER2, &stats, sizeof(&stats));
 
-    uint8_t retrans = 0U;
-    gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
-
     netopt_enable_t opt = NETOPT_ENABLE;
     gnrc_netapi_set(netif->pid, NETOPT_TX_START_IRQ, 0, &opt, sizeof(opt));
 
-    opt = NETOPT_DISABLE;
-    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+    /*
+    uint8_t retrans = 0U;
+    gnrc_netapi_set(netif->pid, NETOPT_RETRANS, 0, &retrans, sizeof(retrans));
 
     opt = NETOPT_DISABLE;
     gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_AUTOACK, 0, &opt, sizeof(opt));
+
+    retrans = 0;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA_RETRIES, 0, &retrans, sizeof(retrans));
+
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_CSMA, 0, &opt, sizeof(opt));
+    */
+
 
 #if NETWORKING_ENERGY
 #ifdef NODE_PRODUCER

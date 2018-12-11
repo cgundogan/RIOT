@@ -21,16 +21,19 @@ static ipv6_addr_t nexthop;
 static gnrc_netif_t *netif;
 
 #ifndef DELAY_MIN
-#define DELAY_MIN (500U * 1000U)
+#define DELAY_MIN (1U * 500U * 1000U)
 #endif
 #ifndef DELAY_MAX
-#define DELAY_MAX (2U * 500U * 1000U)
+#define DELAY_MAX (3U * 500U * 1000U)
 #endif
-#ifndef DELAY_BURST
-#define DELAY_BURST (random_uint32_range(2,6))
+#ifndef DELAY_BURST_MIN
+#define DELAY_BURST_MIN (3U * 1000U)
+#endif
+#ifndef DELAY_BURST_MAX
+#define DELAY_BURST_MAX (9U * 1000U)
 #endif
 #ifndef BURST_COUNT
-#define BURST_COUNT (100U)
+#define BURST_COUNT (200U)
 #endif
 
 static netstats_t *stats;
@@ -54,35 +57,32 @@ bool networking_recv_netiffirst = true;
 uint32_t networking_msg_type = 1; // true=Interest, false=Data
 
 bool first_tx = true;
-static void send(void)
-{
-    static const uint16_t port = 8888;
-    static const size_t data_len = 60;
 
-	gnrc_pktsnip_t *payload, *udp, *ip;
-	payload = gnrc_pktbuf_add(NULL, NULL, data_len, GNRC_NETTYPE_UNDEF);
-	memset(payload->data, 0, data_len);
-	udp = gnrc_udp_hdr_build(payload, port, port);
-	ip = gnrc_ipv6_hdr_build(udp, NULL, &dst_ipv6_addr);
-	gnrc_pktsnip_t *netiff = gnrc_netif_hdr_build(NULL, 0, NULL, 0);
-	((gnrc_netif_hdr_t *)netiff->data)->if_pid = (kernel_pid_t)netif->pid;
-	LL_PREPEND(ip, netiff);
-	gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, ip);
-}
+static char data[80];
+static uint8_t hwaddr[8] = {0xca, 0xfe, 0xbe, 0xef, 0xca, 0xff, 0x8f, 0xee};
+
+static unsigned burstcount, mindelay, maxdelay, minburst, maxburst;
 
 static int _start_exp(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
 
-    ipv6_addr_from_str(&dst_ipv6_addr, "2001:db7::1");
+    burstcount = (unsigned) atoi(argv[1]);
+    mindelay = (unsigned) atoi(argv[2]);
+    maxdelay = (unsigned) atoi(argv[3]);
+    minburst = (unsigned) atoi(argv[4]);
+    maxburst = (unsigned) atoi(argv[5]);
 
     while (1) {
-		for (unsigned i = 0; i < BURST_COUNT; ++i) {
-			send();
-			xtimer_usleep(DELAY_BURST);
+		for (unsigned i = 0; i < burstcount; ++i) {
+            gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, &data, sizeof(data), GNRC_NETTYPE_UNDEF);
+            gnrc_pktsnip_t *hdr = gnrc_netif_hdr_build(NULL, 0, hwaddr, sizeof(hwaddr));
+            LL_PREPEND(pkt, hdr);
+            gnrc_netapi_send(netif->pid, pkt);
+			xtimer_usleep(random_uint32_range(minburst, maxburst));
 		}
-        xtimer_usleep(random_uint32_range(DELAY_MIN, DELAY_MAX));
+        xtimer_usleep(random_uint32_range(mindelay, maxdelay));
     }
 
     return 0;
@@ -123,7 +123,10 @@ int main(void)
     opt = NETOPT_DISABLE;
     gnrc_netapi_set(netif->pid, NETOPT_ACK_REQ, 0, &opt, sizeof(opt));
 
-    _start_exp(0, NULL);
+    opt = NETOPT_DISABLE;
+    gnrc_netapi_set(netif->pid, NETOPT_AUTOACK, 0, &opt, sizeof(opt));
+
+    //_start_exp(0, NULL);
 
     /* start shell */
     char line_buf[SHELL_DEFAULT_BUFSIZE];
