@@ -93,7 +93,7 @@ int _ccnl_content(int argc, char **argv)
         return -1;
     }
 
-    int arg_len;
+    size_t arg_len;
     char buf[BUF_SIZE+1]; /* add one extra space to fit trailing '\0' */
 
     unsigned pos = 0;
@@ -113,18 +113,18 @@ int _ccnl_content(int argc, char **argv)
     arg_len = strlen(buf);
 
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], CCNL_SUITE_NDNTLV, NULL);
-    int offs = CCNL_MAX_PACKET_SIZE;
-    arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) buf, arg_len, NULL, NULL, &offs, _out);
+    size_t offs = CCNL_MAX_PACKET_SIZE;
+    ccnl_ndntlv_prependContent(prefix, (uint8_t *) buf, arg_len, NULL, NULL, &offs, _out, &arg_len);
 
     ccnl_prefix_free(prefix);
 
     unsigned char *olddata;
     unsigned char *data = olddata = _out + offs;
 
-    int len;
-    unsigned typ;
+    size_t len;
+    uint64_t typ;
 
-    if (ccnl_ndntlv_dehead(&data, &arg_len, (int*) &typ, &len) ||
+    if (ccnl_ndntlv_dehead(&data, &arg_len, &typ, &len) ||
         typ != NDN_TLV_Data) {
         return -1;
     }
