@@ -219,7 +219,7 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
         char dodag_prfx[COMPAS_PREFIX_LEN + 1];
         memcpy(dodag_prfx, dodag->prefix.prefix, dodag->prefix.prefix_len);
         dodag_prfx[dodag->prefix.prefix_len] = '\0';
-        struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(dodag_prfx, CCNL_SUITE_NDNTLV, NULL, NULL);
+        struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(dodag_prfx, CCNL_SUITE_NDNTLV, NULL);
 
         if (state == COMPAS_PAM_RET_CODE_NEWPARENT) {
             sockunion su;
@@ -291,7 +291,7 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     char name[COMPAS_NAME_LEN + 1];
     memcpy(name, nce->name.name, nce->name.name_len);
     name[nce->name.name_len] = '\0';
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL);
     sockunion su;
     memset(&su, 0, sizeof(su));
     su.sa.sa_family = AF_PACKET;
@@ -469,7 +469,7 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
             char name[COMPAS_NAME_LEN + 1];
             memcpy(name, nce->name.name, nce->name.name_len);
             name[nce->name.name_len] = '\0';
-            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL, NULL);
+            struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL);
             msg_t mr, ms = { .type = CCNL_MSG_CS_LOOKUP, .content.ptr = prefix };
             msg_send_receive(&ms, &mr, ccnl_event_loop_pid);
             ccnl_prefix_free(prefix);
@@ -686,19 +686,19 @@ bool hopp_publish_content(const char *name, size_t name_len,
         static char prefix_n[COMPAS_NAME_LEN + 1];
         memcpy(prefix_n, cname.name, cname.name_len);
         prefix_n[cname.name_len] = '\0';
-        struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL, NULL);
-        int offs = CCNL_MAX_PACKET_SIZE;
-        content_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) content, content_len, NULL, NULL, &offs, _out);
+        struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_n, CCNL_SUITE_NDNTLV, NULL);
+        size_t offs = CCNL_MAX_PACKET_SIZE;
+        ccnl_ndntlv_prependContent(prefix, (uint8_t *) content, (size_t) content_len, NULL, NULL, &offs, _out, &content_len);
         ccnl_prefix_free(prefix);
         unsigned char *olddata;
         unsigned char *data = olddata = _out + offs;
-        int len;
-        unsigned typ;
-        if (ccnl_ndntlv_dehead(&data, (int *)&content_len, (int*) &typ, &len) ||
+        size_t len;
+        uint64_t typ;
+        if (ccnl_ndntlv_dehead(&data, &content_len, &typ, &len) ||
             typ != NDN_TLV_Data) {
             return false;
         }
-        struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, (int *)&content_len);
+        struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &content_len);
         struct ccnl_content_s *c = ccnl_content_new(&pk);
 
         msg_t ms = { .type = CCNL_MSG_CS_ADD, .content.ptr = c };

@@ -10,15 +10,7 @@ BOARD_WHITELIST := fox iotlab-m3 msba2 mulle native pba-d-01-kw2x samr21-xpro
 RIOTBASE ?= $(CURDIR)/../..
 
 
-ifneq (,$(filter $(BOARD),native))
-    USEMODULE += socket_zep
-    USEMODULE += gnrc
-    USEMODULE += gnrc_pktdump
-    TERMFLAGS ?= -z [::]:17755,[::1]:17754
-endif
-ifeq (,$(filter $(BOARD),native))
-    USEMODULE += gnrc_netdev_default
-endif
+USEMODULE += gnrc_netdev_default
 
 CFLAGS += -DDEVELHELP
 CFLAGS += -DUSE_LINKLAYER
@@ -38,11 +30,11 @@ CFLAGS += -DCCNL_THREAD_PRIORITY="THREAD_PRIORITY_MAIN-3"
 CFLAGS += -DCCNL_STACK_SIZE="THREAD_STACKSIZE_DEFAULT+THREAD_EXTRA_STACKSIZE_PRINTF+1024"
 CFLAGS += -DCCNL_QUEUE_SIZE=64
 CFLAGS += -DHOPP_QSZ=64
-CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=64
+#CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=64
 CFLAGS += -DCCNL_CONTENT_TIMEOUT=3
 CFLAGS += -DHOPP_ROOT
 
-CFLAGS += -DTLSF_BUFFER="20480"
+#CFLAGS += -DTLSF_BUFFER="20480"
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
@@ -61,9 +53,10 @@ USEMODULE += prng_xorshift
 USEMODULE += netstats_l2
 #USEMODULE += l2filter_blacklist
 USEMODULE += hopp
-USEMODULE += tlsf-malloc
+#USEMODULE += tlsf-malloc
 
 USEPKG += ccn-lite
 USEPKG += compas
+USEMODULE += tlsf
 
 include $(RIOTBASE)/Makefile.include

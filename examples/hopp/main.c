@@ -80,7 +80,7 @@ void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, struct ccn
     char prefix_fan[32];
     int prefix_len = sprintf(prefix_fan, "/i3/fan/%u", (unsigned)xtimer_now_usec());
     prefix_fan[prefix_len]='\0';
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_fan, CCNL_SUITE_NDNTLV, NULL, NULL);
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_fan, CCNL_SUITE_NDNTLV, NULL);
     if (payload_int >= 285) {
         onoff_state = 1;
         char content[1] = "1";
