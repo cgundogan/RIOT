@@ -9,7 +9,7 @@
 
 #include "tlsf-malloc.h"
 #include "msg.h"
-// #include "shell.h"
+#include "shell.h"
 #include "net/gnrc/netif.h"
 
 #include "thread.h"
@@ -28,7 +28,10 @@ static msg_t _main_q[MAIN_QSZ];
 uint8_t hwaddr[GNRC_NETIF_L2ADDR_MAXLEN];
 char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 
-/*
+/* 10kB buffer for the heap should be enough for everyone */
+#define TLSF_BUFFER     (10240 / sizeof(uint32_t))
+static uint32_t _tlsf_heap[TLSF_BUFFER];
+
 static int _root(int argc, char **argv)
 {
     if (argc == 2) {
@@ -58,66 +61,10 @@ static const shell_command_t shell_commands[] = {
     { "hp", "publish data", _publish },
     { NULL, NULL, NULL }
 };
-*/
-
-void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, struct ccnl_face_s *from)
-{
-    (void) relay;
-    (void) from;
-    static int onoff_state = 0;
-
-    char payload[16];
-    int payload_int = 0;
-
-    char *s = ccnl_prefix_to_path(pkt->pfx);
-    printf("PUB;%s;%.*s\n", s, pkt->contlen, pkt->content);
-
-    memcpy(payload, pkt->content, pkt->contlen);
-    payload[pkt->contlen] = '\0';
-
-    payload_int = atoi(payload);
-
-    char prefix_fan[32];
-    int prefix_len = sprintf(prefix_fan, "/i3/fan/%u", (unsigned)xtimer_now_usec());
-    prefix_fan[prefix_len]='\0';
-    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(prefix_fan, CCNL_SUITE_NDNTLV, NULL);
-    if (payload_int >= 285) {
-        onoff_state = 1;
-        char content[1] = "1";
-        struct ccnl_content_s *c = ccnl_mkContentObject(prefix, (unsigned char *)content, 1, NULL);
-        c->flags |= CCNL_CONTENT_FLAGS_STATIC;
-        ccnl_cs_add(relay, c);
-    }
-    else if (onoff_state && (payload_int < 285)) {
-        onoff_state = 0;
-        char content[1] = "0";
-        struct ccnl_content_s *c = ccnl_mkContentObject(prefix, (unsigned char *)content, 1, NULL);
-        c->flags |= CCNL_CONTENT_FLAGS_STATIC;
-        ccnl_cs_add(relay, c);
-    }
-    ccnl_prefix_free(prefix);
-    ccnl_free(s);
-}
-
-int _on_data2(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
-{
-    (void) c;
-    char *prefix_fan = "/i3/fan";
-    struct ccnl_content_s *con = relay->contents, *con2;
-    while(con) {
-        con2 = con->next;
-        char *s = ccnl_prefix_to_path(con->pkt->pfx);
-        if (!memcmp(s, prefix_fan, strlen(prefix_fan))) {
-            ccnl_content_remove(relay, con);
-        }
-        ccnl_free(s);
-        con = con2;
-    }
-    return 0;
-}
 
 int main(void)
 {
+    tlsf_add_global_pool(_tlsf_heap, sizeof(_tlsf_heap));
     msg_init_queue(_main_q, MAIN_QSZ);
 
     ccnl_core_init();
@@ -149,19 +96,12 @@ int main(void)
         return 1;
     }
 
-    hopp_set_cb_published(cb_published);
+    hopp_set_cb_published(NULL);
 
-    ccnl_set_cb_tx_on_data2(_on_data2);
+    ccnl_set_cb_tx_on_data2(NULL);
 
-#ifdef HOPP_ROOT
-    hopp_root_start("/i3", 3);
-#endif
-
-    /*
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
-    */
-    while(1);
 
     return 0;
 }
