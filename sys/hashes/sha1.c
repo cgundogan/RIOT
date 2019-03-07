@@ -114,9 +114,29 @@ static void sha1_update_byte(sha1_context *ctx, uint8_t data)
     sha1_add_uncounted(ctx, data);
 }
 
+static void sha1_update_uint32(sha1_context *ctx, uint32_t data)
+{
+    uint32_t *const b = (uint32_t *)(((uint8_t *) ctx->buffer) + ctx->buffer_offset);
+
+    ctx->byte_count += 4;
+    ctx->buffer_offset++;
+    *b = data;
+    if (ctx->buffer_offset == SHA1_BLOCK_LENGTH) {
+        sha1_hash_block(ctx);
+        ctx->buffer_offset = 0;
+    }
+}
+
 void sha1_update(sha1_context *ctx, const void *data, size_t len)
 {
     const uint8_t *d = data;
+
+    while (len >= 4) {
+        sha1_update_uint32(ctx, *((uint32_t *) d));
+        d += 4;
+        len -= 4;
+    }
+
     while (len--) {
         sha1_update_byte(ctx, *(d++));
     }
