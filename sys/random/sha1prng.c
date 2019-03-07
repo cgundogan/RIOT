@@ -134,10 +134,10 @@ uint32_t random_uint32(void)
     int8_t bytes[sizeof(uint32_t)];
     _random_bytes((uint8_t *)bytes, sizeof(uint32_t));
 
-    ret = ((bytes[0] & 0xff) << 24)
-        | ((bytes[1] & 0xff) << 16)
-        | ((bytes[2] & 0xff) <<  8)
-        |  (bytes[3] & 0xff);
+    ret = (bytes[0] << 24)
+        | (bytes[1] << 16)
+        | (bytes[2] <<  8)
+        |  bytes[3];
 
     return ret;
 }

@@ -45,7 +45,7 @@ void sha1_init(sha1_context *ctx)
     ctx->buffer_offset = 0;
 }
 
-static uint32_t sha1_rol32(uint32_t number, uint8_t bits)
+static inline uint32_t sha1_rol32(uint32_t number, uint8_t bits)
 {
     return ((number << bits) | (number >> (32 - bits)));
 }
@@ -119,7 +119,7 @@ static void sha1_update_uint32(sha1_context *ctx, uint32_t data)
     uint32_t *const b = (uint32_t *)(((uint8_t *) ctx->buffer) + ctx->buffer_offset);
 
     ctx->byte_count += 4;
-    ctx->buffer_offset++;
+    ctx->buffer_offset += 4;
     *b = data;
     if (ctx->buffer_offset == SHA1_BLOCK_LENGTH) {
         sha1_hash_block(ctx);
