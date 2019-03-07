@@ -128,19 +128,34 @@ static void sha1_pad(sha1_context *s)
 
     /* Pad with 0x80 followed by 0x00 until the end of the block */
     sha1_add_uncounted(s, 0x80);
-    while (s->buffer_offset != 56) {
-        sha1_add_uncounted(s, 0x00);
+
+    uint8_t *const b8 = (uint8_t *) s->buffer;
+
+#ifndef __BIG_ENDIAN__
+    while ((s->buffer_offset & 3) != 0) {
+        b8[s->buffer_offset ^ 3] = 0x00;
+        s->buffer_offset++;
     }
+#endif
+
+    memset(b8 + s->buffer_offset, 0x00, 56 - s->buffer_offset);
+    s->buffer_offset = 56;
 
     /* Append length in the last 8 bytes */
-    sha1_add_uncounted(s, 0);                   /* We're only using 32 bit lengths */
-    sha1_add_uncounted(s, 0);                   /* But SHA-1 supports 64 bit lengths */
-    sha1_add_uncounted(s, 0);                   /* So zero pad the top bits */
-    sha1_add_uncounted(s, s->byte_count >> 29); /* Shifting to multiply by 8 */
-    sha1_add_uncounted(s, s->byte_count >> 21); /* as SHA-1 supports bitstreams as well as */
-    sha1_add_uncounted(s, s->byte_count >> 13); /* byte. */
-    sha1_add_uncounted(s, s->byte_count >> 5);
-    sha1_add_uncounted(s, s->byte_count << 3);
+    /* We're only using 32 bit lengths */        
+    /* But SHA-1 supports 64 bit lengths */      
+    /* So zero pad the top bits */               
+    /* Shifting to multiply by 8 */              
+    /* as SHA-1 supports bitstreams as well as */
+    /* byte. */                                  
+    uint32_t *const b32 = (uint32_t *) (((uint8_t *) s->buffer) + s->buffer_offset);
+    b32[0] = (s->byte_count >> 29);
+    b32[1] =
+        ((s->byte_count >> 21) << 24) | ((s->byte_count >> 13) << 16) |
+        ((s->byte_count >>  5) <<  8) | ((s->byte_count <<  3) <<  0);
+    s->buffer_offset = 64;
+    sha1_hash_block(s);
+    s->buffer_offset = 0;
 }
 
 void sha1_final(sha1_context *ctx, void *digest)
