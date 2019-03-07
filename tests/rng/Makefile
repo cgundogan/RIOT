@@ -10,7 +10,9 @@ BOARD_INSUFFICIENT_MEMORY += arduino-duemilanove arduino-uno
 USEMODULE += fmt
 USEMODULE += random
 USEMODULE += shell
+USEMODULE += shell_commands
 USEMODULE += xtimer
+USEMODULE += prng_sha1prng
 
 FEATURES_OPTIONAL += periph_hwrng
 
