@@ -93,10 +93,12 @@ int _ccnl_content(int argc, char **argv)
         return -1;
     }
 
-    int arg_len;
+    size_t arg_len;
     char buf[BUF_SIZE+1]; /* add one extra space to fit trailing '\0' */
 
     unsigned pos = 0;
+    size_t reslen = 0;
+
     for (int i = 2; (i < argc) && (pos < BUF_SIZE); ++i) {
         arg_len = strlen(argv[i]);
         if ((pos + arg_len) > BUF_SIZE) {
@@ -114,6 +116,7 @@ int _ccnl_content(int argc, char **argv)
 
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], CCNL_SUITE_NDNTLV, NULL);
     size_t offs = CCNL_MAX_PACKET_SIZE;
+
     size_t reslen = 0;
     arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) buf, arg_len, NULL, NULL, &offs, _out, &reslen);
 
