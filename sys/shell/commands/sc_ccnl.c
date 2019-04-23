@@ -126,13 +126,13 @@ int _ccnl_content(int argc, char **argv)
     size_t len;
     uint64_t typ;
 
-    if (ccnl_ndntlv_dehead(&data, &arg_len, &typ, &len) ||
+    if (ccnl_ndntlv_dehead(&data, &reslen, &typ, &len) ||
         typ != NDN_TLV_Data) {
         return -1;
     }
 
     struct ccnl_content_s *c = 0;
-    struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &arg_len);
+    struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
     c = ccnl_content_new(&pk);
     c->flags |= CCNL_CONTENT_FLAGS_STATIC;
     msg_t m = { .type = CCNL_MSG_CS_ADD, .content.ptr = c };
