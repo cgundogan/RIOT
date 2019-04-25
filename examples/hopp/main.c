@@ -31,8 +31,10 @@ char hwaddr_str[GNRC_NETIF_L2ADDR_MAXLEN * 3];
 bool i_am_root = false;
 
 /* 10kB buffer for the heap should be enough for everyone */
-#define TLSF_BUFFER     (10240 / sizeof(uint32_t))
-static uint32_t _tlsf_heap[TLSF_BUFFER];
+#ifndef TLSF_BUFFER
+#define TLSF_BUFFER     (10240)
+#endif
+static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 
 #define QOS_MAX_TC_ENTRIES (3)
 
