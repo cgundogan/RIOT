@@ -48,11 +48,64 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i, qos_traffic_class_t *tc)
 {
     (void) i;
+    struct ccnl_interest_s *cur = relay->pit;
+    struct ccnl_interest_s *oldest = NULL;
 
     printf("In PIT replacement tclass: [prefix: %s, reliable: %d, expedited: %d], pit count: %d\n",
            tc->traffic_class, tc->reliable, tc->expedited, relay->pitcnt);
 
-    return 1;
+    // (Reg, Reg)
+    if (!tc->expedited && !tc->reliable) {
+        // Drop
+        return 0;
+    }
+
+    // (Reg, Rel)
+    if (!tc->expedited && tc->reliable) {
+        // Replace (Reg, Reg)
+        while (cur) {
+            if (!cur->tc->expedited && !cur->tc->reliable) {
+                if (!oldest || cur->last_used < oldest->last_used) {
+                    oldest = cur;
+                }
+            }
+        }
+
+        if (oldest) {
+            // Found a (Reg, Reg) entry to remove
+            ccnl_interest_remove(relay, oldest);
+
+            return 1;
+        }
+
+        // No (Reg, Reg) entry to remove
+        return 0;
+
+    }
+
+    // (Exp, _)
+    if (tc->expedited) {
+        // Replace (Reg, _)
+        while (cur) {
+            if (!cur->tc->expedited) {
+                if (!oldest || cur->last_used < oldest->last_used) {
+                    oldest = cur;
+                }
+            }
+        }
+
+        if (oldest) {
+            // Found a (Reg, _) entry to remove
+            ccnl_interest_remove(relay, oldest);
+
+            return 1;
+        }
+
+        // No (Reg, _) entry to remove
+        return 0;
+    }
+
+    return 0;
 }
 
 static int _root(int argc, char **argv)
