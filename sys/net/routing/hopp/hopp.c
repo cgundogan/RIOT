@@ -200,12 +200,13 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
+                    puts("PARENT ALIVE");
                     unsigned pos = nce - dodag->nam_cache;
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
                     nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
                     nam_msg_evts[pos].msg.content.ptr = nce;
                     evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
-                    ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD + (i*200);
+                    ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
                     evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
                 }
             }
@@ -335,12 +336,16 @@ static void hopp_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol,
     if (dodag->rank == COMPAS_DODAG_UNDEF) {
         return;
     }
+/*
     if (compas_sol_reset_trickle(sol->flags)) {
         hopp_trickle_reset(dodag);
     }
     else {
         hopp_send_pam(dodag, dst_addr, dst_addr_len, false);
     }
+*/
+    (void) sol;
+    hopp_send_pam(dodag, dst_addr, dst_addr_len, false);
     return;
 }
 
@@ -387,6 +392,7 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
                 hopp_nce_del(dodag, nce);
             }
             dodag->sol_num = 0xFF;
+            puts("NAM TIMEOUOT");
             hopp_parent_timeout(dodag);
         }
     }
