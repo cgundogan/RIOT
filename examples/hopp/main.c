@@ -45,10 +45,10 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
     { "/HAW/Room/481", true, true },
 };
 
-int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i, qos_traffic_class_t *tc)
+int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 {
-    (void) i;
-    struct ccnl_interest_s *cur = relay->pit;
+    qos_traffic_class_t *tc = i->tc;
+
     struct ccnl_interest_s *oldest = NULL;
 
     printf("In PIT replacement tclass: [prefix: %s, reliable: %d, expedited: %d], pit count: %d\n",
@@ -63,12 +63,14 @@ int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i, qos_traf
     // (Reg, Rel)
     if (!tc->expedited && tc->reliable) {
         // Replace (Reg, Reg)
+        struct ccnl_interest_s *cur = relay->pit;
         while (cur) {
             if (!cur->tc->expedited && !cur->tc->reliable) {
-                if (!oldest || cur->last_used < oldest->last_used) {
+                if (!oldest || cur->last_used > oldest->last_used) {
                     oldest = cur;
                 }
             }
+            cur++;
         }
 
         if (oldest) {
@@ -86,12 +88,14 @@ int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i, qos_traf
     // (Exp, _)
     if (tc->expedited) {
         // Replace (Reg, _)
+        struct ccnl_interest_s *cur = relay->pit;
         while (cur) {
             if (!cur->tc->expedited) {
-                if (!oldest || cur->last_used < oldest->last_used) {
+                if (!oldest || cur->last_used > oldest->last_used) {
                     oldest = cur;
                 }
             }
+            cur++;
         }
 
         if (oldest) {
