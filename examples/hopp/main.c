@@ -36,13 +36,23 @@ bool i_am_root = false;
 #endif
 static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 
+/* m3-289 */
+#ifndef ROOTADDR
+#define ROOTADDR "15:11:6B:10:65:FD:AC:52"
+#endif
+#ifndef ROOTPREFIX
+#define ROOTPREFIX "/HK"
+#endif
+
+static const char *rootaddr = ROOTADDR;
+
 #define QOS_MAX_TC_ENTRIES (3)
 
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
-    { "/HAW", false, false },
-    { "/SafetyIO/Site/A", false, true },
-    { "/HAW/Room/481", true, true },
+    { "/HK", false, false },
+    { "/HK/control", true, false },
+    { "/HK/sensors", false, true },
 };
 
 int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
@@ -51,8 +61,7 @@ int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 
     struct ccnl_interest_s *oldest = NULL;
 
-    printf("In PIT replacement tclass: [prefix: %s, reliable: %d, expedited: %d], pit count: %d\n",
-           tc->traffic_class, tc->reliable, tc->expedited, relay->pitcnt);
+    printf("In PIT replacement, pit count: %d\n", relay->pitcnt);
 
     // (Reg, Reg)
     if (!tc->expedited && !tc->reliable) {
@@ -114,14 +123,11 @@ int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 
 static int _root(int argc, char **argv)
 {
-    if (argc == 2) {
-        hopp_root_start((const char *)argv[1], strlen(argv[1]));
-        i_am_root = true;
-    }
-    else {
-        puts("error");
-        return -1;
-    }
+    (void) argc;
+    (void) argv;
+
+    hopp_root_start(rootaddr, strlen(rootaddr));
+    i_am_root = true;
     return 0;
 }
 
@@ -135,9 +141,8 @@ static int _publish(int argc, char **argv)
     }
 
     char name[30];
-    int name_len = sprintf(name, "/%s/%s", argv[1], hwaddr_str);
+    int name_len = sprintf(name, "%s/%s", ROOTPREFIX, hwaddr_str);
     xtimer_usleep(random_uint32_range(0, 30000000));
-    printf("RANK: %u\n", dodag.rank);
     hopp_publish_content(name, name_len, NULL, 0);
     return 0;
 }
@@ -156,7 +161,7 @@ static void cb_published(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, str
     snprintf(scratch, sizeof(scratch)/sizeof(scratch[0]),
              "/%.*s/%.*s", pkt->pfx->complen[0], pkt->pfx->comp[0],
                            pkt->pfx->complen[1], pkt->pfx->comp[1]);
-    printf("PUBLISHED: %s\n", scratch);
+    //printf("PUBLISHED: %s\n", scratch);
     prefix = ccnl_URItoPrefix(scratch, CCNL_SUITE_NDNTLV, NULL);
 
     from->flags |= CCNL_FACE_FLAGS_STATIC;
@@ -189,7 +194,6 @@ int main(void)
     gnrc_netapi_get(hopp_netif->pid, NETOPT_ADDRESS_LONG, 0, hwaddr, sizeof(hwaddr));
 #endif
     gnrc_netif_addr_to_str(hwaddr, sizeof(hwaddr), hwaddr_str);
-    printf("hwaddr: %s\n", hwaddr_str);
 
     hopp_pid = thread_create(hopp_stack, sizeof(hopp_stack), THREAD_PRIORITY_MAIN - 1,
                              THREAD_CREATE_STACKTEST, hopp, &ccnl_relay,
@@ -205,7 +209,23 @@ int main(void)
 
     ccnl_set_pit_strategy_remove(pit_strategy);
 
-    printf("max pit: %d\n", ccnl_relay.max_pit_entries);
+    printf("config;%d\n", ccnl_relay.max_pit_entries);
+
+    xtimer_sleep(30);
+
+    if (memcmp(hwaddr_str, rootaddr, strlen(rootaddr)) == 0) {
+        _root(0, NULL);
+    }
+    else {
+        printf("route;%s;%u\n", hwaddr_str, dodag.rank);
+        xtimer_sleep(15);
+        _publish(0, NULL);
+        xtimer_sleep(30);
+        _publish(0, NULL);
+        xtimer_sleep(30);
+    }
+
+    puts("done");
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
