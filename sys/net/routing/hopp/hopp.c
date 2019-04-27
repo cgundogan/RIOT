@@ -47,6 +47,8 @@ static evtimer_msg_event_t nam_msg_evts[COMPAS_NAM_CACHE_LEN];
 static char hopp_prefix[COMPAS_NAME_LEN + 1];
 static hopp_cb_published cb_published = NULL;
 
+extern uint64_t the_time;
+
 void hopp_set_cb_published(hopp_cb_published cb)
 {
     cb_published = cb;
@@ -200,7 +202,6 @@ static void hopp_handle_pam(struct ccnl_relay_s *relay,
             for (size_t i = 0; i < COMPAS_NAM_CACHE_LEN; i++) {
                 compas_nam_cache_entry_t *nce = &dodag->nam_cache[i];
                 if (nce->in_use && compas_nam_cache_requested(nce->flags)) {
-                    puts("PARENT ALIVE");
                     unsigned pos = nce - dodag->nam_cache;
                     nce->retries = COMPAS_NAM_CACHE_RETRIES;
                     nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
@@ -392,7 +393,6 @@ static bool check_nce(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
                 hopp_nce_del(dodag, nce);
             }
             dodag->sol_num = 0xFF;
-            puts("NAM TIMEOUOT");
             hopp_parent_timeout(dodag);
         }
     }
@@ -541,7 +541,6 @@ void *hopp(void *arg)
 
                 if (NULL == (nce = compas_nam_cache_add(tuple->dodag, tuple->name, NULL))) {
                     if (NULL == (nce = hopp_nam_gc(tuple->dodag, tuple->name, NULL))) {
-                        puts("PUBLISH: NO SPACE LEFT");
                         msr.content.value = false;
                         msg_reply(&msg, &msr);
                         break;
