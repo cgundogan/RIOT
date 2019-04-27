@@ -62,22 +62,33 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #endif
 
 #ifndef DELAY_REQUEST
-#define DELAY_REQUEST           (120 * 1000000) // us = 30sec
+#define DELAY_REQUEST           (10 * 1000000)
 #endif
-
 #ifndef DELAY_JITTER
-#define DELAY_JITTER            (60 * 1000000) // us = 15sec
+#define DELAY_JITTER            (5 * 1000000)
 #endif
-
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
-
 #ifndef REQ_DELAY
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
-
 #ifndef REQ_NUMS
-#define REQ_NUMS (1)
+#define REQ_NUMS (10)
+#endif
+
+#ifndef ACTUATOR_DELAY_REQUEST
+#define ACTUATOR_DELAY_REQUEST  (90 * 1000000)
+#endif
+#ifndef ACTUATOR_DELAY_JITTER
+#define ACTUATOR_DELAY_JITTER   (60 * 1000000)
+#endif
+#define ACTUATOR_DELAY_MAX      (DELAY_REQUEST + DELAY_JITTER)
+#define ACTUATOR_DELAY_MIN      (DELAY_REQUEST - DELAY_JITTER)
+#ifndef ACTUATOR_DELAY
+#define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
+#endif
+#ifndef ACTUATORS_NUMS
+#define ACTUATORS_NUMS (5)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -91,6 +102,13 @@ uint32_t num_ints = 0;
 uint32_t num_datas = 0;
 
 #define QOS_MAX_TC_ENTRIES (3)
+
+static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
+{
+    { "/HK", false, false },
+    { "/HK/control", false, false },
+    { "/HK/sensors", false, false },
+};
 
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
@@ -191,15 +209,22 @@ static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
     // (Exp, _)
     if (tc->expedited) {
         // Replace (Reg, _)
-        struct ccnl_interest_s *cur = relay->pit;
+        struct ccnl_interest_s *cur = relay->pit, *oldest_unreliable = NULL, *oldest_reliable = NULL;
         while (cur) {
             if (!cur->tc->expedited) {
-                if (!oldest || cur->last_used > oldest->last_used) {
-                    oldest = cur;
+                if (!cur->tc->reliable) {
+                    if (!oldest_unreliable || cur->last_used > oldest_unreliable->last_used) {
+                        oldest_unreliable = cur;
+                    }
+                }
+                else if (!oldest_reliable || cur->last_used > oldest_reliable->last_used) {
+                    oldest_reliable = cur;
                 }
             }
             cur = cur->next;
         }
+
+        oldest = oldest_reliable ? oldest_reliable : oldest_unreliable;
 
         if (oldest) {
             // Found a (Reg, _) entry to remove
@@ -268,7 +293,6 @@ static uint32_t _count_fib_entries(void) {
     return num_fib_entries;
 }
 
-static void *consumer_event_loop(void *arg) __attribute__((used));
 static void *consumer_event_loop(void *arg)
 {
     (void)arg;
@@ -298,6 +322,29 @@ static void *consumer_event_loop(void *arg)
 
     xtimer_sleep(10);
     printf("consumer_done,%lu,%lu\n", (unsigned long) num_ints, (unsigned long) num_datas);
+
+    return 0;
+}
+
+static void *actuators_event_loop(void *arg)
+{
+    (void)arg;
+    char req_uri[64];
+    struct ccnl_prefix_s *prefix = NULL;
+
+    for (unsigned i = 0; i < ACTUATORS_NUMS; i++) {
+        memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
+        xtimer_usleep(ACTUATOR_DELAY);
+        snprintf(req_uri, 64, "/%s/control/%04lu", ROOTPFX, (unsigned long) random_uint32_range(0, 1000));
+        num_ints++;
+        printf("req;%s;%lu;%lu\n", req_uri, (unsigned long) num_ints, (unsigned long) num_datas);
+        prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
+        ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
+        ccnl_prefix_free(prefix);
+    }
+
+    xtimer_sleep(10);
+    printf("actuator_done,%lu,%lu\n", (unsigned long) num_ints, (unsigned long) num_datas);
 
     return 0;
 }
@@ -334,29 +381,72 @@ static int produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s 
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
     c = ccnl_content_new(&pk);
-    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
-    puts("ADD2CACHE");
+//    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+//    puts("ADD2CACHE");
     ccnl_content_add2cache(relay, c);
     return 0;
 }
 
-int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt){
+int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt) {
     (void) relay;
     (void) from;
-//    puts("PRODUCE");
 
     if(pkt->pfx->compcnt == 4) { /* /PREFIX/sensors/ID/<value> */
-/*
-        printf("%.*s / %.*s / %.*s / %.*s\n",
-               pkt->pfx->complen[0], pkt->pfx->comp[0],
-               pkt->pfx->complen[1], pkt->pfx->comp[1],
-               pkt->pfx->complen[2], pkt->pfx->comp[2],
-               pkt->pfx->complen[3], pkt->pfx->comp[3]);
-*/
         if (!memcmp(pkt->pfx->comp[0], ROOTPFX, pkt->pfx->complen[0]) &&
             !memcmp(pkt->pfx->comp[1], "sensors", pkt->pfx->complen[1]) &&
             !memcmp(pkt->pfx->comp[2], hwaddr_str, pkt->pfx->complen[2])) {
             return produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[3]));
+        }
+    }
+    return 0;
+}
+
+static int actuator_produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, int id)
+{
+    (void)pkt;
+    char name[64];
+    size_t offs = CCNL_MAX_PACKET_SIZE;
+
+    char buffer[5];
+    size_t len = sprintf(buffer, "%s", "on");
+    buffer[len]='\0';
+
+    int name_len = sprintf(name, "/%s/control/%04d", ROOTPFX, id);
+    name[name_len]='\0';
+
+    struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL);
+    size_t reslen = 0;
+    ccnl_ndntlv_prependContent(prefix, (unsigned char*) buffer, len, NULL, NULL, &offs, data_buf, &reslen);
+
+    ccnl_prefix_free(prefix);
+
+    unsigned char *olddata;
+    unsigned char *data = olddata = data_buf + offs;
+
+    uint64_t typ;
+
+    if (ccnl_ndntlv_dehead(&data, &reslen, &typ, &len) || typ != NDN_TLV_Data) {
+        puts("ERROR in producer_func");
+        return 0;
+    }
+
+    struct ccnl_content_s *c = 0;
+    struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
+    c = ccnl_content_new(&pk);
+//    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
+//    puts("ADD2CACHE");
+    ccnl_content_add2cache(relay, c);
+    return 0;
+}
+
+int actuator_producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt) {
+    (void) relay;
+    (void) from;
+
+    if(pkt->pfx->compcnt == 3) { /* /PREFIX/control/<value> */
+        if (!memcmp(pkt->pfx->comp[0], ROOTPFX, pkt->pfx->complen[0]) &&
+            !memcmp(pkt->pfx->comp[1], "control", pkt->pfx->complen[1])) {
+            return actuator_produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[2]));
         }
     }
     return 0;
@@ -400,7 +490,8 @@ int main(void)
 
     hopp_set_cb_published(cb_published);
 */
-    ccnl_qos_set_tcs((qos_traffic_class_t *) &tcs, sizeof(tcs) / sizeof(tcs[0]));
+    (void) tcs;
+    ccnl_qos_set_tcs((qos_traffic_class_t *) &tcs_default, sizeof(tcs_default) / sizeof(tcs_default[0]));
 
     ccnl_set_pit_strategy_remove(pit_strategy);
 
@@ -441,16 +532,22 @@ int main(void)
 
 //    xtimer_sleep(5);
 
-    ccnl_set_local_producer(producer_func);
 
     if (i_am_root) {
+        ccnl_set_local_producer(actuator_producer_func);
         xtimer_sleep(5);
-        ccnl_set_local_producer(NULL);
-        puts("starting consumer");
         memset(consumer_stack, 0, CONSUMER_STACKSZ);
         thread_create(consumer_stack, sizeof(consumer_stack),
                       CONSUMER_THREAD_PRIORITY, THREAD_CREATE_STACKTEST,
                       consumer_event_loop, NULL, "consumer");
+    }
+    else {
+        ccnl_set_local_producer(producer_func);
+        xtimer_sleep(5);
+        memset(consumer_stack, 0, CONSUMER_STACKSZ);
+        thread_create(consumer_stack, sizeof(consumer_stack),
+                      CONSUMER_THREAD_PRIORITY, THREAD_CREATE_STACKTEST,
+                      actuators_event_loop, NULL, "consumer");
     }
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
