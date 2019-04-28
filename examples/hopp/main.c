@@ -88,7 +88,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (6)
+#define ACTUATORS_NUMS (7)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -100,21 +100,23 @@ static const char *rootprefix = ROOTPREFIX;
 uint64_t the_time = 0;
 uint32_t num_ints = 0;
 uint32_t num_datas = 0;
+uint32_t num_gasints = 0;
+uint32_t num_gasdatas = 0;
 
 #define QOS_MAX_TC_ENTRIES (3)
 
 static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
 {
-    { "/HK", false, false },
-    { "/HK/control", false, false },
     { "/HK/sensors", false, false },
+    { "/HK/control", false, false },
+    { "/HK/gas-level", false, false },
 };
 
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
-    { "/HK", false, false },
+    { "/HK/sensors", false, false },
     { "/HK/control", true, false },
-    { "/HK/sensors", false, true },
+    { "/HK/gas-level", true, true },
 };
 
 static void show_fibs(struct ccnl_relay_s *relay) __attribute((used));
@@ -173,7 +175,7 @@ static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 
     struct ccnl_interest_s *oldest = NULL;
 
-    printf("In PIT replacement, pit count: %d\n", relay->pitcnt);
+//    printf("In PIT replacement, pit count: %d\n", relay->pitcnt);
 
     // (Reg, Reg)
     if (!tc->expedited && !tc->reliable) {
@@ -299,29 +301,41 @@ static void *consumer_event_loop(void *arg)
     char req_uri[64];
     char s[CCNL_MAX_PREFIX_SIZE];
     struct ccnl_forward_s *fwd;
-    int nodes_num = _count_fib_entries();
+    int nodes_num = _count_fib_entries() - 1;
     uint32_t delay = 0;
     struct ccnl_prefix_s *prefix = NULL;
 
-    printf("consumer_setup;%d\n",nodes_num);
+    printf("reqstart;%lu;%d\n", (unsigned long) xtimer_now_usec64(), nodes_num);
+
+    uint64_t gastimer = xtimer_now_usec64();
 
     for (unsigned i = 0; i < REQ_NUMS; i++) {
         for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
+            uint64_t now = xtimer_now_usec64();
             memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
+            ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
+            if (strstr(s, "/HK/sensors") == NULL) {
+                continue;
+            }
             delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
             xtimer_usleep(delay);
-            ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
             snprintf(req_uri, 64, "%s/%04lu", s, (unsigned long) random_uint32_range(0, 1000));
-            num_ints++;
-            printf("req;%s;%lu;%lu\n", req_uri, (unsigned long) num_ints, (unsigned long) num_datas);
             prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
             ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
             ccnl_prefix_free(prefix);
+            if ((now - gastimer) > 5000000) {
+                gastimer = now;
+                memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
+                snprintf(req_uri, 64, "/%s/gas-level/%04lu", ROOTPFX, (unsigned long) random_uint32_range(0, 100));
+                prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
+                ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
+                ccnl_prefix_free(prefix);
+            }
         }
     }
-
     xtimer_sleep(10);
-    printf("consumer_done,%lu,%lu\n", (unsigned long) num_ints, (unsigned long) num_datas);
+    printf("reqdone;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), (unsigned long) num_ints, (unsigned long) num_datas);
+    printf("gasdone;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), (unsigned long) num_gasints, (unsigned long) num_gasdatas);
 
     return 0;
 }
@@ -336,15 +350,12 @@ static void *actuators_event_loop(void *arg)
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
         xtimer_usleep(ACTUATOR_DELAY);
         snprintf(req_uri, 64, "/%s/control/%04lu", ROOTPFX, (unsigned long) random_uint32_range(0, 1000));
-        num_ints++;
-        printf("req;%s;%lu;%lu\n", req_uri, (unsigned long) num_ints, (unsigned long) num_datas);
         prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
         ccnl_prefix_free(prefix);
     }
-
     xtimer_sleep(10);
-    printf("actuator_done,%lu,%lu\n", (unsigned long) num_ints, (unsigned long) num_datas);
+    printf("actdone;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), (unsigned long) num_ints, (unsigned long) num_datas);
 
     return 0;
 }
@@ -360,7 +371,15 @@ static struct ccnl_content_s *produce_cont_and_cache(struct ccnl_relay_s *relay,
     size_t len = sprintf(buffer, "%s", "24.5");
     buffer[len]='\0';
 
-    int name_len = sprintf(name, "/%s/sensors/%s/%04d", ROOTPFX, hwaddr_str, id);
+    int name_len = 0;
+
+    if (pkt->pfx->compcnt == 3) {
+        name_len = sprintf(name, "/%s/gas-level/%04d", ROOTPFX, id);
+    }
+    else {
+        name_len = sprintf(name, "/%s/sensors/%s/%04d", ROOTPFX, hwaddr_str, id);
+    }
+
     name[name_len]='\0';
 
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(name, CCNL_SUITE_NDNTLV, NULL);
@@ -400,6 +419,15 @@ struct ccnl_content_s *producer_func(struct ccnl_relay_s *relay, struct ccnl_fac
             return produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[3]));
         }
     }
+    if (!memcmp(hwaddr_str, "15:11:6B:10:65:F8:AC:16", strlen(hwaddr_str))) {
+        if(pkt->pfx->compcnt == 3) { /* /PREFIX/gas-level/<value> */
+            if (!memcmp(pkt->pfx->comp[0], ROOTPFX, pkt->pfx->complen[0]) &&
+                !memcmp(pkt->pfx->comp[1], "gas-level", pkt->pfx->complen[1])) {
+                return produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[2]));
+            }
+        }
+    }
+
     return NULL;
 }
 
