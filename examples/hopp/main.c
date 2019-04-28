@@ -65,7 +65,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define DELAY_REQUEST           (10 * 1000000)
 #endif
 #ifndef DELAY_JITTER
-#define DELAY_JITTER            (5 * 1000000)
+#define DELAY_JITTER            (2 * 1000000)
 #endif
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
@@ -73,22 +73,22 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 #ifndef REQ_NUMS
-#define REQ_NUMS (10)
+#define REQ_NUMS (20)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
-#define ACTUATOR_DELAY_REQUEST  (90 * 1000000)
+#define ACTUATOR_DELAY_REQUEST  (30 * 1000000)
 #endif
 #ifndef ACTUATOR_DELAY_JITTER
-#define ACTUATOR_DELAY_JITTER   (60 * 1000000)
+#define ACTUATOR_DELAY_JITTER   (2 * 1000000)
 #endif
-#define ACTUATOR_DELAY_MAX      (DELAY_REQUEST + DELAY_JITTER)
-#define ACTUATOR_DELAY_MIN      (DELAY_REQUEST - DELAY_JITTER)
+#define ACTUATOR_DELAY_MAX      (ACTUATOR_DELAY_REQUEST + ACTUATOR_DELAY_JITTER)
+#define ACTUATOR_DELAY_MIN      (ACTUATOR_DELAY_REQUEST - ACTUATOR_DELAY_JITTER)
 #ifndef ACTUATOR_DELAY
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (5)
+#define ACTUATORS_NUMS (6)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -311,7 +311,7 @@ static void *consumer_event_loop(void *arg)
             delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
             xtimer_usleep(delay);
             ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
-            snprintf(req_uri, 64, "%s/%04d", s, i);
+            snprintf(req_uri, 64, "%s/%04lu", s, (unsigned long) random_uint32_range(0, 1000));
             num_ints++;
             printf("req;%s;%lu;%lu\n", req_uri, (unsigned long) num_ints, (unsigned long) num_datas);
             prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
@@ -349,9 +349,10 @@ static void *actuators_event_loop(void *arg)
     return 0;
 }
 
-static int produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, int id)
+static struct ccnl_content_s *produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, int id)
 {
-    (void)pkt;
+    (void) pkt;
+    (void) relay;
     char name[64];
     size_t offs = CCNL_MAX_PACKET_SIZE;
 
@@ -383,11 +384,12 @@ static int produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s 
     c = ccnl_content_new(&pk);
 //    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 //    puts("ADD2CACHE");
-    ccnl_content_add2cache(relay, c);
-    return 0;
+//    ccnl_content_add2cache(relay, c);
+    return c;
 }
 
-int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt) {
+struct ccnl_content_s *producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
+                                     struct ccnl_pkt_s *pkt) {
     (void) relay;
     (void) from;
 
@@ -398,12 +400,14 @@ int producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct c
             return produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[3]));
         }
     }
-    return 0;
+    return NULL;
 }
 
-static int actuator_produce_cont_and_cache(struct ccnl_relay_s *relay, struct ccnl_pkt_s *pkt, int id)
+static struct ccnl_content_s *actuator_produce_cont_and_cache(struct ccnl_relay_s *relay,
+                                                              struct ccnl_pkt_s *pkt, int id)
 {
-    (void)pkt;
+    (void) pkt;
+    (void) relay;
     char name[64];
     size_t offs = CCNL_MAX_PACKET_SIZE;
 
@@ -435,11 +439,12 @@ static int actuator_produce_cont_and_cache(struct ccnl_relay_s *relay, struct cc
     c = ccnl_content_new(&pk);
 //    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 //    puts("ADD2CACHE");
-    ccnl_content_add2cache(relay, c);
-    return 0;
+//    ccnl_content_add2cache(relay, c);
+    return c;
 }
 
-int actuator_producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from, struct ccnl_pkt_s *pkt) {
+struct ccnl_content_s *actuator_producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
+                                              struct ccnl_pkt_s *pkt) {
     (void) relay;
     (void) from;
 
@@ -449,7 +454,7 @@ int actuator_producer_func(struct ccnl_relay_s *relay, struct ccnl_face_s *from,
             return actuator_produce_cont_and_cache(relay, pkt, atoi((const char *)pkt->pfx->comp[2]));
         }
     }
-    return 0;
+    return NULL;
 }
 
 int main(void)
