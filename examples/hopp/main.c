@@ -22,7 +22,7 @@
 #include "ccnl-producer.h"
 #include "ccnl-qos.h"
 
-#include "net/hopp/hopp.h"
+//#include "net/hopp/hopp.h"
 
 #define MAIN_QSZ (4)
 static msg_t _main_q[MAIN_QSZ];
@@ -62,7 +62,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #endif
 
 #ifndef DELAY_REQUEST
-#define DELAY_REQUEST           (10 * 1000000)
+#define DELAY_REQUEST           (15 * 1000000)
 #endif
 #ifndef DELAY_JITTER
 #define DELAY_JITTER            (2 * 1000000)
@@ -73,7 +73,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 #ifndef REQ_NUMS
-#define REQ_NUMS (20)
+#define REQ_NUMS (50)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
@@ -88,7 +88,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (7)
+#define ACTUATORS_NUMS (26)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -169,6 +169,7 @@ static void setup_forwarding(char *my_addr)
     return;
 }
 
+static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i) __attribute__((used));
 static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 {
     qos_traffic_class_t *tc = i->tc;
@@ -226,7 +227,7 @@ static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
             cur = cur->next;
         }
 
-        oldest = oldest_reliable ? oldest_reliable : oldest_unreliable;
+        oldest = oldest_unreliable ? oldest_unreliable : oldest_reliable;
 
         if (oldest) {
             // Found a (Reg, _) entry to remove
@@ -237,6 +238,27 @@ static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
 
         // No (Reg, _) entry to remove
         return 0;
+    }
+
+    return 0;
+}
+static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *i) __attribute__((used));
+static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
+{
+    (void) i;
+    struct ccnl_interest_s *oldest = NULL;
+    struct ccnl_interest_s *cur = relay->pit;
+
+    while (cur) {
+        if (!oldest || (cur->last_used > oldest->last_used)) {
+            oldest = cur;
+        }
+        cur = cur->next;
+    }
+
+    if (oldest) {
+        ccnl_interest_remove(relay, oldest);
+        return 1;
     }
 
     return 0;
@@ -323,6 +345,7 @@ static void *consumer_event_loop(void *arg)
             prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
             ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
             ccnl_prefix_free(prefix);
+
             if ((now - gastimer) > 5000000) {
                 gastimer = now;
                 memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
@@ -401,6 +424,7 @@ static struct ccnl_content_s *produce_cont_and_cache(struct ccnl_relay_s *relay,
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
     c = ccnl_content_new(&pk);
+//    puts("PRODUCE");
 //    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 //    puts("ADD2CACHE");
 //    ccnl_content_add2cache(relay, c);
@@ -465,6 +489,7 @@ static struct ccnl_content_s *actuator_produce_cont_and_cache(struct ccnl_relay_
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
     c = ccnl_content_new(&pk);
+//    puts("PRODUCE");
 //    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 //    puts("ADD2CACHE");
 //    ccnl_content_add2cache(relay, c);
@@ -501,7 +526,7 @@ int main(void)
         return -1;
     }
 
-    uint16_t chan = 11;
+    uint16_t chan = 15;
     gnrc_netapi_set(ccn_netif->pid, NETOPT_CHANNEL, 0, &chan, sizeof(chan));
 
     uint16_t src_len = 8U;
@@ -524,9 +549,12 @@ int main(void)
     hopp_set_cb_published(cb_published);
 */
     (void) tcs;
+    (void) tcs_default;
     ccnl_qos_set_tcs((qos_traffic_class_t *) &tcs_default, sizeof(tcs_default) / sizeof(tcs_default[0]));
+//    ccnl_qos_set_tcs((qos_traffic_class_t *) &tcs, sizeof(tcs) / sizeof(tcs[0]));
 
-    ccnl_set_pit_strategy_remove(pit_strategy);
+//    ccnl_set_pit_strategy_remove(pit_strategy);
+    ccnl_set_pit_strategy_remove(pit_strategy_lru);
 
     printf("config;%d\n", ccnl_relay.max_pit_entries);
 

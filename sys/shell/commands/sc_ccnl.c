@@ -241,6 +241,7 @@ int _ccnl_fib(int argc, char **argv)
 {
     if (argc < 2) {
         ccnl_fib_show(&ccnl_relay);
+        printf("PIT: %u\n", ccnl_relay.pitcnt);
     }
     else if ((argc == 3) && (strncmp(argv[1], "del", 3) == 0)) {
         int suite = CCNL_SUITE_NDNTLV;
