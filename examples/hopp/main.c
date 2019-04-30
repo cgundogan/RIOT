@@ -190,7 +190,7 @@ static int pit_strategy(struct ccnl_relay_s *relay, struct ccnl_interest_s *i)
         struct ccnl_interest_s *cur = relay->pit;
         while (cur) {
             if (!cur->tc->expedited && !cur->tc->reliable) {
-                if (!oldest || cur->last_used > oldest->last_used) {
+                if (!oldest || cur->last_used < oldest->last_used) {
                     oldest = cur;
                 }
             }
