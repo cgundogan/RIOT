@@ -543,6 +543,10 @@ int cache_decision_probabilistic(struct ccnl_relay_s *relay, struct ccnl_content
     (void) relay;
     (void) pit_pending;
 
+    if (!pit_pending && !c->tclass->reliable) {
+        return 0;
+    }
+
     if (relay->contentcnt < relay->max_cache_entries) {
         return 1;
     }
