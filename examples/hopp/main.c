@@ -62,7 +62,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define CCNL_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 3)
 #endif
 
-#ifndef DELAY_REQUEST
+#ifndef DELAY_REQUEST4
 #define DELAY_REQUEST           (5 * 1000000)
 #endif
 #ifndef DELAY_JITTER
@@ -74,7 +74,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 #ifndef REQ_NUMS
-#define REQ_NUMS (100)
+#define REQ_NUMS (200)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
@@ -89,7 +89,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (50)
+#define ACTUATORS_NUMS (100)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -769,6 +769,38 @@ int cache_remove_lru(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
     }
     return 0;
 }
+int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
+int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
+{
+    (void) c;
+    char s[CCNL_MAX_PREFIX_SIZE];
+    char s2[CCNL_MAX_PREFIX_SIZE];
+    struct ccnl_content_s *cur = relay->contents, *rmc = relay->contents;
+    uint32_t random = random_uint32_range(0, relay->contentcnt);
+
+    for (unsigned i = 0; i < random; i++) {
+        cur = cur->next;
+        rmc = cur;
+    }
+
+    if (rmc) {
+        ccnl_prefix_to_str(rmc->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
+        ccnl_prefix_to_str(c->pkt->pfx,s2,CCNL_MAX_PREFIX_SIZE);
+
+        if (strstr(s, "/HK/gas-level") != NULL) {
+            printf("cdgp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[14], &s2[14]);
+        }
+        else if (strstr(s, "/HK/control") != NULL) {
+            printf("cdap;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        } else {
+            printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        }
+
+        ccnl_content_remove(relay, rmc);
+        return 1;
+    }
+    return 0;
+}
 
 int main(void)
 {
@@ -808,12 +840,12 @@ int main(void)
 
     hopp_set_cb_published(cb_published);
 */
-    (void) tcs;
-    (void) tcs_default;
 
 #if defined (CONFIG1) || defined (CONFIG2)
+    (void) tcs;
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5)
+    (void) tcs_default;
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
@@ -822,18 +854,24 @@ int main(void)
 #if defined (CONFIG1)
     ccnl_set_pit_strategy_remove(pit_strategy_drop);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
 #elif defined (CONFIG2)
     ccnl_set_pit_strategy_remove(pit_strategy_lru);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
 #elif defined (CONFIG3)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
-#endif
-
-//    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
-
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-
+#elif defined (CONFIG4)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
+    ccnl_set_cache_strategy_remove(cache_remove_random);
+#elif defined (CONFIG5)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_random);
+#endif
 
     printf("config;%s;%d;%d\n", hwaddr_str, ccnl_relay.max_pit_entries, ccnl_relay.max_cache_entries);
     unsigned i = 0;
