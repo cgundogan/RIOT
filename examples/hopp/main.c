@@ -62,8 +62,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define CCNL_THREAD_PRIORITY (THREAD_PRIORITY_MAIN - 3)
 #endif
 
-#ifndef DELAY_REQUEST4
-#define DELAY_REQUEST           (5 * 1000000)
+#ifndef DELAY_REQUEST
+#define DELAY_REQUEST           (10 * 1000000)
 #endif
 #ifndef DELAY_JITTER
 #define DELAY_JITTER            (2 * 1000000)
@@ -74,7 +74,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 #ifndef REQ_NUMS
-#define REQ_NUMS (200)
+#define REQ_NUMS (110 * 30)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
@@ -104,10 +104,11 @@ uint32_t num_datas = 0;
 uint32_t num_gasints = 0;
 uint32_t num_gasdatas = 0;
 
-#define QOS_MAX_TC_ENTRIES (3)
+#define QOS_MAX_TC_ENTRIES (4)
 
 static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
 {
+    { "/HK/", false, false },
     { "/HK/sensors", false, false },
     { "/HK/control", false, false },
     { "/HK/gas-level", false, false },
@@ -115,11 +116,21 @@ static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
 
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
+    { "/HK/", false, false },
     { "/HK/sensors", false, false },
     { "/HK/control", true, true },
     { "/HK/gas-level", true, true },
 };
 
+/*
+static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
+{
+    { "/HK/sensors", false, false },
+    { "/HK/sensors/15:11:6B:10:65:FA:A4:16", true, true },
+    { "/HK/sensors/15:11:6B:10:65:F8:5C:52", true, true },
+    { "/HK/sensors/15:11:6B:10:65:FC:AC:3A", true, true },
+};
+*/
 static void show_fibs(struct ccnl_relay_s *relay) __attribute((used));
 static void show_fibs(struct ccnl_relay_s *relay)
 {
@@ -248,7 +259,6 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
             } else {
                 printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
             }
-
             ccnl_interest_remove(relay, oldest);
 
             return 1;
@@ -267,7 +277,6 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
     } else {
         printf("dsp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
     }
-
     return 0;
 }
 static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *i) __attribute__((used));
@@ -278,7 +287,7 @@ static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *
     struct ccnl_interest_s *cur = relay->pit;
     char s[CCNL_MAX_PREFIX_SIZE];
 
-    ccnl_prefix_to_str(i->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
+    // ccnl_prefix_to_str(i->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
 
     while (cur) {
         if (!oldest || (cur->last_used < oldest->last_used)) {
@@ -298,7 +307,6 @@ static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *
         } else {
             printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
         }
-
         ccnl_interest_remove(relay, oldest);
         return 1;
     }
@@ -397,24 +405,30 @@ static void *consumer_event_loop(void *arg)
 //HIER1
 //    return 0;
     for (unsigned i = 0; i < REQ_NUMS; i++) {
-        for (fwd = ccnl_relay.fib; fwd; fwd = fwd->next) {
+        uint32_t randfwd = random_uint32_range(0, 30);
+        fwd = ccnl_relay.fib;
+        while (randfwd--) {
+            fwd = fwd->next;
+        }
 //            uint64_t now = xtimer_now_usec64();
-            memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-            ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
-            if (strstr(s, "/HK/sensors") == NULL) {
-                continue;
-            }
-            delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
-            xtimer_usleep(delay);
-            snprintf(req_uri, 64, "%s/%04lu", s, (unsigned long) i);
-            prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
-            ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
-            ccnl_prefix_free(prefix);
+        memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
+        ccnl_prefix_to_str(fwd->prefix,s,CCNL_MAX_PREFIX_SIZE);
+        if (strstr(s, "/HK/sensors") == NULL) {
+            continue;
+        }
+        delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
+        xtimer_usleep(delay);
+        snprintf(req_uri, 64, "%s/%05lu", s, (unsigned long) i);
+        prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
+        ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
+        ccnl_prefix_free(prefix);
+/*
             xtimer_usleep(100 * 1000);
             snprintf(req_uri, 64, "%s/%04lu", s, (unsigned long) i + 1000);
             prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
             ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
             ccnl_prefix_free(prefix);
+*/
 /*
             xtimer_usleep(50 * 1000);
             snprintf(req_uri, 64, "%s/%04lu", s, (unsigned long) i + 2000);
@@ -432,7 +446,6 @@ static void *consumer_event_loop(void *arg)
                 ccnl_prefix_free(prefix);
             }
 */
-        }
     }
     xtimer_sleep(10);
     printf("sd;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), (unsigned long) num_ints, (unsigned long) num_datas);
@@ -450,12 +463,12 @@ static void *actuators_event_loop(void *arg)
     printf("as;%lu\n", (unsigned long) xtimer_now_usec64());
 
 // HIER2
-//    return 0;
+
     for (unsigned i = 0; i < ACTUATORS_NUMS; i++) {
         xtimer_usleep(ACTUATOR_DELAY);
-        unsigned long rand = random_uint32_range(0, 1000);
+//        unsigned long rand = random_uint32_range(0, 1000);
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-        snprintf(req_uri, 64, "/%s/control/%s/%04lu", ROOTPFX, hwaddr_str, (unsigned long) rand);
+        snprintf(req_uri, 64, "/%s/control/%s/%04lu", ROOTPFX, hwaddr_str, (unsigned long) i);
         prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
         ccnl_prefix_free(prefix);
@@ -494,10 +507,10 @@ static struct ccnl_content_s *produce_cont_and_cache(struct ccnl_relay_s *relay,
     int name_len = 0;
 
     if (pkt->pfx->compcnt == 3) {
-        name_len = sprintf(name, "/%s/gas-level/%04d", ROOTPFX, id);
+        name_len = sprintf(name, "/%s/gas-level/%05lu", ROOTPFX, (long unsigned) id);
     }
     else {
-        name_len = sprintf(name, "/%s/sensors/%s/%04d", ROOTPFX, hwaddr_str, id);
+        name_len = sprintf(name, "/%s/sensors/%s/%05lu", ROOTPFX, hwaddr_str, (long unsigned) id);
     }
 
     name[name_len]='\0';
@@ -521,6 +534,7 @@ static struct ccnl_content_s *produce_cont_and_cache(struct ccnl_relay_s *relay,
     struct ccnl_content_s *c = 0;
     struct ccnl_pkt_s *pk = ccnl_ndntlv_bytes2pkt(typ, olddata, &data, &reslen);
     c = ccnl_content_new(&pk);
+//    xtimer_usleep(random_uint32_range(0,100*1000));
 //    puts("PRODUCE");
 //    c->flags |= CCNL_CONTENT_FLAGS_STATIC;
 //    puts("ADD2CACHE");
@@ -643,7 +657,6 @@ int cache_decision_solicited_always_for_reliable(struct ccnl_relay_s *relay, str
         } else {
             printf("cdursp;%lu;%s;%u\n", (unsigned long) xtimer_now_usec64(), &s[12], c->tclass->reliable);
         }
-
         return 1;
     }
     return 0;
@@ -674,7 +687,6 @@ int cache_decision_probabilistic(struct ccnl_relay_s *relay, struct ccnl_content
         } else {
             printf("cdusp;%lu;%s;%u\n", (unsigned long) xtimer_now_usec64(), &s[12], c->tclass->reliable);
         }
-
         return 0;
     }
 
@@ -695,7 +707,6 @@ int cache_decision_probabilistic(struct ccnl_relay_s *relay, struct ccnl_content
             } else {
                 printf("crasp;%lu;%s;%u\n", (unsigned long) xtimer_now_usec64(), &s[12], c->tclass->reliable);
             }
-
             return 1;
         }
 
@@ -721,7 +732,6 @@ int cache_decision_probabilistic(struct ccnl_relay_s *relay, struct ccnl_content
         } else {
             printf("cuasp;%lu;%s;%u\n", (unsigned long) xtimer_now_usec64(), &s[12], c->tclass->reliable);
         }
-
         return 1;
     }
 
@@ -733,7 +743,6 @@ int cache_decision_probabilistic(struct ccnl_relay_s *relay, struct ccnl_content
     } else {
         printf("ciusp;%lu;%s;%u\n", (unsigned long) xtimer_now_usec64(), &s[12], c->tclass->reliable);
     }
-
     return 0;
 }
 
@@ -763,7 +772,6 @@ int cache_remove_lru(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
         } else {
             printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
         }
-
         ccnl_content_remove(relay, oldest);
         return 1;
     }
@@ -795,7 +803,6 @@ int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
         } else {
             printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
         }
-
         ccnl_content_remove(relay, rmc);
         return 1;
     }
@@ -844,7 +851,7 @@ int main(void)
 #if defined (CONFIG1) || defined (CONFIG2)
     (void) tcs;
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG6)
     (void) tcs_default;
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
@@ -871,13 +878,11 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
     ccnl_set_cache_strategy_remove(cache_remove_random);
+#elif defined (CONFIG6)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
 #endif
-
-    printf("config;%s;%d;%d\n", hwaddr_str, ccnl_relay.max_pit_entries, ccnl_relay.max_cache_entries);
-    unsigned i = 0;
-    for (i = 0; i < QOS_MAX_TC_ENTRIES; i++) {
-        printf("qos;%s;%u;%u\n", cur_tc[i].traffic_class, cur_tc[i].expedited, cur_tc[i].reliable);
-    }
 
     (void) rootprefix;
     (void) rootaddr;
@@ -905,6 +910,12 @@ int main(void)
 
     xtimer_sleep(30);
 
+    printf("config;%s;%d;%d\n", hwaddr_str, ccnl_relay.max_pit_entries, ccnl_relay.max_cache_entries);
+    unsigned i = 0;
+    for (i = 0; i < QOS_MAX_TC_ENTRIES; i++) {
+        printf("qos;%s;%u;%u\n", cur_tc[i].traffic_class, cur_tc[i].expedited, cur_tc[i].reliable);
+    }
+
     setup_forwarding(hwaddr_str);
 
     //show_fibs(&ccnl_relay);
@@ -916,6 +927,7 @@ int main(void)
 
 
     if (i_am_root) {
+        ccnl_relay.max_pit_entries = 50;
         ccnl_set_local_producer(actuator_producer_func);
         xtimer_sleep(5);
         memset(consumer_stack, 0, CONSUMER_STACKSZ);
