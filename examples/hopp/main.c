@@ -78,10 +78,10 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
-#define ACTUATOR_DELAY_REQUEST  (10 * 1000000)
+#define ACTUATOR_DELAY_REQUEST  (5 * 1000000)
 #endif
 #ifndef ACTUATOR_DELAY_JITTER
-#define ACTUATOR_DELAY_JITTER   (2 * 1000000)
+#define ACTUATOR_DELAY_JITTER   (1 * 1000000)
 #endif
 #define ACTUATOR_DELAY_MAX      (ACTUATOR_DELAY_REQUEST + ACTUATOR_DELAY_JITTER)
 #define ACTUATOR_DELAY_MIN      (ACTUATOR_DELAY_REQUEST - ACTUATOR_DELAY_JITTER)
@@ -89,7 +89,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (100)
+#define ACTUATORS_NUMS (200)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -106,6 +106,7 @@ uint32_t num_gasdatas = 0;
 
 #define QOS_MAX_TC_ENTRIES (4)
 
+#if defined (CONFIG1) || defined (CONFIG7) || defined(CONFIG14)
 static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
 {
     { "/HK/", false, false },
@@ -113,7 +114,8 @@ static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
     { "/HK/control", false, false },
     { "/HK/gas-level", false, false },
 };
-
+#endif
+#if defined(CONFIG3) || defined (CONFIG8) || defined (CONFIG9) || defined (CONFIG15)
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
     { "/HK/", false, false },
@@ -121,6 +123,25 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
     { "/HK/control", true, true },
     { "/HK/gas-level", true, true },
 };
+#endif
+#if defined(CONFIG10) || defined(CONFIG11) || defined (CONFIG16)
+static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
+{
+    { "/HK/", false, false },
+    { "/HK/sensors", false, false },
+    { "/HK/control", true, false },
+    { "/HK/gas-level", false, false },
+};
+#endif
+#if defined(CONFIG5) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG17)
+static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
+{
+    { "/HK/", false, false },
+    { "/HK/sensors", false, false },
+    { "/HK/control", false, true },
+    { "/HK/gas-level", false, false },
+};
+#endif
 
 /*
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
@@ -463,29 +484,19 @@ static void *actuators_event_loop(void *arg)
     printf("as;%lu\n", (unsigned long) xtimer_now_usec64());
 
 // HIER2
-
+//    xtimer_sleep(60 * 10);
     for (unsigned i = 0; i < ACTUATORS_NUMS; i++) {
         xtimer_usleep(ACTUATOR_DELAY);
-//        unsigned long rand = random_uint32_range(0, 1000);
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
+#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14)
+        unsigned long group = random_uint32_range(0, 5);
+        snprintf(req_uri, 64, "/%s/control/%lu/%04lu", ROOTPFX, (unsigned long) group, (unsigned long) i);
+#else
         snprintf(req_uri, 64, "/%s/control/%s/%04lu", ROOTPFX, hwaddr_str, (unsigned long) i);
+#endif
         prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
         ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
         ccnl_prefix_free(prefix);
-/*
-        xtimer_usleep(100 * 1000);
-        memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-        snprintf(req_uri, 64, "/%s/control/%s/%04lu", ROOTPFX, hwaddr_str, (unsigned long) rand+1000);
-        prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
-        ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
-        ccnl_prefix_free(prefix);
-        xtimer_usleep(100 * 1000);
-        memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-        snprintf(req_uri, 64, "/%s/control/%s/%04lu", ROOTPFX, hwaddr_str, (unsigned long) rand+2000);
-        prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
-        ccnl_send_interest(prefix, int_buf, CCNL_MAX_PACKET_SIZE, NULL, NULL);
-        ccnl_prefix_free(prefix);
-*/
     }
     xtimer_sleep(10);
     printf("ad;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), (unsigned long) num_ints, (unsigned long) num_datas);
@@ -848,40 +859,53 @@ int main(void)
     hopp_set_cb_published(cb_published);
 */
 
-#if defined (CONFIG1) || defined (CONFIG2)
-    (void) tcs;
+#if defined (CONFIG1) || defined (CONFIG2) || defined (CONFIG7) || defined(CONFIG14)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG6)
-    (void) tcs_default;
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
     ccnl_qos_set_tcs(cur_tc, QOS_MAX_TC_ENTRIES);
 
-#if defined (CONFIG1)
+#if defined (CONFIG1) || defined (CONFIG7)
     ccnl_set_pit_strategy_remove(pit_strategy_drop);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+#elif defined(CONFIG13)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+#elif defined(CONFIG14)
+    ccnl_set_pit_strategy_remove(pit_strategy_drop);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
 #elif defined (CONFIG2)
     ccnl_set_pit_strategy_remove(pit_strategy_lru);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined (CONFIG3)
+#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined (CONFIG4)
+#elif defined (CONFIG9) || defined (CONFIG10) || defined (CONFIG16)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+#elif defined(CONFIG12) || defined(CONFIG17)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
-    ccnl_set_cache_strategy_remove(cache_remove_random);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+#elif defined (CONFIG15)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+/*
 #elif defined (CONFIG5)
+#error "hey"
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
     ccnl_set_cache_strategy_remove(cache_remove_random);
-#elif defined (CONFIG6)
-    ccnl_set_pit_strategy_remove(pit_strategy_qos);
-    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
-    ccnl_set_cache_strategy_remove(cache_remove_lru);
+*/
 #endif
 
     (void) rootprefix;
