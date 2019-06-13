@@ -74,7 +74,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
 #endif
 #ifndef REQ_NUMS
-#define REQ_NUMS (110 * 30)
+//#define REQ_NUMS (110 * 30)
+#define REQ_NUMS (510 * 30)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
@@ -89,7 +90,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-#define ACTUATORS_NUMS (200)
+//#define ACTUATORS_NUMS (200)
+#define ACTUATORS_NUMS (1000)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -124,7 +126,7 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
     { "/HK/gas-level", true, true },
 };
 #endif
-#if defined(CONFIG10) || defined(CONFIG11) || defined (CONFIG16)
+#if defined(CONFIG10) || defined(CONFIG11) || defined (CONFIG16) || defined(CONFIG18)
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
     { "/HK/", false, false },
@@ -410,6 +412,7 @@ static uint32_t _count_fib_entries(void) {
     return num_fib_entries;
 }
 
+static void *consumer_event_loop(void *arg) __attribute((used));
 static void *consumer_event_loop(void *arg)
 {
     (void)arg;
@@ -475,6 +478,7 @@ static void *consumer_event_loop(void *arg)
     return 0;
 }
 
+static void *actuators_event_loop(void *arg) __attribute((used));
 static void *actuators_event_loop(void *arg)
 {
     (void)arg;
@@ -861,7 +865,7 @@ int main(void)
 
 #if defined (CONFIG1) || defined (CONFIG2) || defined (CONFIG7) || defined(CONFIG14)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
@@ -883,7 +887,7 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_lru);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11)
+#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG18)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
