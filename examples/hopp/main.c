@@ -887,17 +887,13 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_lru);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG18)
+#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG12) || defined (CONFIG17) || defined (CONFIG18)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
 #elif defined (CONFIG9) || defined (CONFIG10) || defined (CONFIG16)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
-    ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined(CONFIG12) || defined(CONFIG17)
-    ccnl_set_pit_strategy_remove(pit_strategy_qos);
-    ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
 #elif defined (CONFIG15)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
