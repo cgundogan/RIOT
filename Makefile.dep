@@ -898,3 +898,8 @@ endif
 ifneq (,$(filter ecc_%,$(USEMODULE)))
   USEMODULE += ecc
 endif
+
+ifneq (,$(filter hopp,$(USEMODULE)))
+  USEMODULE += evtimer
+  USEPKG += compas
+endif
