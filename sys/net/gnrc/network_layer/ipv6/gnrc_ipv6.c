@@ -763,15 +763,6 @@ static void _receive(gnrc_pktsnip_t *pkt)
             DEBUG("ipv6: forward packet to next hop\n");
 
             /* pkt might not be writable yet, if header was given above */
-            ipv6 = gnrc_pktbuf_start_write(ipv6);
-            if (ipv6 == NULL) {
-                DEBUG("ipv6: unable to get write access to packet: dropping it\n");
-                gnrc_pktbuf_release(pkt);
-                return;
-            }
-
-            /* remove L2 headers around IPV6 */
-            netif_hdr = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
             if (netif_hdr != NULL) {
                 gnrc_pktbuf_remove_snip(pkt, netif_hdr);
             }
