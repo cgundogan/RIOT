@@ -21,10 +21,10 @@
 #endif
 
 #ifndef HOPP_TRICKLE_IMIN
-#define HOPP_TRICKLE_IMIN           (64)
+#define HOPP_TRICKLE_IMIN           (3)
 #endif
 #ifndef HOPP_TRICKLE_IMAX
-#define HOPP_TRICKLE_IMAX           (16)
+#define HOPP_TRICKLE_IMAX           (20)
 #endif
 #ifndef HOPP_TRICKLE_REDCONST
 #define HOPP_TRICKLE_REDCONST       (5)
@@ -39,10 +39,10 @@
 #define HOPP_SOL_PERIOD             (HOPP_SOL_PERIOD_BASE + (random_uint32() % HOPP_SOL_PERIOD_JITTER))
 
 #ifndef HOPP_NAM_PERIOD_BASE
-#define HOPP_NAM_PERIOD_BASE        (50)
+#define HOPP_NAM_PERIOD_BASE        (200)
 #endif
 #ifndef HOPP_NAM_PERIOD_JITTER
-#define HOPP_NAM_PERIOD_JITTER      (10)
+#define HOPP_NAM_PERIOD_JITTER      (100)
 #endif
 #define HOPP_NAM_PERIOD             (HOPP_NAM_PERIOD_BASE + (random_uint32() % HOPP_NAM_PERIOD_JITTER))
 

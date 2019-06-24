@@ -100,11 +100,14 @@ static void hopp_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_
 
 static void hopp_parent_timeout(compas_dodag_t *dodag)
 {
+    (void) dodag;
+/*
     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&pto_msg_evt);
     evtimer_del((evtimer_t *)(&evtimer), (evtimer_event_t *)&sol_msg_evt);
     dodag->parent.alive = false;
     msg_t m = { .type = HOPP_SOL_MSG, .content.value = 0 };
     msg_try_send(&m, hopp_pid);
+*/
 }
 
 static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
@@ -554,7 +557,7 @@ void *hopp(void *arg)
                 nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
                 nam_msg_evts[pos].msg.content.ptr = nce;
                 evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
-                ((evtimer_event_t *)&nam_msg_evts[pos])->offset = HOPP_NAM_PERIOD;
+                ((evtimer_event_t *)&nam_msg_evts[pos])->offset = 10;
                 evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
                 break;
             default:
