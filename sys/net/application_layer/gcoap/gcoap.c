@@ -132,7 +132,7 @@ static void *_event_loop(void *arg)
                 /* reduce retries remaining, double timeout and resend */
                 else {
                     memo->send_limit--;
-                    unsigned i        = COAP_MAX_RETRANSMIT - memo->send_limit;
+                    unsigned i        = 0;
                     uint32_t timeout  = ((uint32_t)COAP_ACK_TIMEOUT << i) * US_PER_SEC;
                     uint32_t variance = ((uint32_t)COAP_ACK_VARIANCE << i) * US_PER_SEC;
                     timeout = random_uint32_range(timeout, timeout + variance);
