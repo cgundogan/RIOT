@@ -77,6 +77,10 @@ void random_bytes(uint8_t *target, size_t n)
 
 uint32_t random_uint32_range(uint32_t a, uint32_t b)
 {
+    if (a == b) {
+        return a;
+    }
+
     assert(a < b);
 
     uint32_t divisor, rand_val, range = b - a;
