@@ -88,10 +88,9 @@ void random_bytes(uint8_t *buf, size_t size);
  * @param[in] a minimum for random number
  * @param[in] b upper bound for random number
  *
- * @pre     (a == b) || (a < b)
+ * @pre     a < b
  *
  * @return  a random number on [a,b)-interval
- * @return  @p a if `(a == b)`
  */
 uint32_t random_uint32_range(uint32_t a, uint32_t b);
 
