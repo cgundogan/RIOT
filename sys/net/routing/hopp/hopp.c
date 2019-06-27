@@ -96,6 +96,7 @@ static void hopp_send_pam(compas_dodag_t *dodag, uint8_t *dst_addr, uint8_t dst_
     ((uint8_t *) pkt->data)[1] = CCNL_ENC_HOPP;
     compas_pam_create(dodag, (compas_pam_t *) (((uint8_t *) pkt->data) + 2));
     hopp_send(pkt, dst_addr, dst_addr_len);
+    print_send_pam();
 }
 
 static void hopp_parent_timeout(compas_dodag_t *dodag)
@@ -137,6 +138,7 @@ static void hopp_send_sol(compas_dodag_t *dodag, bool force_bcast)
 
     compas_sol_create((compas_sol_t *) (((uint8_t *) pkt->data) + 2), flags);
     hopp_send(pkt, addr, addr_len);
+    print_send_sol();
 }
 
 static void hopp_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
@@ -161,12 +163,14 @@ static void hopp_send_nam(compas_dodag_t *dodag, compas_nam_cache_entry_t *nce)
     compas_nam_tlv_add_name(nam, &nce->name);
 
     hopp_send(pkt, dodag->parent.face.face_addr, dodag->parent.face.face_addr_len);
+    print_send_nam(nce->name.name, nce->name.name_len);
 }
 
 static void hopp_handle_pam(struct ccnl_relay_s *relay,
                             compas_dodag_t *dodag, compas_pam_t *pam,
                             uint8_t *src_addr, uint8_t src_addr_len)
 {
+    print_recv_pam();
     uint16_t old_rank = dodag->rank;
 
     int state = compas_pam_parse(dodag, pam, src_addr, src_addr_len);
@@ -313,6 +317,7 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
             compas_name_t cname;
             compas_name_init(&cname, (const char *) (tlv + 1), tlv->length);
 
+            print_recv_nam(cname.name, cname.name_len);
             memcpy(hopp_prefix, cname.name, cname.name_len);
             hopp_prefix[cname.name_len] = '\0';
             compas_nam_cache_entry_t *n = NULL;
@@ -337,6 +342,7 @@ static void hopp_handle_nam(struct ccnl_relay_s *relay, compas_dodag_t *dodag,
 static void hopp_handle_sol(compas_dodag_t *dodag, compas_sol_t *sol,
                             uint8_t *dst_addr, uint8_t dst_addr_len)
 {
+    print_recv_sol();
     if (dodag->rank == COMPAS_DODAG_UNDEF) {
         return;
     }
