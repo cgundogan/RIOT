@@ -28,6 +28,8 @@
 #include "od.h"
 #endif
 
+uint32_t discard_802154_cnt=0;
+
 static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt);
 static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif);
 
@@ -146,6 +148,7 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
             /* nread was checked for <= 0 before so we can safely cast it to
              * unsigned */
             if ((mhr_len == 0) || ((size_t)nread < mhr_len)) {
+                discard_802154_cnt++;
                 DEBUG("_recv_ieee802154: illegally formatted frame received\n");
                 gnrc_pktbuf_release(pkt);
                 return NULL;
@@ -154,12 +157,14 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
             /* mark IEEE 802.15.4 header */
             ieee802154_hdr = gnrc_pktbuf_mark(pkt, mhr_len, GNRC_NETTYPE_UNDEF);
             if (ieee802154_hdr == NULL) {
+                discard_802154_cnt++;
                 DEBUG("_recv_ieee802154: no space left in packet buffer\n");
                 gnrc_pktbuf_release(pkt);
                 return NULL;
             }
             netif_hdr = _make_netif_hdr(ieee802154_hdr->data);
             if (netif_hdr == NULL) {
+                discard_802154_cnt++;
                 DEBUG("_recv_ieee802154: no space left in packet buffer\n");
                 gnrc_pktbuf_release(pkt);
                 return NULL;
