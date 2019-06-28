@@ -168,8 +168,15 @@ static void _compile_sub_unsub(asymcute_req_t *req, asymcute_con_t *con,
     req->arg = (void *)sub;
 }
 
+#ifdef MODULE_JSAC_COMMON
+#include "common.h"
+#endif
+
 static void _req_resend(asymcute_req_t *req, asymcute_con_t *con)
 {
+#ifdef MODULE_JSAC_COMMON
+    _inc_retrans();
+#endif
     event_timeout_set(&req->to_timer, RETRY_TO);
     sock_udp_send(&con->sock, req->data, req->data_len, &con->server_ep);
 }

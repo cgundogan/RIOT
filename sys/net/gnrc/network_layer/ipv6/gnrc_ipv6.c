@@ -34,6 +34,10 @@
 
 #include "net/gnrc/ipv6.h"
 
+#ifdef MODULE_JSAC_COMMON
+#include "common.h"
+#endif
+
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
@@ -249,6 +253,9 @@ static void _send_to_iface(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
     netif->ipv6.stats.tx_bytes += gnrc_pkt_len(pkt->next);
 #endif
 
+#ifdef MODULE_JSAC_COMMON
+    _count_stats(pkt, PKT_SND);
+#endif
 #ifdef MODULE_GNRC_SIXLOWPAN
     if (gnrc_netif_is_6ln(netif)) {
         DEBUG("ipv6: send to 6LoWPAN instead\n");
@@ -627,6 +634,9 @@ static void _receive(gnrc_pktsnip_t *pkt)
 
     assert(pkt != NULL);
 
+#ifdef MODULE_JSAC_COMMON
+    _count_stats(pkt, PKT_RCV);
+#endif
     netif_hdr = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
 
     if (netif_hdr != NULL) {

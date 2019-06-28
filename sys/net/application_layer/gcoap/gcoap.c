@@ -95,6 +95,9 @@ static char _msg_stack[GCOAP_STACK_SIZE];
 static msg_t _msg_queue[GCOAP_MSG_QUEUE_SIZE];
 static sock_udp_t _sock;
 
+#ifdef MODULE_JSAC_COMMON
+#include "common.h"
+#endif
 
 /* Event/Message loop for gcoap _pid thread. */
 static void *_event_loop(void *arg)
@@ -137,6 +140,9 @@ static void *_event_loop(void *arg)
                     /* uint32_t variance = ((uint32_t)COAP_ACK_VARIANCE << i) * US_PER_SEC; */
                     /* timeout = random_uint32_range(timeout, timeout + variance); */
 
+#ifdef MODULE_JSAC_COMMON
+                    _inc_retrans();
+#endif
                     ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
                                                   memo->msg.data.pdu_len,
                                                   &memo->remote_ep);

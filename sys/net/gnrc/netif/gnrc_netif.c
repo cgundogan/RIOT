@@ -35,7 +35,7 @@
 #include "net/gnrc/netif.h"
 #include "net/gnrc/netif/internal.h"
 
-#ifdef CCNL_RIOT
+#if defined(CCNL_RIOT) || defined(MODULE_JSAC_COMMON)
 extern uint32_t netdev_evt_tx_noack;
 #endif
 
@@ -1432,7 +1432,7 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
                  * so no acquire necessary */
                 netif->stats.tx_success++;
                 break;
-#ifdef CCNL_RIOT
+#if defined(CCNL_RIOT) || defined(MODULE_JSAC_COMMON)
             case NETDEV_EVENT_TX_NOACK:
                 netdev_evt_tx_noack++;
                 break;
