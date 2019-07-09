@@ -270,8 +270,8 @@ void hopp_request(struct ccnl_relay_s *relay, compas_nam_cache_entry_t *nce)
     to->flags |= CCNL_FACE_FLAGS_STATIC;
     memset(int_buf, 0, HOPP_INTEREST_BUFSIZE);
 
-    msg_t ms = { .type = CCNL_MSG_CS_DEL, .content.ptr = prefix };
-    msg_try_send(&ms, ccnl_event_loop_pid);
+//    msg_t ms = { .type = CCNL_MSG_CS_DEL, .content.ptr = prefix };
+//    msg_try_send(&ms, ccnl_event_loop_pid);
 
     if (ccnl_send_interest(prefix, int_buf, HOPP_INTEREST_BUFSIZE, NULL, to) < 0) {
         puts("hopp: failed to send Interest");
@@ -563,8 +563,9 @@ void *hopp(void *arg)
                 nam_msg_evts[pos].msg.type = HOPP_NAM_MSG;
                 nam_msg_evts[pos].msg.content.ptr = nce;
                 evtimer_del(&evtimer, (evtimer_event_t *)&nam_msg_evts[pos]);
-                ((evtimer_event_t *)&nam_msg_evts[pos])->offset = 10;
-                evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
+                msg_try_send(&nam_msg_evts[pos].msg, hopp_pid);
+//                ((evtimer_event_t *)&nam_msg_evts[pos])->offset = 5;
+//                evtimer_add_msg(&evtimer, &nam_msg_evts[pos], hopp_pid);
                 break;
             default:
                 break;
