@@ -117,7 +117,6 @@ int _ccnl_content(int argc, char **argv)
     struct ccnl_prefix_s *prefix = ccnl_URItoPrefix(argv[1], CCNL_SUITE_NDNTLV, NULL);
     size_t offs = CCNL_MAX_PACKET_SIZE;
 
-    size_t reslen = 0;
     arg_len = ccnl_ndntlv_prependContent(prefix, (unsigned char*) buf, arg_len, NULL, NULL, &offs, _out, &reslen);
 
     ccnl_prefix_free(prefix);
