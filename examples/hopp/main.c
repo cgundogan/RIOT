@@ -65,17 +65,29 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #ifndef DELAY_REQUEST
 #define DELAY_REQUEST           (10 * 1000000)
 #endif
+#ifndef DELAY_REQUEST_SHORT1
+#define DELAY_REQUEST_SHORT1    (5 * 1000000)
+#endif
 #ifndef DELAY_JITTER
 #define DELAY_JITTER            (2 * 1000000)
 #endif
 #define DELAY_MAX               (DELAY_REQUEST + DELAY_JITTER)
 #define DELAY_MIN               (DELAY_REQUEST - DELAY_JITTER)
+#define DELAY_MAX_SHORT1        (DELAY_REQUEST_SHORT1 + DELAY_JITTER)
+#define DELAY_MIN_SHORT1        (DELAY_REQUEST_SHORT1 - DELAY_JITTER)
 #ifndef REQ_DELAY
 #define REQ_DELAY               (random_uint32_range(DELAY_MIN, DELAY_MAX))
+#endif
+#ifndef REQ_DELAY_SHORT1
+#define REQ_DELAY_SHORT1        (random_uint32_range(DELAY_MIN_SHORT1, DELAY_MAX_SHORT1))
 #endif
 #ifndef REQ_NUMS
 //#define REQ_NUMS (110 * 30)
 #define REQ_NUMS (510 * 30)
+#endif
+#ifndef REQ_NUMS_SHORT1
+//#define REQ_NUMS_SHORT1 (1020 * 30)
+#define REQ_NUMS_SHORT1 (220 * 30)
 #endif
 
 #ifndef ACTUATOR_DELAY_REQUEST
@@ -90,8 +102,8 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY          (random_uint32_range(ACTUATOR_DELAY_MIN, ACTUATOR_DELAY_MAX))
 #endif
 #ifndef ACTUATORS_NUMS
-//#define ACTUATORS_NUMS (200)
-#define ACTUATORS_NUMS (1000)
+#define ACTUATORS_NUMS (200)
+//#define ACTUATORS_NUMS (1000)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -105,6 +117,10 @@ uint32_t num_ints = 0;
 uint32_t num_datas = 0;
 uint32_t num_gasints = 0;
 uint32_t num_gasdatas = 0;
+uint32_t num_pits_qos = 0;
+uint32_t num_pits_noqos = 0;
+uint32_t num_cs_qos = 0;
+uint32_t num_cs_noqos = 0;
 
 #define QOS_MAX_TC_ENTRIES (4)
 
@@ -428,7 +444,7 @@ static void *consumer_event_loop(void *arg)
 //    uint64_t gastimer = xtimer_now_usec64();
 //HIER1
 //    return 0;
-    for (unsigned i = 0; i < REQ_NUMS; i++) {
+    for (unsigned i = 0; i < REQ_NUMS_SHORT1; i++) {
         uint32_t randfwd = random_uint32_range(0, 30);
         fwd = ccnl_relay.fib;
         while (randfwd--) {
@@ -440,7 +456,7 @@ static void *consumer_event_loop(void *arg)
         if (strstr(s, "/HK/sensors") == NULL) {
             continue;
         }
-        delay = (uint32_t)((float)REQ_DELAY/(float)nodes_num);
+        delay = (uint32_t)((float)REQ_DELAY_SHORT1/(float)nodes_num);
         xtimer_usleep(delay);
         snprintf(req_uri, 64, "%s/%05lu", s, (unsigned long) i);
         prefix = ccnl_URItoPrefix(req_uri, CCNL_SUITE_NDNTLV, NULL);
