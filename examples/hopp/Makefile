@@ -1,7 +1,7 @@
 APPLICATION = hopp
 
 # If no BOARD is found in the environment, use this default:
-BOARD ?= native
+BOARD ?= iotlab-m3
 
 BOARD_WHITELIST := fox iotlab-m3 msba2 mulle native pba-d-01-kw2x samr21-xpro
 
@@ -39,6 +39,9 @@ CFLAGS += -D_NETIF_NETAPI_MSG_QUEUE_SIZE=64
 #CFLAGS += -DTLSF_BUFFER="40960"
 CFLAGS += -DTLSF_BUFFER="46080"
 #CFLAGS += -DTLSF_BUFFER="51200"
+
+CFLAGS += -Wno-error=builtin-declaration-mismatch
+CFLAGS += -Wno-error=array-bounds
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
