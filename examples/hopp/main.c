@@ -256,8 +256,10 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
             }
             else if (strstr(s, "/HK/control") != NULL) {
                 printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+                printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
             } else {
                 printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+                printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
             }
             ccnl_interest_remove(relay, oldest);
 
@@ -295,8 +297,10 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
             }
             else if (strstr(s, "/HK/control") != NULL) {
                 printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+                printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
             } else {
                 printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+                printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
             }
             ccnl_interest_remove(relay, oldest);
 
@@ -343,8 +347,10 @@ static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *
         }
         else if (strstr(s, "/HK/control") != NULL) {
             printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+            printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
         } else {
             printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+            printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
         }
         ccnl_interest_remove(relay, oldest);
         return 1;
