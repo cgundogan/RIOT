@@ -229,8 +229,6 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
 
     char s[CCNL_MAX_PREFIX_SIZE];
 
-//    printf("In PIT replacement, pit count: %d\n", relay->pitcnt);
-
     // (Reg, Reg)
     if (!tc->expedited && !tc->reliable) {
         // Drop
@@ -257,9 +255,11 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
             else if (strstr(s, "/HK/control") != NULL) {
                 printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
                 printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
+                num_pits_qos--;
             } else {
                 printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
                 printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
+                num_pits_noqos--;
             }
             ccnl_interest_remove(relay, oldest);
 
@@ -298,9 +298,11 @@ static int pit_strategy_qos(struct ccnl_relay_s *relay, struct ccnl_interest_s *
             else if (strstr(s, "/HK/control") != NULL) {
                 printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
                 printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
+                num_pits_qos--;
             } else {
                 printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
                 printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
+                num_pits_noqos--;
             }
             ccnl_interest_remove(relay, oldest);
 
@@ -347,9 +349,11 @@ static int pit_strategy_lru(struct ccnl_relay_s *relay, struct ccnl_interest_s *
         }
         else if (strstr(s, "/HK/control") != NULL) {
             printf("eap;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+            num_pits_qos--;
             printf("iadelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
         } else {
             printf("esp;%lu;%s;%lu;%lu;%u;0\n", (unsigned long) xtimer_now_usec64(), &s[12], (unsigned long)num_ints, (unsigned long)num_datas, relay->pitcnt);
+            num_pits_noqos--;
             printf("isdelq;%lu;%s;%u;%u;%lu;%lu;%lu;%lu\n", (unsigned long) xtimer_now_usec64(), &s[12], ccnl_relay.pitcnt, ccnl_relay.contentcnt, num_pits_qos, num_pits_noqos, num_cs_qos, num_cs_noqos);
         }
         ccnl_interest_remove(relay, oldest);
@@ -814,6 +818,48 @@ int cache_remove_lru(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
     }
     return 0;
 }
+int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
+int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
+{
+    qos_traffic_class_t *tc = c->tclass;
+
+    char s[CCNL_MAX_PREFIX_SIZE];
+    char s2[CCNL_MAX_PREFIX_SIZE];
+    struct ccnl_content_s *cur, *oldest = NULL;
+
+    if (!tc->reliable) {
+        for (cur = relay->contents; cur; cur = cur->next) {
+            if (!cur->tclass->reliable && (!oldest || cur->last_used < oldest->last_used)) {
+                oldest = cur;
+            }
+        }
+    }
+    else {
+        for (cur = relay->contents; cur; cur = cur->next) {
+            if (!oldest || cur->last_used < oldest->last_used) {
+                oldest = cur;
+            }
+        }
+    }
+
+    if (oldest) {
+        ccnl_prefix_to_str(oldest->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
+        ccnl_prefix_to_str(c->pkt->pfx,s2,CCNL_MAX_PREFIX_SIZE);
+
+        if (strstr(s, "/HK/gas-level") != NULL) {
+            printf("cdgp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[14], &s2[14]);
+        }
+        else if (strstr(s, "/HK/control") != NULL) {
+            printf("cdap;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        } else {
+            printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        }
+        ccnl_content_remove(relay, oldest);
+        return 1;
+    }
+
+    return 0;
+}
 int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
 int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
 {
@@ -900,7 +946,7 @@ int main(void)
 #elif defined(CONFIG13)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
-    ccnl_set_cache_strategy_remove(cache_remove_lru);
+    ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
 #elif defined(CONFIG14)
     ccnl_set_pit_strategy_remove(pit_strategy_drop);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
@@ -912,7 +958,7 @@ int main(void)
 #elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG12) || defined (CONFIG17) || defined (CONFIG18)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
-    ccnl_set_cache_strategy_remove(cache_remove_lru);
+    ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
 #elif defined (CONFIG9) || defined (CONFIG10) || defined (CONFIG16)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
@@ -920,7 +966,7 @@ int main(void)
 #elif defined (CONFIG15)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
-    ccnl_set_cache_strategy_remove(cache_remove_lru);
+    ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
 /*
 #elif defined (CONFIG5)
 #error "hey"
