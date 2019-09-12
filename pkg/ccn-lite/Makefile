@@ -1,7 +1,7 @@
 #PKG_SOURCE_LOCAL ?= $(RIOTBASE)/../ccn-lite
 PKG_NAME=ccn-lite
 PKG_URL=https://github.com/cgundogan/ccn-lite
-PKG_VERSION=42332eee709555fe0b02b701c892a62344a003b3
+PKG_VERSION=e710b2317c610088403ab99e7f5a74948237857c
 PKG_LICENSE=ISC
 
 .PHONY: all ..cmake_version_supported
