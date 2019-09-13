@@ -161,11 +161,11 @@ static const pwm_conf_t pwm_config[] = {
         .ftm        = FTM0,
         .chan       = {
             { .pin = GPIO_PIN(PORT_A, 4), .af = 3, .ftm_chan = 1 },
-            { .pin = GPIO_PIN(PORT_D, 4), .af = 4, .ftm_chan = 4 },
-            { .pin = GPIO_PIN(PORT_D, 6), .af = 4, .ftm_chan = 6 },
-            { .pin = GPIO_PIN(PORT_A, 1), .af = 3, .ftm_chan = 1 }
+            // { .pin = GPIO_PIN(PORT_D, 4), .af = 4, .ftm_chan = 4 },
+            // { .pin = GPIO_PIN(PORT_D, 6), .af = 4, .ftm_chan = 6 },
+            // { .pin = GPIO_PIN(PORT_A, 1), .af = 3, .ftm_chan = 1 }
         },
-        .chan_numof = 4,
+        .chan_numof = 1,
         .ftm_num    = 0
     }
 };
