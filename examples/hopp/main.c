@@ -926,22 +926,26 @@ int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_c
         if (seen_unreliable <= 1) {
             oldest = oldest_reliable;
         }
-        else if ((now - oldest_unreliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
-            oldest = oldest_unreliable;
-        }
         else {
-            oldest = NULL;
+            if ((now - oldest_unreliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+                oldest = oldest_unreliable;
+            }
+            else {
+                oldest = oldest_reliable;
+            }
         }
     }
     else {
         if (seen_unreliable < 1) {
             oldest = oldest_reliable;
         }
-        else if ((now - oldest_reliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
-            oldest = oldest_reliable;
-        }
         else {
-            oldest = oldest_unreliable;
+            if ((now - oldest_reliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+                oldest = oldest_reliable->last_used >= oldest_unreliable->last_used ? oldest_reliable : oldest_unreliable;
+            }
+            else {
+                oldest = oldest_unreliable;
+            }
         }
     }
 
