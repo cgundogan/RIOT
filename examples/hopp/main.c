@@ -99,6 +99,7 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define DELAY_MIN_SHORT1               (DELAY_REQUEST_SHORT1 - DELAY_JITTER)
 #define REQ_DELAY_SHORT1               (random_uint32_range(DELAY_MIN_SHORT1, DELAY_MAX_SHORT1))
 #define REQ_NUMS_SHORT1                (220 * 30)
+
 #define ACTUATOR_DELAY_REQUEST_SHORT1  (25 * 100000)
 #define ACTUATOR_DELAY_JITTER_SHORT1   (1 * 1000000)
 #define ACTUATOR_DELAY_MAX_SHORT1      (ACTUATOR_DELAY_REQUEST_SHORT1 + ACTUATOR_DELAY_JITTER_SHORT1)
@@ -106,10 +107,21 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 #define ACTUATOR_DELAY_SHORT1          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT1, ACTUATOR_DELAY_MAX_SHORT1))
 #define ACTUATOR_NUMS_SHORT1           (400)
 
+#define ACTUATOR_DELAY_REQUEST_SHORT2  (4 * 1000000)
+#define ACTUATOR_DELAY_JITTER_SHORT2   (1 * 1000000)
+#define ACTUATOR_DELAY_MAX_SHORT2      (ACTUATOR_DELAY_REQUEST_SHORT2 + ACTUATOR_DELAY_JITTER_SHORT2)
+#define ACTUATOR_DELAY_MIN_SHORT2      (ACTUATOR_DELAY_REQUEST_SHORT2 - ACTUATOR_DELAY_JITTER_SHORT2)
+#define ACTUATOR_DELAY_SHORT2          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT2, ACTUATOR_DELAY_MAX_SHORT2))
+#define ACTUATOR_NUMS_SHORT2           (250)
+
 #define REQ_DELAY_VAL           REQ_DELAY
 #define REQ_NUMS_VAL            REQ_NUMS
-#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT1
-#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT1
+#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT2
+#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT2
+
+#ifndef QOS_PIT_DEGRADE_TIME
+#define QOS_PIT_DEGRADE_TIME    (100000)
+#endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
 static unsigned char data_buf[CCNL_MAX_PACKET_SIZE];
@@ -138,7 +150,7 @@ static const qos_traffic_class_t tcs_default[QOS_MAX_TC_ENTRIES] =
     { "/HK/gas-level", false, false },
 };
 #endif
-#if defined(CONFIG3) || defined (CONFIG8) || defined (CONFIG9) || defined (CONFIG15)
+#if defined(CONFIG3) || defined (CONFIG8) || defined (CONFIG9) || defined (CONFIG15) || defined (CONFIG19) || defined (CONFIG20)
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
     { "/HK/", false, false },
@@ -523,7 +535,7 @@ static void *actuators_event_loop(void *arg)
     for (unsigned i = 0; i < ACTUATOR_NUMS_VAL; i++) {
         xtimer_usleep(ACTUATOR_DELAY_VAL);
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14)
+#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14) || defined (CONFIG20)
         unsigned long group = random_uint32_range(0, 5);
         snprintf(req_uri, 64, "/%s/control/%lu/%04lu", ROOTPFX, (unsigned long) group, (unsigned long) i);
 #else
@@ -865,6 +877,54 @@ int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
 
     return 0;
 }
+
+int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
+int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
+{
+    qos_traffic_class_t *tc = c->tclass;
+
+    char s[CCNL_MAX_PREFIX_SIZE];
+    char s2[CCNL_MAX_PREFIX_SIZE];
+    struct ccnl_content_s *cur, *oldest = NULL;
+
+    uint32_t now = xtimer_now_usec();
+
+    if (!tc->reliable) {
+        for (cur = relay->contents; cur; cur = cur->next) {
+            if (((!cur->tclass->reliable) || (now - cur->last_used >= QOS_PIT_DEGRADE_TIME))
+                &&
+                (!oldest || cur->last_used < oldest->last_used)) {
+                oldest = cur;
+            }
+        }
+    }
+    else {
+        for (cur = relay->contents; cur; cur = cur->next) {
+            if (!oldest || cur->last_used < oldest->last_used) {
+                oldest = cur;
+            }
+        }
+    }
+
+    if (oldest) {
+        ccnl_prefix_to_str(oldest->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
+        ccnl_prefix_to_str(c->pkt->pfx,s2,CCNL_MAX_PREFIX_SIZE);
+
+        if (strstr(s, "/HK/gas-level") != NULL) {
+            printf("cdgp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[14], &s2[14]);
+        }
+        else if (strstr(s, "/HK/control") != NULL) {
+            printf("cdap;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        } else {
+            printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        }
+        ccnl_content_remove(relay, oldest);
+        return 1;
+    }
+
+    return 0;
+}
+
 int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
 int cache_remove_random(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
 {
@@ -938,7 +998,7 @@ int main(void)
 
 #if defined (CONFIG1) || defined (CONFIG2) || defined (CONFIG7) || defined(CONFIG14)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18) || defined (CONFIG19) || defined (CONFIG20)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
@@ -972,6 +1032,10 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
     ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
+#elif defined (CONFIG19) || defined (CONFIG20)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
+    ccnl_set_cache_strategy_remove(cache_remove_lru_qos_wo_starvation);
 /*
 #elif defined (CONFIG5)
 #error "hey"
