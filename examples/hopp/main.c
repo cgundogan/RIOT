@@ -847,7 +847,7 @@ int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
     for (cur = relay->contents; cur; cur = cur->next) {
         if (!cur->tclass->reliable) {
             if (!oldest_unreliable || cur->last_used < oldest_unreliable->last_used) {
-                oldest_unreliabe = cur;
+                oldest_unreliable = cur;
             }
         }
         else {
