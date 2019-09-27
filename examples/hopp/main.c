@@ -116,11 +116,11 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 
 #define REQ_DELAY_VAL           REQ_DELAY
 #define REQ_NUMS_VAL            REQ_NUMS
-#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT2
-#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT2
+#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY
+#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS
 
 #ifndef QOS_PIT_DEGRADE_TIME
-#define QOS_PIT_DEGRADE_TIME    (100000)
+#define QOS_PIT_DEGRADE_TIME    (250000)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
