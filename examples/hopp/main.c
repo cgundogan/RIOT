@@ -842,21 +842,26 @@ int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
 
     char s[CCNL_MAX_PREFIX_SIZE];
     char s2[CCNL_MAX_PREFIX_SIZE];
-    struct ccnl_content_s *cur, *oldest = NULL;
+    struct ccnl_content_s *cur, *oldest = NULL, *oldest_reliable = NULL, *oldest_unreliable = NULL;
 
-    if (!tc->reliable) {
-        for (cur = relay->contents; cur; cur = cur->next) {
-            if (!cur->tclass->reliable && (!oldest || cur->last_used < oldest->last_used)) {
-                oldest = cur;
+    for (cur = relay->contents; cur; cur = cur->next) {
+        if (!cur->tclass->reliable) {
+            if (!oldest_unreliable || cur->last_used < oldest_unreliable->last_used) {
+                oldest_unreliabe = cur;
+            }
+        }
+        else {
+            if (!oldest_reliable || cur->last_used < oldest_reliable->last_used) {
+                oldest_reliable = cur;
             }
         }
     }
+
+    if (tc->reliable) {
+        oldest = oldest_unreliable ? oldest_unreliable : oldest_reliable;
+    }
     else {
-        for (cur = relay->contents; cur; cur = cur->next) {
-            if (!oldest || cur->last_used < oldest->last_used) {
-                oldest = cur;
-            }
-        }
+        oldest = oldest_unreliable;
     }
 
     if (oldest) {
