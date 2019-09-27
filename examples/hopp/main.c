@@ -885,24 +885,44 @@ int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_c
 
     char s[CCNL_MAX_PREFIX_SIZE];
     char s2[CCNL_MAX_PREFIX_SIZE];
-    struct ccnl_content_s *cur, *oldest = NULL;
+    struct ccnl_content_s *cur, *oldest = NULL, *oldest_reliable = NULL, *oldest_unreliable = NULL;
+
+    unsigned seen_unreliable = 0;
 
     uint32_t now = xtimer_now_usec();
 
-    if (!tc->reliable) {
-        for (cur = relay->contents; cur; cur = cur->next) {
-            if (((!cur->tclass->reliable) || (now - cur->last_used >= QOS_PIT_DEGRADE_TIME))
-                &&
-                (!oldest || cur->last_used < oldest->last_used)) {
-                oldest = cur;
+    for (cur = relay->contents; cur; cur = cur->next) {
+        if (!cur->tclass->reliable) {
+            seen_unreliable++;
+            if (!oldest_unreliable || cur->last_used < oldest_unreliable->last_used) {
+                oldest_unreliable = cur;
             }
+        }
+        else if (!oldest_reliable || cur->last_used < oldest_reliable->last_used) {
+            oldest_reliable = cur;
+        }
+    }
+
+    if (tc->reliable) {
+        if (seen_unreliable <= 1) {
+            oldest = oldest_reliable;
+        }
+        else if ((now - oldest_unreliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+            oldest = oldest_unreliable;
+        }
+        else {
+            oldest = NULL;
         }
     }
     else {
-        for (cur = relay->contents; cur; cur = cur->next) {
-            if (!oldest || cur->last_used < oldest->last_used) {
-                oldest = cur;
-            }
+        if (seen_unreliable < 1) {
+            oldest = oldest_reliable;
+        }
+        else if ((now - oldest_reliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+            oldest = oldest_reliable;
+        }
+        else {
+            oldest = oldest_unreliable;
         }
     }
 
