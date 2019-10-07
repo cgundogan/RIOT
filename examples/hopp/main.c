@@ -116,22 +116,29 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 
 #define ACTUATOR_DELAY_REQUEST_SHORT3  (3 * 1000000)
 #define ACTUATOR_DELAY_JITTER_SHORT3   (1 * 1000000)
-#define ACTUATOR_DELAY_MAX_SHORT3      (ACTUATOR_DELAY_REQUEST_SHORT2 + ACTUATOR_DELAY_JITTER_SHORT2)
-#define ACTUATOR_DELAY_MIN_SHORT3      (ACTUATOR_DELAY_REQUEST_SHORT2 - ACTUATOR_DELAY_JITTER_SHORT2)
-#define ACTUATOR_DELAY_SHORT3          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT2, ACTUATOR_DELAY_MAX_SHORT2))
-#define ACTUATOR_NUMS_SHORT3           (250)
+#define ACTUATOR_DELAY_MAX_SHORT3      (ACTUATOR_DELAY_REQUEST_SHORT3 + ACTUATOR_DELAY_JITTER_SHORT3)
+#define ACTUATOR_DELAY_MIN_SHORT3      (ACTUATOR_DELAY_REQUEST_SHORT3 - ACTUATOR_DELAY_JITTER_SHORT3)
+#define ACTUATOR_DELAY_SHORT3          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT3, ACTUATOR_DELAY_MAX_SHORT3))
+#define ACTUATOR_NUMS_SHORT3           (333)
 
 #define ACTUATOR_DELAY_REQUEST_SHORT4  (2 * 1000000)
 #define ACTUATOR_DELAY_JITTER_SHORT4   (1 * 1000000)
-#define ACTUATOR_DELAY_MAX_SHORT4      (ACTUATOR_DELAY_REQUEST_SHORT2 + ACTUATOR_DELAY_JITTER_SHORT2)
-#define ACTUATOR_DELAY_MIN_SHORT4      (ACTUATOR_DELAY_REQUEST_SHORT2 - ACTUATOR_DELAY_JITTER_SHORT2)
-#define ACTUATOR_DELAY_SHORT4          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT2, ACTUATOR_DELAY_MAX_SHORT2))
-#define ACTUATOR_NUMS_SHORT4           (250)
+#define ACTUATOR_DELAY_MAX_SHORT4      (ACTUATOR_DELAY_REQUEST_SHORT4 + ACTUATOR_DELAY_JITTER_SHORT4)
+#define ACTUATOR_DELAY_MIN_SHORT4      (ACTUATOR_DELAY_REQUEST_SHORT4 - ACTUATOR_DELAY_JITTER_SHORT4)
+#define ACTUATOR_DELAY_SHORT4          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT4, ACTUATOR_DELAY_MAX_SHORT4))
+#define ACTUATOR_NUMS_SHORT4           (500)
+
+#define ACTUATOR_DELAY_REQUEST_SHORT5  (1 * 1000000)
+#define ACTUATOR_DELAY_JITTER_SHORT5   (1 * 1000000)
+#define ACTUATOR_DELAY_MAX_SHORT5      (ACTUATOR_DELAY_REQUEST_SHORT5 + ACTUATOR_DELAY_JITTER_SHORT5)
+#define ACTUATOR_DELAY_MIN_SHORT5      (ACTUATOR_DELAY_REQUEST_SHORT5 - ACTUATOR_DELAY_JITTER_SHORT5)
+#define ACTUATOR_DELAY_SHORT5          (random_uint32_range(ACTUATOR_DELAY_MIN_SHORT5, ACTUATOR_DELAY_MAX_SHORT5))
+#define ACTUATOR_NUMS_SHORT5           (1000)
 
 #define REQ_DELAY_VAL           REQ_DELAY
 #define REQ_NUMS_VAL            REQ_NUMS
-#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT4
-#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT4
+#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT2
+#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT2
 
 #ifndef QOS_PIT_DEGRADE_TIME
 #define QOS_PIT_DEGRADE_TIME    (250000)
@@ -189,6 +196,15 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
     { "/HK/sensors", false, false },
     { "/HK/control", false, true },
     { "/HK/gas-level", false, false },
+};
+#endif
+#if defined(CONFIG21) || defined(CONFIG22) || defined(CONFIG23) || defined(CONFIG24)
+static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
+{
+    { "/HK/", false, false },
+    { "/HK/sensors", true, true },
+    { "/HK/control", false, false },
+    { "/HK/gas-level", true, true },
 };
 #endif
 
@@ -549,7 +565,7 @@ static void *actuators_event_loop(void *arg)
     for (unsigned i = 0; i < ACTUATOR_NUMS_VAL; i++) {
         xtimer_usleep(ACTUATOR_DELAY_VAL);
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14) || defined (CONFIG20)
+#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14) || defined (CONFIG20) || defined (CONFIG23) || defined (CONFIG24)
         unsigned long group = random_uint32_range(0, 5);
         snprintf(req_uri, 64, "/%s/control/%lu/%04lu", ROOTPFX, (unsigned long) group, (unsigned long) i);
 #else
@@ -1041,7 +1057,7 @@ int main(void)
 
 #if defined (CONFIG1) || defined (CONFIG2) || defined (CONFIG7) || defined(CONFIG14)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18) || defined (CONFIG19) || defined (CONFIG20)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18) || defined (CONFIG19) || defined (CONFIG20) || defined (CONFIG21) || defined (CONFIG22) || defined (CONFIG23) || defined (CONFIG24)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
@@ -1063,7 +1079,7 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_lru);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always);
     ccnl_set_cache_strategy_remove(cache_remove_lru);
-#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG12) || defined (CONFIG17) || defined (CONFIG18)
+#elif defined (CONFIG3) || defined (CONFIG4) || defined (CONFIG5) || defined (CONFIG8) || defined (CONFIG11) || defined (CONFIG12) || defined (CONFIG17) || defined (CONFIG18) || defined (CONFIG21) || defined (CONFIG23)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
@@ -1075,7 +1091,7 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
     ccnl_set_cache_strategy_remove(cache_remove_lru_qos);
-#elif defined (CONFIG19) || defined (CONFIG20)
+#elif defined (CONFIG19) || defined (CONFIG20) || defined (CONFIG22) || defined (CONFIG24)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru_qos_wo_starvation);
