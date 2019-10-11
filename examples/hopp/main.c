@@ -137,11 +137,12 @@ static uint32_t _tlsf_heap[TLSF_BUFFER / sizeof(uint32_t)];
 
 #define REQ_DELAY_VAL           REQ_DELAY
 #define REQ_NUMS_VAL            REQ_NUMS
-#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY_SHORT2
-#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS_SHORT2
+#define ACTUATOR_DELAY_VAL      ACTUATOR_DELAY
+#define ACTUATOR_NUMS_VAL       ACTUATOR_NUMS
 
-#ifndef QOS_PIT_DEGRADE_TIME
-#define QOS_PIT_DEGRADE_TIME    (250000)
+#ifndef QOS_CS_DEGRADE_TIME
+#define QOS_CS_DEGRADE_TIME    (1250000)
+//#define QOS_CS_DEGRADE_TIME    (1000000)
 #endif
 
 static unsigned char int_buf[CCNL_MAX_PACKET_SIZE];
@@ -198,7 +199,7 @@ static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
     { "/HK/gas-level", false, false },
 };
 #endif
-#if defined(CONFIG21) || defined(CONFIG22) || defined(CONFIG23) || defined(CONFIG24)
+#if defined(CONFIG21) || defined(CONFIG22) || defined(CONFIG23) || defined(CONFIG24) || defined (CONFIG25) || defined (CONFIG26)
 static const qos_traffic_class_t tcs[QOS_MAX_TC_ENTRIES] =
 {
     { "/HK/", false, false },
@@ -565,7 +566,7 @@ static void *actuators_event_loop(void *arg)
     for (unsigned i = 0; i < ACTUATOR_NUMS_VAL; i++) {
         xtimer_usleep(ACTUATOR_DELAY_VAL);
         memset(int_buf, 0, CCNL_MAX_PACKET_SIZE);
-#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14) || defined (CONFIG20) || defined (CONFIG23) || defined (CONFIG24)
+#if defined (CONFIG7) || defined (CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined(CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined(CONFIG14) || defined (CONFIG20) || defined (CONFIG23) || defined (CONFIG24) || defined (CONFIG25) || defined (CONFIG26)
         unsigned long group = random_uint32_range(0, 5);
         snprintf(req_uri, 64, "/%s/control/%lu/%04lu", ROOTPFX, (unsigned long) group, (unsigned long) i);
 #else
@@ -865,6 +866,42 @@ int cache_remove_lru(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
     }
     return 0;
 }
+int cache_remove_lru_guardtime(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
+int cache_remove_lru_guardtime(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
+{
+    (void) c;
+    char s[CCNL_MAX_PREFIX_SIZE];
+    char s2[CCNL_MAX_PREFIX_SIZE];
+    struct ccnl_content_s *cur, *oldest = NULL;
+
+    uint32_t now = xtimer_now_usec();
+
+    for (cur = relay->contents; cur; cur = cur->next) {
+        if ((now - cur->last_used) >= QOS_CS_DEGRADE_TIME) {
+            if (!oldest || cur->last_used < oldest->last_used) {
+                oldest = cur;
+            }
+        }
+    }
+
+    if (oldest) {
+
+        ccnl_prefix_to_str(oldest->pkt->pfx,s,CCNL_MAX_PREFIX_SIZE);
+        ccnl_prefix_to_str(c->pkt->pfx,s2,CCNL_MAX_PREFIX_SIZE);
+
+        if (strstr(s, "/HK/gas-level") != NULL) {
+            printf("cdgp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[14], &s2[14]);
+        }
+        else if (strstr(s, "/HK/control") != NULL) {
+            printf("cdap;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        } else {
+            printf("cdsp;%lu;%s;%s\n", (unsigned long) xtimer_now_usec64(), &s[12], &s2[12]);
+        }
+        ccnl_content_remove(relay, oldest);
+        return 1;
+    }
+    return 0;
+}
 int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c) __attribute((used));
 int cache_remove_lru_qos(struct ccnl_relay_s *relay, struct ccnl_content_s *c)
 {
@@ -943,7 +980,7 @@ int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_c
             oldest = oldest_reliable;
         }
         else {
-            if ((now - oldest_unreliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+            if ((now - oldest_unreliable->last_used) >= QOS_CS_DEGRADE_TIME) {
                 oldest = oldest_unreliable;
             }
             else {
@@ -956,7 +993,7 @@ int cache_remove_lru_qos_wo_starvation(struct ccnl_relay_s *relay, struct ccnl_c
             oldest = oldest_reliable;
         }
         else {
-            if ((now - oldest_reliable->last_used) >= QOS_PIT_DEGRADE_TIME) {
+            if ((now - oldest_reliable->last_used) >= QOS_CS_DEGRADE_TIME) {
                 oldest = oldest_reliable->last_used >= oldest_unreliable->last_used ? oldest_reliable : oldest_unreliable;
             }
             else {
@@ -1057,7 +1094,7 @@ int main(void)
 
 #if defined (CONFIG1) || defined (CONFIG2) || defined (CONFIG7) || defined(CONFIG14)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs_default;
-#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18) || defined (CONFIG19) || defined (CONFIG20) || defined (CONFIG21) || defined (CONFIG22) || defined (CONFIG23) || defined (CONFIG24)
+#elif defined (CONFIG3) || defined(CONFIG4) || defined(CONFIG5) || defined(CONFIG8) || defined (CONFIG9) || defined(CONFIG10) || defined (CONFIG11) || defined(CONFIG12) || defined(CONFIG13) || defined (CONFIG15) || defined(CONFIG16) || defined(CONFIG17) || defined(CONFIG18) || defined (CONFIG19) || defined (CONFIG20) || defined (CONFIG21) || defined (CONFIG22) || defined (CONFIG23) || defined (CONFIG24) || defined (CONFIG25) || defined (CONFIG26)
     qos_traffic_class_t *cur_tc = (qos_traffic_class_t *) tcs;
 #endif
 
@@ -1095,6 +1132,14 @@ int main(void)
     ccnl_set_pit_strategy_remove(pit_strategy_qos);
     ccnl_set_cache_strategy_cache(cache_decision_solicited_always_for_reliable);
     ccnl_set_cache_strategy_remove(cache_remove_lru_qos_wo_starvation);
+#elif defined(CONFIG25)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru);
+#elif defined(CONFIG26)
+    ccnl_set_pit_strategy_remove(pit_strategy_qos);
+    ccnl_set_cache_strategy_cache(cache_decision_probabilistic);
+    ccnl_set_cache_strategy_remove(cache_remove_lru_guardtime);
 /*
 #elif defined (CONFIG5)
 #error "hey"
