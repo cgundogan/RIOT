@@ -52,6 +52,7 @@ uint32_t num_pits_noqos = 0;
 uint32_t num_cs_qos = 0;
 uint32_t num_cs_noqos = 0;
 
+#define CONFIG1
 #define QOS_MAX_TC_ENTRIES (3)
 
 #if defined (CONFIG1) || defined (CONFIG7) || defined(CONFIG14)
