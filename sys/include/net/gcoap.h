@@ -351,6 +351,7 @@
 #include "net/sock/udp.h"
 #include "net/nanocoap.h"
 #include "xtimer.h"
+#include <oscore/helpers.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -686,6 +687,7 @@ struct gcoap_request_memo {
     void *context;                      /**< ptr to user defined context data */
     xtimer_t response_timer;            /**< Limits wait for response */
     msg_t timeout_msg;                  /**< For response timer */
+    oscore_requestid_t oscore_request_id;
 };
 
 /**
