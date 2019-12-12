@@ -809,6 +809,7 @@ size_t gcoap_req_send(const uint8_t *buf, size_t len,
         memo->resp_handler = resp_handler;
         memo->context = context;
         memcpy(&memo->oscore_request_id, (oscore_requestid_t *)context, sizeof(oscore_requestid_t));
+        memo->oscore_request_id.sctx = ((oscore_requestid_t *)context)->sctx;
         memcpy(&memo->remote_ep, remote, sizeof(sock_udp_ep_t));
 
         switch (msg_type) {
