@@ -123,10 +123,14 @@ static void *_event_loop(void *arg)
     while(1) {
         res = msg_try_receive(&msg_rcvd);
 
+        unsigned long reqtxt1 = 0, reqtxt2 = 0, reqtxt3 = 0;
+
         if (res > 0) {
             switch (msg_rcvd.type) {
             case GCOAP_MSG_TYPE_TIMEOUT: {
+                reqtxt1 = reqtxt2 = reqtxt3 = xtimer_now_usec();
                 gcoap_request_memo_t *memo = (gcoap_request_memo_t *)msg_rcvd.content.ptr;
+                uint16_t msgid = ntohs(*((uint16_t *)(((uint8_t *)(memo->msg.data.pdu_buf)) + 2)));
 
                 /* no retries remaining */
                 if ((memo->send_limit == GCOAP_SEND_LIMIT_NON)
@@ -147,6 +151,7 @@ static void *_event_loop(void *arg)
                     timeout = random_uint32_range(timeout, timeout + variance);
 #endif
 
+                    reqtxt2 = xtimer_now_usec();
                     ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
                                                   memo->msg.data.pdu_len,
                                                   &memo->remote_ep);
@@ -158,6 +163,8 @@ static void *_event_loop(void *arg)
                         DEBUG("gcoap: sock resend failed: %d\n", (int)bytes);
                         _expire_request(memo);
                     }
+                    reqtxt3 = xtimer_now_usec();
+                    printf("rreqtx;%lu;%lu;%lu;%u\n", reqtxt1, reqtxt2, reqtxt3, msgid);
                 }
                 break;
             }
