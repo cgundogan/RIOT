@@ -28,6 +28,8 @@
 #include "sock_types.h"
 #include "gnrc_sock_internal.h"
 
+unsigned long rreqtx = 0;
+
 #ifdef MODULE_XTIMER
 #define _TIMEOUT_MAGIC      (0xF38A0B63U)
 #define _TIMEOUT_MSG_TYPE   (0x8474)
@@ -211,6 +213,7 @@ ssize_t gnrc_sock_send(gnrc_pktsnip_t *payload, sock_ip_ep_t *local,
         status_subs++;
     }
 #endif
+    rreqtx = xtimer_now_usec();
     if (!gnrc_netapi_dispatch_send(type, GNRC_NETREG_DEMUX_CTX_ALL, pkt)) {
         /* this should not happen, but just in case */
         gnrc_pktbuf_release(pkt);
