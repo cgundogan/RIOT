@@ -35,6 +35,8 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
+extern unsigned long rreqtx;
+
 /* Return values used by the _find_resource function. */
 #define GCOAP_RESOURCE_FOUND 0
 #define GCOAP_RESOURCE_WRONG_METHOD -1
@@ -164,7 +166,7 @@ static void *_event_loop(void *arg)
                         _expire_request(memo);
                     }
                     reqtxt3 = xtimer_now_usec();
-                    printf("rreqtx;%lu;%lu;%lu;%u\n", reqtxt1, reqtxt2, reqtxt3, msgid);
+                    printf("rreqtx;%lu;%lu;%lu;%lu;%u\n", reqtxt1, reqtxt2, rreqtx, reqtxt3, msgid);
                 }
                 break;
             }
