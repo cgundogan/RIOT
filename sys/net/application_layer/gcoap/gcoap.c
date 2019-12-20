@@ -34,6 +34,8 @@
 #include "random.h"
 #include "thread.h"
 
+#include "dtls.h"
+
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
@@ -203,6 +205,18 @@ static void *_event_loop(void *arg)
             case GCOAP_MSG_TYPE_TIMEOUT: {
                 reqtxt1 = reqtxt2 = reqtxt3 = xtimer_now_usec();
                 gcoap_request_memo_t *memo = (gcoap_request_memo_t *)msg_rcvd.content.ptr;
+                sock_dtls_session_t session;
+                /* convert sock_udp_ep_t to sock_dtls_session_t */
+                session.dtls_session.port = memo->remote_ep.port;
+                session.dtls_session.ifindex = memo->remote_ep.netif;
+                session.dtls_session.size = sizeof(ipv6_addr_t) + sizeof(unsigned short);
+                memcpy(&session.dtls_session.addr, &memo->remote_ep.addr.ipv6, sizeof(ipv6_addr_t));
+                memcpy(&session.ep, &memo->remote_ep, sizeof(sock_udp_ep_t));
+                if (!dtls_get_peer(_tl_sock.dtls_ctx, &session.dtls_session)) {
+                    DEBUG("RETRANSMISSION: NO SESSION FOUND!\n");
+                    _expire_request(memo);
+                    break;
+                }
                 uint16_t msgid = ntohs(*((uint16_t *)(((uint8_t *)(memo->msg.data.pdu_buf)) + 2)));
 
                 /* no retries remaining */
