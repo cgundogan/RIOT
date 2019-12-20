@@ -117,7 +117,7 @@ static uint8_t _listen_buf[GCOAP_PDU_BUF_SIZE];
  * Use _tl_send() and _tl_recv() as the common names for send/recv functions. */
 #ifdef MODULE_SOCK_DTLS
 static sock_udp_t _udp_sock;
-static sock_dtls_t _tl_sock;
+sock_dtls_t _tl_sock;
 
 static ssize_t _tl_send(sock_dtls_t *sock, const void *data, size_t len,
                         const sock_udp_ep_t *remote)
