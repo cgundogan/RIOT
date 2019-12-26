@@ -515,6 +515,10 @@ static void _send_unicast(gnrc_pktsnip_t *pkt, bool prep_hdr,
 #ifdef MODULE_NETSTATS_IPV6
         netif->ipv6.stats.tx_unicast_count++;
 #endif
+#if EXP_L2_PRINT
+        char dst_str[GNRC_NETIF_HDR_L2ADDR_PRINT_LEN];
+        printf("l2tx;%s;%u\n", gnrc_netif_addr_to_str(nce.l2addr, nce.l2addr_len, dst_str), gnrc_pkt_len(pkt->next));
+#endif
         _send_to_iface(netif, pkt);
     }
 }
@@ -790,6 +794,13 @@ static void _receive(gnrc_pktsnip_t *pkt)
     }
     /* extract header */
     hdr = (ipv6_hdr_t *)ipv6->data;
+
+#if EXP_L2_PRINT
+    char src_str[GNRC_NETIF_HDR_L2ADDR_PRINT_LEN];
+    printf("l2rx;%s;%u\n", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_src_addr((gnrc_netif_hdr_t *)netif_hdr->data),
+                                                  ((gnrc_netif_hdr_t *)netif_hdr->data)->src_l2addr_len, src_str),
+           byteorder_ntohs(hdr->len));
+#endif
 
     if (hdr->hl == 0) {
         /* This is an illegal value in any case, not just in case of a

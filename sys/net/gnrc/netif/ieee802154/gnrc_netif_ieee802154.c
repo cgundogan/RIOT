@@ -203,11 +203,6 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
             od_hex_dump(pkt->data, nread, OD_WIDTH_DEFAULT);
 #endif
 #endif
-#if EXP_L2_PRINT
-            char src_str[GNRC_NETIF_HDR_L2ADDR_PRINT_LEN];
-            printf("l2rx;%s;%u\n", gnrc_netif_addr_to_str(gnrc_netif_hdr_get_src_addr(hdr),
-                                                          hdr->src_l2addr_len, src_str), nread);
-#endif
             gnrc_pktbuf_remove_snip(pkt, ieee802154_hdr);
             LL_APPEND(pkt, netif_hdr);
         }
@@ -299,11 +294,6 @@ static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
     }
 #else
     res = dev->driver->send(dev, &iolist);
-#endif
-
-#if EXP_L2_PRINT
-    char dst_str[GNRC_NETIF_HDR_L2ADDR_PRINT_LEN];
-    printf("l2tx;%s;%u\n", gnrc_netif_addr_to_str(dst, dst_len, dst_str), res);
 #endif
 
     /* release old data */
