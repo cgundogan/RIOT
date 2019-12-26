@@ -199,6 +199,11 @@ static void *_event_loop(void *arg)
         res = msg_try_receive(&msg_rcvd);
 
         unsigned long reqtxt1 = 0, reqtxt2 = 0, reqtxt3 = 0;
+        uint16_t msgid;
+        (void) reqtxt1;
+        (void) reqtxt2;
+        (void) reqtxt3;
+        (void) msgid;
 
         if (res > 0) {
             switch (msg_rcvd.type) {
@@ -217,7 +222,7 @@ static void *_event_loop(void *arg)
                     _expire_request(memo);
                     break;
                 }
-                uint16_t msgid = ntohs(*((uint16_t *)(((uint8_t *)(memo->msg.data.pdu_buf)) + 2)));
+                msgid = ntohs(*((uint16_t *)(((uint8_t *)(memo->msg.data.pdu_buf)) + 2)));
 
                 /* no retries remaining */
                 if ((memo->send_limit == GCOAP_SEND_LIMIT_NON)
@@ -252,7 +257,9 @@ static void *_event_loop(void *arg)
                         _expire_request(memo);
                     }
                     reqtxt3 = xtimer_now_usec();
+#if EXP_L2_PRINT==0
                     printf("rreqtx;%lu;%lu;%lu;%lu;%u\n", reqtxt1, reqtxt2, rreqtx, reqtxt3, msgid);
+#endif
                 }
                 break;
             }
