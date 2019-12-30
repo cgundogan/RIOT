@@ -30,11 +30,13 @@
 #define DTLS_HANDSHAKE_BUFSIZE  (256)       /**< Size buffer used in handshake
                                                 to hold credentials */
 /* ECC handshake takes more time */
+#ifndef DTLS_HANDSHAKE_TIMEOUT
 #ifdef DTLS_ECC
 #define DTLS_HANDSHAKE_TIMEOUT  (30 * US_PER_SEC)
 #else
 #define DTLS_HANDSHAKE_TIMEOUT  (1 * US_PER_SEC)
 #endif  /* DTLS_ECC */
+#endif
 
 static void _timeout_callback(void *arg);
 
@@ -109,6 +111,9 @@ static int _write(struct dtls_context_t *ctx, session_t *session, uint8_t *buf,
     _session_to_ep(session, &remote);
     remote.family = AF_INET6;
 
+    if (buf[0] != 23) {
+        xtimer_usleep(200000);
+    }
     ssize_t res = sock_udp_send(sock->udp_sock, buf, len, &remote);
     if (res < 0) {
         DEBUG("sock_dtls: failed to send DTLS record: %zd\n", res);
