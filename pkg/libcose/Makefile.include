@@ -7,6 +7,9 @@ endif
 ifneq (,$(filter libcose_crypt_c25519,$(USEMODULE)))
   CFLAGS += -DCRYPTO_C25519
 endif
+ifneq (,$(filter libcose_crypt_tinydtls,$(USEMODULE)))
+  CFLAGS += -DCRYPTO_TINYDTLS
+endif
 
 # Declare pseudomodules here to be selfcontained
 PSEUDOMODULES += libcose_crypt_%
