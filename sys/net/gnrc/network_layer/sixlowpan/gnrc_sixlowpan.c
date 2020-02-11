@@ -24,6 +24,7 @@
 #include "net/gnrc/sixlowpan/iphc.h"
 #include "net/gnrc/netif.h"
 #include "net/sixlowpan.h"
+#include "xtimer.h"
 
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
@@ -36,6 +37,8 @@ static char _stack[GNRC_SIXLOWPAN_STACK_SIZE + THREAD_EXTRA_STACKSIZE_PRINTF];
 static char _stack[GNRC_SIXLOWPAN_STACK_SIZE];
 #endif
 
+uint32_t mytxtime = 0;
+uint32_t myrxtime = 0;
 
 /* handles GNRC_NETAPI_MSG_TYPE_RCV commands */
 static void _receive(gnrc_pktsnip_t *pkt);
@@ -86,11 +89,13 @@ void gnrc_sixlowpan_dispatch_recv(gnrc_pktsnip_t *pkt, void *context,
     /* just assume normal IPv6 traffic */
     type = GNRC_NETTYPE_IPV6;
 #endif  /* MODULE_GNRC_IPV6 */
+    uint32_t tmp = xtimer_now_usec() - myrxtime;
     if (!gnrc_netapi_dispatch_receive(type,
                                       GNRC_NETREG_DEMUX_CTX_ALL, pkt)) {
         DEBUG("6lo: No receivers for this packet found\n");
         gnrc_pktbuf_release(pkt);
     }
+    printf("frx;%lu\n", (unsigned long) tmp);
 }
 
 void gnrc_sixlowpan_dispatch_send(gnrc_pktsnip_t *pkt, void *context,
@@ -100,11 +105,13 @@ void gnrc_sixlowpan_dispatch_send(gnrc_pktsnip_t *pkt, void *context,
     (void)page;
     assert(pkt->type == GNRC_NETTYPE_NETIF);
     gnrc_netif_hdr_t *hdr = pkt->data;
+    uint32_t tmp = xtimer_now_usec() - mytxtime;
     if (gnrc_netapi_send(hdr->if_pid, pkt) < 1) {
         DEBUG("6lo: unable to send %p over interface %u\n", (void *)pkt,
               hdr->if_pid);
         gnrc_pktbuf_release(pkt);
     }
+    printf("ftx;%lu\n", (unsigned long) tmp);
 }
 
 void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
@@ -117,6 +124,7 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
     size_t datagram_size = gnrc_pkt_len(pkt->next);
     DEBUG("6lo: iface->sixlo.max_frag_size = %u for interface %i\n",
           netif->sixlo.max_frag_size, netif->pid);
+    mytxtime = xtimer_now_usec();
     if ((netif->sixlo.max_frag_size == 0) ||
         (datagram_size <= netif->sixlo.max_frag_size)) {
         DEBUG("6lo: Dispatch for sending\n");
@@ -345,6 +353,7 @@ static void *_event_loop(void *args)
         switch (msg.type) {
             case GNRC_NETAPI_MSG_TYPE_RCV:
                 DEBUG("6lo: GNRC_NETDEV_MSG_TYPE_RCV received\n");
+                myrxtime = xtimer_now_usec();
                 _receive(msg.content.ptr);
                 break;
 
@@ -363,6 +372,7 @@ static void *_event_loop(void *args)
             case GNRC_SIXLOWPAN_FRAG_FB_SND_MSG:
                 DEBUG("6lo: send fragmented event received\n");
 #ifdef MODULE_GNRC_SIXLOWPAN_FRAG
+                mytxtime = xtimer_now_usec();
                 gnrc_sixlowpan_frag_send(NULL, msg.content.ptr, 0);
 #else   /* MODULE_GNRC_SIXLOWPAN_FRAG_FB */
                 DEBUG("6lo: No fragmentation implementation available to sent\n");

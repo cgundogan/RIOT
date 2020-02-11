@@ -26,6 +26,7 @@
 #include "net/gnrc/netif.h"
 #include "net/sixlowpan.h"
 #include "utlist.h"
+#include "xtimer.h"
 
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
@@ -34,7 +35,6 @@
 /* For PRIu16 etc. */
 #include <inttypes.h>
 #endif
-
 
 static inline uint16_t _floor8(uint16_t length)
 {

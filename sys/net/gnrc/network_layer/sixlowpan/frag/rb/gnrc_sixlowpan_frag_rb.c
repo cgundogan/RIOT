@@ -38,6 +38,8 @@
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
+extern uint32_t myrxtime;
+
 /* estimated fragment payload size to determinate RBUF_INT_SIZE, default to
  * MAC payload size - fragment header. */
 #ifndef GNRC_SIXLOWPAN_FRAG_SIZE
@@ -613,6 +615,11 @@ int gnrc_sixlowpan_frag_rb_dispatch_when_complete(gnrc_sixlowpan_frag_rb_t *rbuf
         gnrc_sixlowpan_dispatch_recv(rbuf->pkt, NULL, 0);
         _tmp_rm(rbuf);
     }
+    else {
+        uint32_t temp = xtimer_now_usec() - myrxtime;
+        printf("frx;%lu\n", (unsigned long) temp);
+    }
+
     return res;
 }
 
