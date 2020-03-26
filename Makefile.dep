@@ -856,6 +856,11 @@ ifneq (,$(filter gcoap,$(USEMODULE)))
   USEMODULE += event_timeout
 endif
 
+ifneq (,$(filter gcoap_forward_proxy,$(USEMODULE)))
+  USEMODULE += gcoap
+  USEMODULE += uri_parser
+endif
+
 ifneq (,$(filter luid,$(USEMODULE)))
   FEATURES_OPTIONAL += periph_cpuid
 endif

@@ -33,6 +33,8 @@
 #include "random.h"
 #include "thread.h"
 
+#include "net/gcoap/forward_proxy.h"
+
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
@@ -280,6 +282,24 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
     sock_udp_ep_t *observer             = NULL;
     gcoap_observe_memo_t *memo          = NULL;
     gcoap_observe_memo_t *resource_memo = NULL;
+
+    /* if forward proxy is not compiled, this function returns the
+     * constant -ENOTSUP. Most (?) compilers are able to remove the
+     * below code, since none of the if conditions check for that. */
+    int proxy_res = gcoap_forward_proxy_request_parse(pdu, remote);
+    /* found a valid Proxy-Uri, try to forward now! */
+    if (proxy_res == 0) {
+        /* stop processing of request */
+        return 0;
+    }
+    /* Proxy-Uri malformed, reply with 4.02 */
+    else if (proxy_res == -EINVAL) {
+        return gcoap_response(pdu, buf, len, COAP_CODE_BAD_OPTION);
+    }
+    /* scheme not supported */
+    else if (proxy_res == -EPERM) {
+        return gcoap_response(pdu, buf, len, COAP_CODE_PROXYING_NOT_SUPPORTED);
+    }
 
     switch (_find_resource(pdu, &resource, &listener)) {
         case GCOAP_RESOURCE_WRONG_METHOD:
