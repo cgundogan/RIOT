@@ -66,6 +66,28 @@ ifneq (,$(filter littlefs2,$(USEMODULE)))
   USEMODULE += mtd
 endif
 
+ifneq (,$(filter gcoap,$(USEMODULE)))
+  USEMODULE += nanocoap
+  USEMODULE += gnrc_sock_async
+  USEMODULE += sock_async_event
+  USEMODULE += sock_util
+  USEMODULE += event_callback
+  USEMODULE += event_timeout
+endif
+
+ifneq (,$(filter gcoap_forward_proxy,$(USEMODULE)))
+  USEMODULE += gcoap
+  USEMODULE += uri_parser
+endif
+
+ifneq (,$(filter luid,$(USEMODULE)))
+  FEATURES_OPTIONAL += periph_cpuid
+endif
+
+ifneq (,$(filter nanocoap_%,$(USEMODULE)))
+  USEMODULE += nanocoap
+endif
+
 ifneq (,$(filter fatfs_vfs,$(USEMODULE)))
   USEPKG += fatfs
   USEMODULE += vfs
