@@ -179,7 +179,7 @@ static void _on_sock_evt(sock_udp_t *sock, sock_async_flags_t type, void *arg)
                 size_t pdu_len = _handle_req(&pdu, _listen_buf, sizeof(_listen_buf),
                                              &remote);
                 if (pdu_len > 0) {
-                    ssize_t bytes = sock_udp_send(sock, _listen_buf, pdu_len,
+                    ssize_t bytes = gcoap_dispatch(_listen_buf, pdu_len,
                                                   &remote);
                     if (bytes <= 0) {
                         DEBUG("gcoap: send response failed: %d\n", (int)bytes);
@@ -258,8 +258,9 @@ static void _on_resp_timeout(void *arg) {
 #endif
         event_timeout_set(&memo->resp_evt_tmout, timeout);
 
-        ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
-                                      memo->msg.data.pdu_len, &memo->remote_ep);
+        ssize_t bytes = gcoap_dispatch(memo->msg.data.pdu_buf,
+                                       memo->msg.data.pdu_len,
+                                       &memo->remote_ep);
         if (bytes <= 0) {
             DEBUG("gcoap: sock resend failed: %d\n", (int)bytes);
             _expire_request(memo);
@@ -834,7 +835,7 @@ size_t gcoap_req_send_report(const uint8_t *buf, size_t len,
         }
     }
 
-    ssize_t res = sock_udp_send(&_sock, buf, len, remote);
+    ssize_t res = gcoap_dispatch(buf, len, (sock_udp_ep_t *)remote);
     if (res <= 0) {
         if (memo != NULL) {
             if (msg_type == COAP_TYPE_CON) {
@@ -916,7 +917,7 @@ size_t gcoap_obs_send(const uint8_t *buf, size_t len,
     _find_obs_memo_resource(&memo, resource);
 
     if (memo) {
-        ssize_t bytes = sock_udp_send(&_sock, buf, len, memo->observer);
+        ssize_t bytes = gcoap_dispatch(buf, len, memo->observer);
         return (size_t)((bytes > 0) ? bytes : 0);
     }
     else {
@@ -1029,6 +1030,11 @@ int gcoap_add_qstring(coap_pkt_t *pdu, const char *key, const char *val)
     qs[len] = '\0';
 
     return coap_opt_add_string(pdu, COAP_OPT_URI_QUERY, qs, '&');
+}
+
+ssize_t gcoap_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote)
+{
+    return sock_udp_send(&_sock, buf, len, remote);
 }
 
 /** @} */

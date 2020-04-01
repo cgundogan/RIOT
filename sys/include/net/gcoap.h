@@ -972,6 +972,20 @@ ssize_t gcoap_encode_link(const coap_resource_t *resource, char *buf,
  */
 int gcoap_add_qstring(coap_pkt_t *pdu, const char *key, const char *val);
 
+/**
+ * @brief   Sends a buffer containing a CoAP message to the @p remote endpoint
+ *
+ * @param[in] buf    Buffer that contains the CoAP message to be sent
+ * @param[in] len    Length of @p buf
+ * @param[in] remote Remote endpoint to send the message to
+ *
+ * @note see sock_udp_send() for all return valus.
+ *
+ * @return  length of the packet
+ * @return  < 0 on error
+ */
+ssize_t gcoap_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote);
+
 #ifdef __cplusplus
 }
 #endif
