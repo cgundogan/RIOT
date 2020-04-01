@@ -986,6 +986,18 @@ int gcoap_add_qstring(coap_pkt_t *pdu, const char *key, const char *val);
  */
 ssize_t gcoap_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote);
 
+/**
+ * @brief  Finds the memo for an outstanding request within the
+ *         _coap_state.open_reqs array. Matches on remote endpoint and
+ *         token.
+ *
+ * @param[out] memo_ptr   Registered request memo, or NULL if not found
+ * @param[in]  src_pdu    PDU for token to match
+ * @param[in]  remote     Remote endpoint to match
+ */
+void gcoap_find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
+                         const sock_udp_ep_t *remote);
+
 #ifdef __cplusplus
 }
 #endif

@@ -53,8 +53,6 @@ static ssize_t _well_known_core_handler(coap_pkt_t* pdu, uint8_t *buf, size_t le
 static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
                                                          sock_udp_ep_t *remote);
 static void _expire_request(gcoap_request_memo_t *memo);
-static void _find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *pdu,
-                           const sock_udp_ep_t *remote);
 static int _find_resource(coap_pkt_t *pdu, const coap_resource_t **resource_ptr,
                                             gcoap_listener_t **listener_ptr);
 static int _find_observer(sock_udp_ep_t **observer, sock_udp_ep_t *remote);
@@ -199,7 +197,7 @@ empty_as_response:
         case COAP_CLASS_SUCCESS:
         case COAP_CLASS_CLIENT_FAILURE:
         case COAP_CLASS_SERVER_FAILURE:
-            _find_req_memo(&memo, &pdu, &remote);
+            gcoap_find_req_memo(&memo, &pdu, &remote);
             if (memo) {
                 switch (coap_get_type(&pdu)) {
                 case COAP_TYPE_NON:
@@ -454,16 +452,8 @@ static int _find_resource(coap_pkt_t *pdu, const coap_resource_t **resource_ptr,
     return ret;
 }
 
-/*
- * Finds the memo for an outstanding request within the _coap_state.open_reqs
- * array. Matches on remote endpoint and token.
- *
- * memo_ptr[out] -- Registered request memo, or NULL if not found
- * src_pdu[in] -- PDU for token to match
- * remote[in] -- Remote endpoint to match
- */
-static void _find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
-                           const sock_udp_ep_t *remote)
+void gcoap_find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
+                         const sock_udp_ep_t *remote)
 {
     *memo_ptr = NULL;
     /* no need to initialize struct; we only care about buffer contents below */
