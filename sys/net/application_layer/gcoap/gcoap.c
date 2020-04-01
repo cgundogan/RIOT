@@ -746,9 +746,10 @@ ssize_t gcoap_finish(coap_pkt_t *pdu, size_t payload_len, unsigned format)
     return pdu->payload_len + (pdu->payload - (uint8_t *)pdu->hdr);
 }
 
-size_t gcoap_req_send(const uint8_t *buf, size_t len,
-                      const sock_udp_ep_t *remote,
-                      gcoap_resp_handler_t resp_handler, void *context)
+size_t gcoap_req_send_report(const uint8_t *buf, size_t len,
+                             const sock_udp_ep_t *remote,
+                             gcoap_request_memo_t **report_memo,
+                             gcoap_resp_handler_t resp_handler, void *context)
 {
     gcoap_request_memo_t *memo = NULL;
     unsigned msg_type  = (*buf & 0x30) >> 4;
@@ -846,6 +847,10 @@ size_t gcoap_req_send(const uint8_t *buf, size_t len,
         }
         DEBUG("gcoap: sock send failed: %d\n", (int)res);
     }
+    if (report_memo) {
+        *report_memo = memo;
+    }
+
     return (size_t)((res > 0) ? res : 0);
 }
 

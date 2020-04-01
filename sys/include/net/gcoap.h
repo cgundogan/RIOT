@@ -802,6 +802,25 @@ static inline ssize_t gcoap_request(coap_pkt_t *pdu, uint8_t *buf, size_t len,
 
 /**
  * @brief   Sends a buffer containing a CoAP request to the provided endpoint
+ *          and reports back the gcoap_request_memo_t that was used
+ *
+ * @param[in] buf           Buffer containing the PDU
+ * @param[in] len           Length of the buffer
+ * @param[in] remote        Destination for the packet
+ * @param[in] report_memo   Pointer to the memo used for sending the request
+ * @param[in] resp_handler  Callback when response received, may be NULL
+ * @param[in] context       User defined context passed to the response handler
+ *
+ * @return  length of the packet
+ * @return  0 if cannot send
+ */
+size_t gcoap_req_send_report(const uint8_t *buf, size_t len,
+                             const sock_udp_ep_t *remote,
+                             gcoap_request_memo_t **memo,
+                             gcoap_resp_handler_t resp_handler, void *context);
+
+/**
+ * @brief   Sends a buffer containing a CoAP request to the provided endpoint
  *
  * @param[in] buf           Buffer containing the PDU
  * @param[in] len           Length of the buffer
@@ -812,9 +831,13 @@ static inline ssize_t gcoap_request(coap_pkt_t *pdu, uint8_t *buf, size_t len,
  * @return  length of the packet
  * @return  0 if cannot send
  */
-size_t gcoap_req_send(const uint8_t *buf, size_t len,
-                      const sock_udp_ep_t *remote,
-                      gcoap_resp_handler_t resp_handler, void *context);
+static inline size_t gcoap_req_send(const uint8_t *buf, size_t len,
+                                    const sock_udp_ep_t *remote,
+                                    gcoap_resp_handler_t resp_handler,
+                                    void *context)
+{
+    return gcoap_req_send_report(buf, len, remote, NULL, resp_handler, context);
+}
 
 /**
  * @brief   Initializes a CoAP response packet on a buffer
