@@ -5,6 +5,8 @@
 # directory for more details.
 #
 
+menu "Kernel"
+
 config MOD_CORE
     bool
     default y
@@ -17,6 +19,9 @@ config MOD_CORE_INIT
     help
         Kernel initialization module.
 
+config MOD_CORE_MBOX
+    bool "Kernel message box module"
+
 config MOD_CORE_MSG
     bool "Kernel messaging module"
     default y
@@ -28,3 +33,5 @@ config MOD_CORE_PANIC
     default y
     help
         Kernel crash handling module.
+
+endmenu # Kernel
