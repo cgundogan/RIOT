@@ -32,7 +32,7 @@
 #include "net/gnrc/rpl/p2p_dodag.h"
 #endif
 
-#define ENABLE_DEBUG    (0)
+#define ENABLE_DEBUG    (1)
 #include "debug.h"
 
 static char _stack[GNRC_RPL_STACK_SIZE];
@@ -217,7 +217,7 @@ static void _parent_timeout(gnrc_rpl_parent_t *parent)
         return;
     }
 
-    evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&parent->timeout_event);
+    evtimer_del(&gnrc_rpl_evtimer, &parent->timeout_event.event);
 
     if (parent->state == GNRC_RPL_PARENT_ACTIVE) {
         parent->state = GNRC_RPL_PARENT_STALE;
@@ -235,7 +235,8 @@ static void _parent_timeout(gnrc_rpl_parent_t *parent)
         return;
     }
 
-    ((evtimer_event_t *)&(parent->timeout_event))->offset = GNRC_RPL_PARENT_PROBE_INTERVAL;
+    parent->timeout_event.event.offset = GNRC_RPL_PARENT_PROBE_INTERVAL;
+    printf("PARENT TO: %lu\n", parent->timeout_event.event.offset);
     parent->timeout_event.msg.type = GNRC_RPL_MSG_TYPE_PARENT_TIMEOUT;
     evtimer_add_msg(&gnrc_rpl_evtimer, &parent->timeout_event, gnrc_rpl_pid);
 }
@@ -259,6 +260,7 @@ static void *_event_loop(void *args)
         DEBUG("RPL: waiting for incoming message.\n");
         msg_receive(&msg);
 
+        printf("THREAD: %d\n", msg.sender_pid);
         switch (msg.type) {
 #ifdef MODULE_GNRC_RPL_P2P
             case GNRC_RPL_MSG_TYPE_LIFETIME_UPDATE:

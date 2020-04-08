@@ -33,7 +33,7 @@
 #include "net/gnrc/rpl/p2p_dodag.h"
 #endif
 
-#define ENABLE_DEBUG    (0)
+#define ENABLE_DEBUG    (1)
 #include "debug.h"
 
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
@@ -211,8 +211,8 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
         (*parent)->state = GNRC_RPL_PARENT_ACTIVE;
         (*parent)->addr = *addr;
         (*parent)->rank = GNRC_RPL_INFINITE_RANK;
-        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), (evtimer_event_t *)(&(*parent)->timeout_event));
-        ((evtimer_event_t *)(&(*parent)->timeout_event))->next = NULL;
+        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &(*parent)->timeout_event.event);
+//        ((evtimer_event_t *)(&(*parent)->timeout_event))->next = NULL;
         (*parent)->timeout_event.msg.type = GNRC_RPL_MSG_TYPE_PARENT_TIMEOUT;
         (*parent)->timeout_event.msg.content.ptr = (*parent);
         return true;
@@ -241,7 +241,8 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
         }
     }
     LL_DELETE(dodag->parents, parent);
-    evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), (evtimer_event_t *)&parent->timeout_event);
+    evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &parent->timeout_event.event);
+    puts("REMOVE PARENT");
     memset(parent, 0, sizeof(gnrc_rpl_parent_t));
     return true;
 }
@@ -277,8 +278,9 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
     /* update Parent lifetime */
     if ((parent != NULL) && (parent->state != GNRC_RPL_PARENT_UNUSED)) {
         parent->state = GNRC_RPL_PARENT_ACTIVE;
-        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), (evtimer_event_t *)&parent->timeout_event);
-        ((evtimer_event_t *)&(parent->timeout_event))->offset = dodag->default_lifetime * dodag->lifetime_unit * MS_PER_SEC;
+        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &parent->timeout_event.event);
+        parent->timeout_event.event.offset = dodag->default_lifetime * dodag->lifetime_unit * MS_PER_SEC;
+        printf("PARENT UPDATE TO: %d, %d, %lu\n", dodag->default_lifetime, dodag->lifetime_unit, parent->timeout_event.event.offset);
         parent->timeout_event.msg.type = GNRC_RPL_MSG_TYPE_PARENT_TIMEOUT;
         evtimer_add_msg(&gnrc_rpl_evtimer, &parent->timeout_event, gnrc_rpl_pid);
 #ifdef MODULE_GNRC_RPL_P2P
@@ -330,6 +332,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
         /* no-path DAOs only for the storing mode */
         if ((dodag->instance->mop == GNRC_RPL_MOP_STORING_MODE_NO_MC) ||
             (dodag->instance->mop == GNRC_RPL_MOP_STORING_MODE_MC)) {
+            puts("DAO FOR NEW BEST");
             gnrc_rpl_send_DAO(dodag->instance, &old_best->addr, 0);
             gnrc_rpl_delay_dao(dodag);
         }
@@ -354,6 +357,7 @@ static gnrc_rpl_parent_t *_gnrc_rpl_find_preferred_parent(gnrc_rpl_dodag_t *doda
     LL_FOREACH_SAFE(dodag->parents, elt, tmp) {
         if (DAGRANK(dodag->my_rank, dodag->instance->min_hop_rank_inc)
             <= DAGRANK(elt->rank, dodag->instance->min_hop_rank_inc)) {
+            puts("RANK WORSE REMOVE PARENT");
             gnrc_rpl_parent_remove(elt);
         }
     }
