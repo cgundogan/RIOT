@@ -118,8 +118,8 @@ bool gnrc_rpl_instance_remove(gnrc_rpl_instance_t *inst)
 #endif
     gnrc_rpl_dodag_remove_all_parents(dodag);
     trickle_stop(&dodag->trickle);
-    evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&dodag->dao_event);
-    evtimer_del(&gnrc_rpl_evtimer, (evtimer_event_t *)&inst->cleanup_event);
+    evtimer_del(&gnrc_rpl_evtimer, &dodag->dao_event.event);
+    evtimer_del(&gnrc_rpl_evtimer, &inst->cleanup_event.event);
     memset(inst, 0, sizeof(gnrc_rpl_instance_t));
     return true;
 }
@@ -211,7 +211,7 @@ bool gnrc_rpl_parent_add_by_addr(gnrc_rpl_dodag_t *dodag, ipv6_addr_t *addr,
         (*parent)->state = GNRC_RPL_PARENT_ACTIVE;
         (*parent)->addr = *addr;
         (*parent)->rank = GNRC_RPL_INFINITE_RANK;
-        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &(*parent)->timeout_event.event);
+        evtimer_del(&gnrc_rpl_evtimer, &(*parent)->timeout_event.event);
 //        ((evtimer_event_t *)(&(*parent)->timeout_event))->next = NULL;
         (*parent)->timeout_event.msg.type = GNRC_RPL_MSG_TYPE_PARENT_TIMEOUT;
         (*parent)->timeout_event.msg.content.ptr = (*parent);
@@ -241,7 +241,7 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
         }
     }
     LL_DELETE(dodag->parents, parent);
-    evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &parent->timeout_event.event);
+    evtimer_del(&gnrc_rpl_evtimer, &parent->timeout_event.event);
     puts("REMOVE PARENT");
     memset(parent, 0, sizeof(gnrc_rpl_parent_t));
     return true;
@@ -249,8 +249,8 @@ bool gnrc_rpl_parent_remove(gnrc_rpl_parent_t *parent)
 
 void gnrc_rpl_cleanup_start(gnrc_rpl_dodag_t *dodag)
 {
-    evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), (evtimer_event_t *)&dodag->instance->cleanup_event);
-    ((evtimer_event_t *)&(dodag->instance->cleanup_event))->offset = GNRC_RPL_CLEANUP_TIME;
+    evtimer_del(&gnrc_rpl_evtimer, &dodag->instance->cleanup_event.event);
+    dodag->instance->cleanup_event.event.offset = GNRC_RPL_CLEANUP_TIME;
     dodag->instance->cleanup_event.msg.type = GNRC_RPL_MSG_TYPE_INSTANCE_CLEANUP;
     evtimer_add_msg(&gnrc_rpl_evtimer, &dodag->instance->cleanup_event, gnrc_rpl_pid);
 }
@@ -278,7 +278,7 @@ void gnrc_rpl_parent_update(gnrc_rpl_dodag_t *dodag, gnrc_rpl_parent_t *parent)
     /* update Parent lifetime */
     if ((parent != NULL) && (parent->state != GNRC_RPL_PARENT_UNUSED)) {
         parent->state = GNRC_RPL_PARENT_ACTIVE;
-        evtimer_del((evtimer_t *)(&gnrc_rpl_evtimer), &parent->timeout_event.event);
+        evtimer_del(&gnrc_rpl_evtimer, &parent->timeout_event.event);
         parent->timeout_event.event.offset = dodag->default_lifetime * dodag->lifetime_unit * MS_PER_SEC;
         printf("PARENT UPDATE TO: %d, %d, %lu\n", dodag->default_lifetime, dodag->lifetime_unit, parent->timeout_event.event.offset);
         parent->timeout_event.msg.type = GNRC_RPL_MSG_TYPE_PARENT_TIMEOUT;
