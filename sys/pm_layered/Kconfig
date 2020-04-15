@@ -1,0 +1,16 @@
+# Copyright (c) 2020 HAW Hamburg
+#
+# This file is subject to the terms and conditions of the GNU Lesser
+# General Public License v2.1. See the file LICENSE in the top level
+# directory for more details.
+#
+
+config MOD_PM_LAYERED
+    bool "Platform-independent Power Management"
+    default y
+    depends on MOD_PERIPH_PM
+
+config HAS_PM_LAYERED_OFF
+    bool
+    help
+        Indicates that the platform implements 'pm_off'.
