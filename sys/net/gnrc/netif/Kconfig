@@ -10,6 +10,7 @@ menuconfig MOD_GNRC_NETIF
     select MOD_L2UTIL
     select MOD_FMT
     select MOD_NETIF
+    select HAS_NETSTATS_L2
     help
         This module implements the Network Interface for the GNRC stack.
 

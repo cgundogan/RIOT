@@ -13,6 +13,7 @@ menuconfig MOD_GNRC_IPV6
     depends on MOD_GNRC_NETIF
     select MOD_INET_CSUM
     select MOD_IPV6_ADDR
+    select HAS_NETSTATS_IPV6
 
 if MOD_GNRC_IPV6
 
