@@ -178,7 +178,7 @@ static void _on_sock_evt(sock_udp_t *sock, sock_async_flags_t type, void *arg)
                 size_t pdu_len = _handle_req(&pdu, _listen_buf, sizeof(_listen_buf),
                                              &remote);
                 if (pdu_len > 0) {
-                    ssize_t bytes = gcoap_dispatch(_listen_buf, pdu_len,
+                    ssize_t bytes = sock_udp_send(sock, _listen_buf, pdu_len,
                                                   &remote);
                     if (bytes <= 0) {
                         DEBUG("gcoap: send response failed: %d\n", (int)bytes);
@@ -257,9 +257,8 @@ static void _on_resp_timeout(void *arg) {
 #endif
         event_timeout_set(&memo->resp_evt_tmout, timeout);
 
-        ssize_t bytes = gcoap_dispatch(memo->msg.data.pdu_buf,
-                                       memo->msg.data.pdu_len,
-                                       &memo->remote_ep);
+        ssize_t bytes = sock_udp_send(&_sock, memo->msg.data.pdu_buf,
+                                      memo->msg.data.pdu_len, &memo->remote_ep);
         if (bytes <= 0) {
             DEBUG("gcoap: sock resend failed: %d\n", (int)bytes);
             _expire_request(memo);
@@ -282,24 +281,6 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
     sock_udp_ep_t *observer             = NULL;
     gcoap_observe_memo_t *memo          = NULL;
     gcoap_observe_memo_t *resource_memo = NULL;
-
-    /* if forward proxy is not compiled, this function returns the
-     * constant -ENOTSUP. Most (?) compilers are able to remove the
-     * below code, since none of the if conditions check for that. */
-    int proxy_res = gcoap_forward_proxy_request_parse(pdu, remote);
-    /* found a valid Proxy-Uri, try to forward now! */
-    if (proxy_res == 0) {
-        /* stop processing of request */
-        return 0;
-    }
-    /* Proxy-Uri malformed, reply with 4.02 */
-    else if (proxy_res == -EINVAL) {
-        return gcoap_response(pdu, buf, len, COAP_CODE_BAD_OPTION);
-    }
-    /* scheme not supported */
-    else if (proxy_res == -EPERM) {
-        return gcoap_response(pdu, buf, len, COAP_CODE_PROXYING_NOT_SUPPORTED);
-    }
 
     switch (_find_resource(pdu, &resource, &listener)) {
         case GCOAP_RESOURCE_WRONG_METHOD:
@@ -479,7 +460,7 @@ static int _find_resource(coap_pkt_t *pdu, const coap_resource_t **resource_ptr,
     return ret;
 }
 
-void gcoap_find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
+void _find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
                          const sock_udp_ep_t *remote)
 {
     *memo_ptr = NULL;
@@ -855,7 +836,7 @@ size_t gcoap_req_send_report(const uint8_t *buf, size_t len,
         }
     }
 
-    ssize_t res = gcoap_dispatch(buf, len, (sock_udp_ep_t *)remote);
+    ssize_t res = sock_udp_send(&_sock, buf, len, (sock_udp_ep_t *)remote);
     if (res <= 0) {
         if (memo != NULL) {
             if (msg_type == COAP_TYPE_CON) {
@@ -937,7 +918,7 @@ size_t gcoap_obs_send(const uint8_t *buf, size_t len,
     _find_obs_memo_resource(&memo, resource);
 
     if (memo) {
-        ssize_t bytes = gcoap_dispatch(buf, len, memo->observer);
+        ssize_t bytes = sock_udp_send(&_sock, buf, len, memo->observer);
         return (size_t)((bytes > 0) ? bytes : 0);
     }
     else {
@@ -1052,9 +1033,22 @@ int gcoap_add_qstring(coap_pkt_t *pdu, const char *key, const char *val)
     return coap_opt_add_string(pdu, COAP_OPT_URI_QUERY, qs, '&');
 }
 
-ssize_t gcoap_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote)
+void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
+                                       coap_pkt_t *src_pdu,
+                                       const sock_udp_ep_t *remote)
+{
+    _find_req_memo(memo_ptr, src_pdu, remote);
+}
+
+ssize_t gcoap_forward_proxy_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote)
 {
     return sock_udp_send(&_sock, buf, len, remote);
 }
+
+gcoap_request_memo_t *gcoap_forward_proxy_get_open_reqs(void)
+{
+    return _coap_state.open_reqs;
+}
+
 
 /** @} */

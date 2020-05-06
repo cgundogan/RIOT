@@ -22,6 +22,66 @@
 
 static uint8_t proxy_req_buf[CONFIG_GCOAP_PDU_BUF_SIZE];
 static uint8_t scratch[48];
+static sock_udp_ep_t _client_eps[CONFIG_GCOAP_REQ_WAITING_MAX];
+
+static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
+                                          const coap_resource_t *resource,
+                                          coap_method_flags_t method_flag,
+                                          uint8_t *uri);
+
+const coap_resource_t _forward_proxy_resources[] = {
+    { "/", COAP_GET, _forward_proxy_handler, NULL },
+};
+
+const gcoap_listener_t _forward_proxy_listener = {
+    &_forward_proxy_resources[0],
+    ARRAY_SIZE(_forward_proxy_resources),
+    NULL,
+    NULL,
+    _request_matcher_forward_proxy
+};
+
+static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
+                                          const coap_resource_t *resource,
+                                          coap_method_flags_t method_flag,
+                                          uint8_t *uri)
+{
+    (void) resource;
+    (void) method_flag;
+    (void) uri;
+
+    char *offset;
+
+    if (coap_get_proxy_uri(pdu, &offset) > 0) {
+        return GCOAP_RESOURCE_FOUND;
+    }
+
+    return GCOAP_RESOURCE_ERROR;
+}
+
+static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len,
+                                      void *ctx)
+{
+    sock_udp_ep_t *remote = (sock_udp_ep_t *)ctx;
+
+    int proxy_res = gcoap_forward_proxy_request_parse(pdu, remote);
+
+    /* found a valid Proxy-Uri, try to forward now! */
+    if (proxy_res == 0) {
+        /* stop processing of request */
+        return 0;
+    }
+    /* Proxy-Uri malformed, reply with 4.02 */
+    else if (proxy_res == -EINVAL) {
+        return gcoap_response(pdu, buf, len, COAP_CODE_BAD_OPTION);
+    }
+    /* scheme not supported */
+    else if (proxy_res == -EPERM) {
+        return gcoap_response(pdu, buf, len, COAP_CODE_PROXYING_NOT_SUPPORTED);
+    }
+
+    return 0;
+}
 
 static bool _parse_endpoint(sock_udp_ep_t *remote,
                             uri_parser_result_t *urip)
@@ -110,9 +170,66 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
     (void) remote; /* this is the origin server */
 
     /* forward the response packet as-is to the client */
-    gcoap_dispatch((uint8_t *)pdu->hdr,
-                   (pdu->payload - (uint8_t *)pdu->hdr + pdu->payload_len),
-                   (sock_udp_ep_t *)&memo->client_ep);
+    gcoap_forward_proxy_dispatch((uint8_t *)pdu->hdr,
+                                 (pdu->payload -
+                                  (uint8_t *)pdu->hdr + pdu->payload_len),
+                                 (sock_udp_ep_t *)&memo->client_ep);
+}
+
+static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
+                                             uri_parser_result_t *urip)
+{
+    ssize_t res = coap_opt_add_chars(pkt, COAP_OPT_URI_PATH,
+                                     urip->path, urip->path_len, '/');
+    if (res < 0) {
+        return -EINVAL;
+    }
+
+    if (urip->query) {
+        res = coap_opt_add_chars(pkt, COAP_OPT_URI_PATH,
+                                 urip->query, urip->path_len, '&');
+        if (res < 0) {
+            return -EINVAL;
+        }
+    }
+}
+
+static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
+                                             coap_pkt_t *client_pkt,
+                                             uri_parser_result_t *urip)
+{
+    /* copy all options from client_pkt to pkt */
+    coap_optpos_t opt = {0, 0};
+    uint8_t *value;
+    bool uri_path_added = false;
+
+    for (int i = 0; i < client_pkt->options_len; i++) {
+        ssize_t optlen = coap_opt_get_next(client_pkt, &opt, &value, !i);
+        if (optlen >= 0) {
+            if (opt.opt_num == COAP_OPT_PROXY_URI) {
+                continue;
+            }
+            /* add URI-PATH before any larger opt num */
+            if (!uri_path_added && (opt.opt_num > COAP_OPT_URI_PATH)) {
+                if (_gcoap_forward_proxy_add_uri_path(pkt, urip) == -EINVAL) {
+                    return -EINVAL;
+                }
+                uri_path_added = true;
+            }
+            coap_opt_add_opaque(pkt, opt.opt_num, value, optlen);
+        }
+    }
+
+    ssize_t len = coap_opt_finish(pkt,
+                                  (client_pkt->payload_len ?
+                                   COAP_OPT_FINISH_PAYLOAD :
+                                   COAP_OPT_FINISH_NONE));
+
+    /* copy payload from client_pkt to pkt */
+    memcpy(pkt->payload, client_pkt->payload, client_pkt->payload_len);
+    len += client_pkt->payload_len;
+
+    return len;
 }
 
 static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
@@ -131,7 +248,7 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     /* do not forward requests if they already exist, e.g., due to CON
        and retransmissions. In the future, the proxy should set an
        empty ACK message to stop the retransmissions of a client */
-    gcoap_find_req_memo(&memo, client_pkt, &origin_server_ep);
+    gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &origin_server_ep);
     if (memo) {
         DEBUG("gcoap_forward_proxy: request already exists, ignore!\n");
         return 0;
@@ -151,46 +268,19 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
         memcpy(pkt.token, client_pkt->token, token_len);
     }
 
-    ssize_t res = coap_opt_add_chars(&pkt, COAP_OPT_URI_PATH,
-                                     urip->path, urip->path_len, '/');
-    if (res < 0) {
+    /* copy all options from client_pkt to pkt */
+    if (_gcoap_forward_proxy_copy_options(&pkt, client_pkt, urip) == -EINVAL) {
         return -EINVAL;
     }
 
-    if (urip->query) {
-        res = coap_opt_add_chars(&pkt, COAP_OPT_URI_PATH,
-                                 urip->query, urip->path_len, '&');
-        if (res < 0) {
-            return -EINVAL;
-        }
-    }
+    ssize_t len = gcoap_req_send_report((uint8_t *)pkt.hdr, len,
+                                        &origin_server_ep, &memo,
+                                        _forward_resp_handler, NULL);
 
-    /* copy all options from client_pkt to pkt */
-    coap_optpos_t opt = {0, 0};
-    uint8_t *value;
-    for (int i = 0; i < client_pkt->options_len; i++) {
-        ssize_t optlen = coap_opt_get_next(client_pkt, &opt, &value, !i);
-        if (optlen >= 0) {
-            if (opt.opt_num == COAP_OPT_PROXY_URI) {
-                continue;
-            }
-            coap_opt_add_opaque(&pkt, opt.opt_num, value, optlen);
-        }
-    }
+    gcoap_request_memo_t *first_memo = gcoap_forward_proxy_get_open_reqs();
 
-    ssize_t len = coap_opt_finish(&pkt,
-                                  (client_pkt->payload_len ?
-                                   COAP_OPT_FINISH_PAYLOAD :
-                                   COAP_OPT_FINISH_NONE));
+    memcpy(&_client_eps[(memo - first_memo) / sizeof(gcoap_request_memo_t)], client_ep, sizeof(*client_ep));
 
-    /* copy payload from client_pkt to pkt */
-    memcpy(pkt.payload, client_pkt->payload, client_pkt->payload_len);
-    len += client_pkt->payload_len;
-
-    len = gcoap_req_send_report((uint8_t *)pkt.hdr, len,
-                                &origin_server_ep, &memo,
-                                _forward_resp_handler, NULL);
-    memcpy(&memo->client_ep, client_ep, sizeof(*client_ep));
     return 0;
 }
 

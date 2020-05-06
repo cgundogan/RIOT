@@ -31,10 +31,14 @@
 #include <errno.h>
 
 #include "net/nanocoap.h"
+#include "net/gcoap.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+const coap_resource_t _forward_proxy_resources[1];
+const gcoap_listener_t _forward_proxy_listener;
 
 /**
  * @brief Handles proxied requests
@@ -58,6 +62,40 @@ static inline int gcoap_forward_proxy_request_parse(coap_pkt_t *pkt,
     return -ENOTSUP;
 }
 #endif /* IS_USED(MODULE_GCOAP_FORWARD_PROXY) */
+
+/**
+ * @brief  Finds the memo for an outstanding request within the
+ *         _coap_state.open_reqs array. Matches on remote endpoint and
+ *         token.
+ *
+ * @param[out] memo_ptr   Registered request memo, or NULL if not found
+ * @param[in]  src_pdu    PDU for token to match
+ * @param[in]  remote     Remote endpoint to match
+ */
+void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
+                               coap_pkt_t *src_pdu,
+                               const sock_udp_ep_t *remote);
+
+/**
+ * @brief   Sends a buffer containing a CoAP message to the @p remote endpoint
+ *
+ * @param[in] buf    Buffer that contains the CoAP message to be sent
+ * @param[in] len    Length of @p buf
+ * @param[in] remote Remote endpoint to send the message to
+ *
+ * @note see sock_udp_send() for all return valus.
+ *
+ * @return  length of the packet
+ * @return  < 0 on error
+ */
+ssize_t gcoap_forward_proxy_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote);
+
+/**
+ * @brief
+ *
+ * @return  address of gcoap_state_t::open_reqs
+ */
+gcoap_request_memo_t *gcoap_forward_proxy_get_open_reqs(void);
 
 #ifdef __cplusplus
 }
