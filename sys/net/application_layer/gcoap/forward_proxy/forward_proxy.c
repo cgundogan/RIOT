@@ -201,6 +201,7 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
                                  (pdu->payload -
                                   (uint8_t *)pdu->hdr + pdu->payload_len),
                                  &cep->ep);
+    _free_client_ep(cep);
 }
 
 static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
