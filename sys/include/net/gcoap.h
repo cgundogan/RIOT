@@ -845,10 +845,10 @@ static inline ssize_t gcoap_request(coap_pkt_t *pdu, uint8_t *buf, size_t len,
  * @return  length of the packet
  * @return  0 if cannot send
  */
-static inline size_t gcoap_req_send(const uint8_t *buf, size_t len,
-                                    const sock_udp_ep_t *remote,
-                                    gcoap_resp_handler_t resp_handler,
-                                    void *context);
+size_t gcoap_req_send(const uint8_t *buf, size_t len,
+                      const sock_udp_ep_t *remote,
+                      gcoap_resp_handler_t resp_handler,
+                      void *context);
 
 /**
  * @brief   Initializes a CoAP response packet on a buffer

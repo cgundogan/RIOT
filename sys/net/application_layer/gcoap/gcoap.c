@@ -50,6 +50,8 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
 static void _expire_request(gcoap_request_memo_t *memo);
 static int _find_resource(coap_pkt_t *pdu, const coap_resource_t **resource_ptr,
                                             gcoap_listener_t **listener_ptr);
+void _find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
+                    const sock_udp_ep_t *remote);
 static int _find_observer(sock_udp_ep_t **observer, sock_udp_ep_t *remote);
 static int _find_obs_memo(gcoap_observe_memo_t **memo, sock_udp_ep_t *remote,
                                                        coap_pkt_t *pdu);
@@ -198,7 +200,7 @@ empty_as_response:
         case COAP_CLASS_SUCCESS:
         case COAP_CLASS_CLIENT_FAILURE:
         case COAP_CLASS_SERVER_FAILURE:
-            gcoap_find_req_memo(&memo, &pdu, &remote);
+            _find_req_memo(&memo, &pdu, &remote);
             if (memo) {
                 switch (coap_get_type(&pdu)) {
                 case COAP_TYPE_NON:
@@ -461,7 +463,7 @@ static int _find_resource(coap_pkt_t *pdu, const coap_resource_t **resource_ptr,
 }
 
 void _find_req_memo(gcoap_request_memo_t **memo_ptr, coap_pkt_t *src_pdu,
-                         const sock_udp_ep_t *remote)
+                    const sock_udp_ep_t *remote)
 {
     *memo_ptr = NULL;
     /* no need to initialize struct; we only care about buffer contents below */
@@ -847,9 +849,6 @@ size_t gcoap_req_send(const uint8_t *buf, size_t len,
             memo->state = GCOAP_MEMO_UNUSED;
         }
         DEBUG("gcoap: sock send failed: %d\n", (int)res);
-    }
-    if (report_memo) {
-        *report_memo = memo;
     }
 
     return (size_t)((res > 0) ? res : 0);
