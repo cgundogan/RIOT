@@ -372,7 +372,14 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
         return -1;
     }
 
-    ssize_t pdu_len = resource->handler(pdu, buf, len, resource->context);
+    ssize_t pdu_len;
+    char *offset;
+
+    if (coap_get_proxy_uri(pdu, &offset) > 0) {
+         pdu_len = resource->handler(pdu, buf, len, remote);
+    }
+
+    pdu_len = resource->handler(pdu, buf, len, resource->context);
     if (pdu_len < 0) {
         pdu_len = gcoap_response(pdu, buf, len,
                                  COAP_CODE_INTERNAL_SERVER_ERROR);
