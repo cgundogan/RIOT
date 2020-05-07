@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "net/gcoap.h"
+#include "net/gcoap/forward_proxy.h"
 #include "od.h"
 #include "fmt.h"
 
@@ -465,5 +466,9 @@ int gcoap_cli_cmd(int argc, char **argv)
 
 void gcoap_cli_init(void)
 {
+    if (IS_USED(MODULE_GCOAP_FORWARD_PROXY)) {
+        gcoap_register_listener(&forward_proxy_listener);
+    }
+
     gcoap_register_listener(&_listener);
 }

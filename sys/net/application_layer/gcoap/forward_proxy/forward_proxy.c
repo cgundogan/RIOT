@@ -36,13 +36,13 @@ static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
 static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf,
                                       size_t len, void *ctx);
 
-const coap_resource_t _forward_proxy_resources[] = {
+const coap_resource_t forward_proxy_resources[] = {
     { "/", COAP_GET, _forward_proxy_handler, NULL },
 };
 
-const gcoap_listener_t _forward_proxy_listener = {
-    &_forward_proxy_resources[0],
-    ARRAY_SIZE(_forward_proxy_resources),
+gcoap_listener_t forward_proxy_listener = {
+    &forward_proxy_resources[0],
+    ARRAY_SIZE(forward_proxy_resources),
     NULL,
     NULL,
     _request_matcher_forward_proxy
@@ -63,7 +63,7 @@ static client_ep_t *_allocate_client_ep(sock_udp_ep_t *ep)
     return NULL;
 }
 
-static client_ep_t *_free_client_ep(client_ep_t *cep)
+static void _free_client_ep(client_ep_t *cep)
 {
     memset(cep, 0, sizeof(*cep));
 }
@@ -220,6 +220,8 @@ static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
             return -EINVAL;
         }
     }
+
+    return 0;
 }
 
 static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
@@ -234,9 +236,6 @@ static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
     for (int i = 0; i < client_pkt->options_len; i++) {
         ssize_t optlen = coap_opt_get_next(client_pkt, &opt, &value, !i);
         if (optlen >= 0) {
-            if (opt.opt_num == COAP_OPT_PROXY_URI) {
-                continue;
-            }
             /* add URI-PATH before any larger opt num */
             if (!uri_path_added && (opt.opt_num > COAP_OPT_URI_PATH)) {
                 if (_gcoap_forward_proxy_add_uri_path(pkt, urip) == -EINVAL) {
@@ -244,6 +243,11 @@ static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
                 }
                 uri_path_added = true;
             }
+            /* skip PROXY-URI in new packet */
+            if (opt.opt_num == COAP_OPT_PROXY_URI) {
+                continue;
+            }
+            /* the actual copy operation */
             coap_opt_add_opaque(pkt, opt.opt_num, value, optlen);
         }
     }

@@ -37,8 +37,8 @@
 extern "C" {
 #endif
 
-const coap_resource_t _forward_proxy_resources[1];
-const gcoap_listener_t _forward_proxy_listener;
+extern const coap_resource_t forward_proxy_resources[1];
+extern gcoap_listener_t forward_proxy_listener;
 
 /**
  * @brief Handles proxied requests
