@@ -44,7 +44,7 @@ const gcoap_listener_t _forward_proxy_listener;
  * @brief Handles proxied requests
  *
  * @param[in]  pkt           Packet to parse
- * @param[in]  client_ep     Endpoint of the client
+ * @param[in]  client        Endpoint of the client
  *
  * @return    0              if parsing was successful
  * @return    -ENOTSUP       if the forward proxy is not compiled in
@@ -52,13 +52,13 @@ const gcoap_listener_t _forward_proxy_listener;
  * @return    -EINVAL        if Proxy-Uri is malformed
  */
 #if IS_USED(MODULE_GCOAP_FORWARD_PROXY)
-int gcoap_forward_proxy_request_parse(coap_pkt_t *pkt,
-                                      sock_udp_ep_t *client_ep);
+int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
+                                        sock_udp_ep_t *client);
 #else
-static inline int gcoap_forward_proxy_request_parse(coap_pkt_t *pkt,
-                                                    sock_udp_ep_t *client_ep) {
+static inline int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
+                                                      sock_udp_ep_t *client) {
     (void) pkt;
-    (void) client_ep;
+    (void) client;
     return -ENOTSUP;
 }
 #endif /* IS_USED(MODULE_GCOAP_FORWARD_PROXY) */
@@ -89,13 +89,6 @@ void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
  * @return  < 0 on error
  */
 ssize_t gcoap_forward_proxy_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote);
-
-/**
- * @brief
- *
- * @return  address of gcoap_state_t::open_reqs
- */
-gcoap_request_memo_t *gcoap_forward_proxy_get_open_reqs(void);
 
 #ifdef __cplusplus
 }

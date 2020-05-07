@@ -20,14 +20,21 @@
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
+typedef struct {
+    int in_use;
+    sock_udp_ep_t ep;
+} client_ep_t;
+
 static uint8_t proxy_req_buf[CONFIG_GCOAP_PDU_BUF_SIZE];
 static uint8_t scratch[48];
-static sock_udp_ep_t _client_eps[CONFIG_GCOAP_REQ_WAITING_MAX];
+static client_ep_t _client_eps[CONFIG_GCOAP_REQ_WAITING_MAX];
 
 static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
                                           const coap_resource_t *resource,
                                           coap_method_flags_t method_flag,
                                           uint8_t *uri);
+static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf,
+                                      size_t len, void *ctx);
 
 const coap_resource_t _forward_proxy_resources[] = {
     { "/", COAP_GET, _forward_proxy_handler, NULL },
@@ -40,6 +47,26 @@ const gcoap_listener_t _forward_proxy_listener = {
     NULL,
     _request_matcher_forward_proxy
 };
+
+static client_ep_t *_allocate_client_ep(sock_udp_ep_t *ep)
+{
+    client_ep_t *cep;
+    for (cep = _client_eps;
+         cep < (_client_eps + CONFIG_GCOAP_REQ_WAITING_MAX);
+         cep++) {
+        if (!cep->in_use) {
+            cep->in_use = 1;
+            memcpy(&cep->ep, ep, sizeof(*ep));
+            return cep;
+        }
+    }
+    return NULL;
+}
+
+static client_ep_t *_free_client_ep(client_ep_t *cep)
+{
+    memset(cep, 0, sizeof(*cep));
+}
 
 static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
                                           const coap_resource_t *resource,
@@ -59,17 +86,16 @@ static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
     return GCOAP_RESOURCE_ERROR;
 }
 
-static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf, size_t len,
-                                      void *ctx)
+static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf,
+                                      size_t len, void *ctx)
 {
     sock_udp_ep_t *remote = (sock_udp_ep_t *)ctx;
 
-    int proxy_res = gcoap_forward_proxy_request_parse(pdu, remote);
+    int proxy_res = gcoap_forward_proxy_request_process(pdu, remote);
 
-    /* found a valid Proxy-Uri, try to forward now! */
-    if (proxy_res == 0) {
-        /* stop processing of request */
-        return 0;
+    /* Out of memory, reply with 5.00 */
+    if (proxy_res == -ENOMEM) {
+        return gcoap_response(pdu, buf, len, COAP_CODE_INTERNAL_SERVER_ERROR);
     }
     /* Proxy-Uri malformed, reply with 4.02 */
     else if (proxy_res == -EINVAL) {
@@ -168,12 +194,13 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
                                   const sock_udp_ep_t *remote)
 {
     (void) remote; /* this is the origin server */
+    client_ep_t *cep = (client_ep_t *)memo->context;
 
     /* forward the response packet as-is to the client */
     gcoap_forward_proxy_dispatch((uint8_t *)pdu->hdr,
                                  (pdu->payload -
                                   (uint8_t *)pdu->hdr + pdu->payload_len),
-                                 (sock_udp_ep_t *)&memo->client_ep);
+                                 &cep->ep);
 }
 
 static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
@@ -233,7 +260,7 @@ static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
 }
 
 static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
-                                         sock_udp_ep_t *client_ep,
+                                         client_ep_t *client_ep,
                                          uri_parser_result_t *urip)
 {
     coap_pkt_t pkt;
@@ -269,26 +296,30 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     }
 
     /* copy all options from client_pkt to pkt */
-    if (_gcoap_forward_proxy_copy_options(&pkt, client_pkt, urip) == -EINVAL) {
+    ssize_t len = _gcoap_forward_proxy_copy_options(&pkt, client_pkt, urip);
+
+    if (len == -EINVAL) {
         return -EINVAL;
     }
 
-    ssize_t len = gcoap_req_send_report((uint8_t *)pkt.hdr, len,
-                                        &origin_server_ep, &memo,
-                                        _forward_resp_handler, NULL);
-
-    gcoap_request_memo_t *first_memo = gcoap_forward_proxy_get_open_reqs();
-
-    memcpy(&_client_eps[(memo - first_memo) / sizeof(gcoap_request_memo_t)], client_ep, sizeof(*client_ep));
-
-    return 0;
+    len = gcoap_req_send((uint8_t *)pkt.hdr, len,
+                         &origin_server_ep,
+                         _forward_resp_handler, (void *)client_ep);
+    return len;
 }
 
-int gcoap_forward_proxy_request_parse(coap_pkt_t *pkt, sock_udp_ep_t *client_ep) {
+int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
+                                        sock_udp_ep_t *client) {
     char *uri;
     uri_parser_result_t urip;
 
     ssize_t optlen = 0;
+
+    client_ep_t *cep = _allocate_client_ep(client);
+
+    if (!cep) {
+        return -ENOMEM;
+    }
 
     optlen = coap_get_proxy_uri(pkt, &uri);
 
@@ -306,7 +337,7 @@ int gcoap_forward_proxy_request_parse(coap_pkt_t *pkt, sock_udp_ep_t *client_ep)
 
     /* target is using CoAP */
     if (!strncmp("coap", urip.scheme, urip.scheme_len)) {
-        int res = _gcoap_forward_proxy_via_coap(pkt, client_ep, &urip);
+        int res = _gcoap_forward_proxy_via_coap(pkt, cep, &urip);
         if (res < 0) {
             return -EINVAL;
         }
