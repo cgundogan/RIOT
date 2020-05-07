@@ -33,6 +33,8 @@
 #include "random.h"
 #include "thread.h"
 
+#include "net/gcoap/forward_proxy.h"
+
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
@@ -442,7 +444,16 @@ static size_t _handle_req(coap_pkt_t *pdu, uint8_t *buf, size_t len,
         return -1;
     }
 
-    ssize_t pdu_len = resource->handler(pdu, buf, len, resource->context);
+    ssize_t pdu_len;
+    char *offset;
+
+    if (coap_get_proxy_uri(pdu, &offset) > 0) {
+        pdu_len = resource->handler(pdu, buf, len, remote);
+    }
+    else {
+        pdu_len = resource->handler(pdu, buf, len, resource->context);
+    }
+
     if (pdu_len < 0) {
         pdu_len = gcoap_response(pdu, buf, len,
                                  COAP_CODE_INTERNAL_SERVER_ERROR);
@@ -752,6 +763,11 @@ kernel_pid_t gcoap_init(void)
     memset(&_coap_state.resend_bufs[0], 0, sizeof(_coap_state.resend_bufs));
     /* randomize initial value */
     atomic_init(&_coap_state.next_message_id, (unsigned)random_uint32());
+
+    /* initialize the forward proxy operation, if compiled */
+    if (IS_ACTIVE(MODULE_GCOAP_FORWARD_PROXY)) {
+        gcoap_forward_proxy_init();
+    }
 
     return _pid;
 }
@@ -1065,6 +1081,18 @@ ssize_t gcoap_encode_link(const coap_resource_t *resource, char *buf,
     }
 
     return exp_size;
+}
+
+void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
+                                       coap_pkt_t *src_pdu,
+                                       const sock_udp_ep_t *remote)
+{
+    _find_req_memo(memo_ptr, src_pdu, remote);
+}
+
+ssize_t gcoap_forward_proxy_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote)
+{
+    return sock_udp_send(&_sock, buf, len, remote);
 }
 
 /** @} */
