@@ -45,7 +45,7 @@ void gcoap_forward_proxy_init(void);
 /**
  * @brief Handles proxied requests
  *
- * @param[in]  pkt           Packet to parse
+ * @param[in]  pkt           The incoming request
  * @param[in]  client        Endpoint of the client
  *
  * @return    0              if parsing was successful
