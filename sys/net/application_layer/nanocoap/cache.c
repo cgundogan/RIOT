@@ -30,7 +30,7 @@
 static clist_node_t _cache_list_head = { NULL };
 static clist_node_t _empty_list_head = { NULL };
 
-static nanocoap_cache_entry_t _cache_entries[NANOCOAP_CACHE_ENTRIES];
+static nanocoap_cache_entry_t _cache_entries[CONFIG_NANOCOAP_CACHE_ENTRIES];
 
 static nanocoap_cache_replacement_strategy_t _replacement_strategy = NULL;
 
@@ -63,7 +63,7 @@ void nanocoap_cache_init(void)
     _empty_list_head.next = NULL;
     memset(_cache_entries, 0, sizeof(_cache_entries));
     /* construct list of empty entries */
-    for (unsigned i = 0; i < NANOCOAP_CACHE_ENTRIES; i++) {
+    for (unsigned i = 0; i < CONFIG_NANOCOAP_CACHE_ENTRIES; i++) {
         clist_rpush(&_empty_list_head, &_cache_entries[i].node);
     }
 
@@ -105,7 +105,7 @@ void nanocoap_cache_key_generate(const coap_pkt_t *req, uint8_t *cache_key)
 
 ssize_t nanocoap_cache_key_compare(uint8_t *cache_key1, uint8_t *cache_key2)
 {
-    return memcmp(cache_key1, cache_key2, NANOCOAP_CACHE_KEY_LENGTH);
+    return memcmp(cache_key1, cache_key2, CONFIG_NANOCOAP_CACHE_KEY_LENGTH);
 }
 
 static int _compare_cache_keys(clist_node_t *ce, void *arg)
@@ -113,7 +113,7 @@ static int _compare_cache_keys(clist_node_t *ce, void *arg)
     nanocoap_cache_entry_t *iterator = (nanocoap_cache_entry_t *) ce;
     uint8_t *cache_key = (uint8_t *) arg;
 
-    if (!memcmp(iterator->cache_key, cache_key, NANOCOAP_CACHE_KEY_LENGTH)) {
+    if (!memcmp(iterator->cache_key, cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH)) {
         return 1;
     }
     return 0;
@@ -249,7 +249,7 @@ nanocoap_cache_entry_t *nanocoap_cache_add_by_key(const uint8_t *cache_key,
         }
     }
 
-    memcpy(ce->cache_key, cache_key, NANOCOAP_CACHE_KEY_LENGTH);
+    memcpy(ce->cache_key, cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH);
     memcpy(&ce->response_pkt, resp, sizeof(coap_pkt_t));
     memcpy(&ce->response_buf, resp->hdr, resp_len);
     ce->response_pkt.hdr = (coap_hdr_t *) ce->response_buf;

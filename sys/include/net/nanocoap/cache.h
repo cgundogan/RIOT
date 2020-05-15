@@ -35,22 +35,22 @@ extern "C" {
 /**
  * @brief The number of maximum cache entries.
  */
-#ifndef NANOCOAP_CACHE_ENTRIES
-#define NANOCOAP_CACHE_ENTRIES            (8)
+#ifndef CONFIG_NANOCOAP_CACHE_ENTRIES
+#define CONFIG_NANOCOAP_CACHE_ENTRIES          (8)
 #endif
 
 /**
  * @brief The length of the cache key in bytes.
  */
-#ifndef NANOCOAP_CACHE_KEY_LENGTH
-#define NANOCOAP_CACHE_KEY_LENGTH         (8)
+#ifndef CONFIG_NANOCOAP_CACHE_KEY_LENGTH
+#define CONFIG_NANOCOAP_CACHE_KEY_LENGTH       (8)
 #endif
 
 /**
  * @brief Size of the buffer to store responses in the cache.
  */
-#ifndef NANOCOAP_CACHE_RESPONSE_SIZE
-#define NANOCOAP_CACHE_RESPONSE_SIZE      (128)
+#ifndef CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE
+#define CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE    (128)
 #endif
 
 /**
@@ -65,7 +65,7 @@ typedef struct {
     /**
      * @brief the calculated cache key, see nanocoap_cache_key_generate().
      */
-    uint8_t cache_key[NANOCOAP_CACHE_KEY_LENGTH];
+    uint8_t cache_key[CONFIG_NANOCOAP_CACHE_KEY_LENGTH];
 
     /**
      * @brief packet representation of the response
@@ -75,7 +75,7 @@ typedef struct {
     /**
      * @brief buffer to hold the response message.
      */
-    uint8_t response_buf[NANOCOAP_CACHE_RESPONSE_SIZE];
+    uint8_t response_buf[CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE];
 
     size_t response_len; /**< length of the message in @p response */
 

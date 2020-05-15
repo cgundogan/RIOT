@@ -90,21 +90,21 @@ static void test_nanocoap_cache__add(void)
     nanocoap_cache_entry_t *c = NULL;
     size_t len;
     nanocoap_cache_entry_t *temp;
-    uint8_t temp_cache_key[NANOCOAP_CACHE_KEY_LENGTH];
+    uint8_t temp_cache_key[CONFIG_NANOCOAP_CACHE_KEY_LENGTH];
 
     /* initialize the nanocoap cache */
     nanocoap_cache_init();
 
     /* add more entries to test LRU replacement */
-    for (unsigned i = 0; i < NANOCOAP_CACHE_ENTRIES + 4; i++) {
-        if (i < NANOCOAP_CACHE_ENTRIES) {
-            TEST_ASSERT_EQUAL_INT(NANOCOAP_CACHE_ENTRIES - i,
+    for (unsigned i = 0; i < CONFIG_NANOCOAP_CACHE_ENTRIES + 4; i++) {
+        if (i < CONFIG_NANOCOAP_CACHE_ENTRIES) {
+            TEST_ASSERT_EQUAL_INT(CONFIG_NANOCOAP_CACHE_ENTRIES - i,
                                   nanocoap_cache_free_count());
             TEST_ASSERT_EQUAL_INT(i, nanocoap_cache_used_count());
         }
         else {
             TEST_ASSERT_EQUAL_INT(0, nanocoap_cache_free_count());
-            TEST_ASSERT_EQUAL_INT(NANOCOAP_CACHE_ENTRIES,
+            TEST_ASSERT_EQUAL_INT(CONFIG_NANOCOAP_CACHE_ENTRIES,
                                   nanocoap_cache_used_count());
         }
 
@@ -127,18 +127,18 @@ static void test_nanocoap_cache__add(void)
            the LRU replacement */
         temp = c;
         /* the last round */
-        if (i == NANOCOAP_CACHE_ENTRIES + 3) {
+        if (i == CONFIG_NANOCOAP_CACHE_ENTRIES + 3) {
             /* set absolute access time to a very old value */
             /* this will enforce that entry to be cached out */
             temp->access_time = 0;
             memcpy(temp_cache_key, temp->cache_key,
-                   NANOCOAP_CACHE_KEY_LENGTH);
+                   CONFIG_NANOCOAP_CACHE_KEY_LENGTH);
         }
 
         /* add a fake response buffer with fake response length */
         c = nanocoap_cache_add_by_req((const coap_pkt_t *)&req,
                                       (const coap_pkt_t *)&req,
-                                      NANOCOAP_CACHE_RESPONSE_SIZE);
+                                      CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE);
         TEST_ASSERT_NOT_NULL(c);
     }
 
@@ -164,7 +164,7 @@ static void test_nanocoap_cache__del(void)
     /* initialize the nanocoap cache */
     nanocoap_cache_init();
 
-    TEST_ASSERT_EQUAL_INT(NANOCOAP_CACHE_ENTRIES,
+    TEST_ASSERT_EQUAL_INT(CONFIG_NANOCOAP_CACHE_ENTRIES,
                           nanocoap_cache_free_count());
     TEST_ASSERT_EQUAL_INT(0, nanocoap_cache_used_count());
 
@@ -183,17 +183,17 @@ static void test_nanocoap_cache__del(void)
 
     c = nanocoap_cache_add_by_req((const coap_pkt_t *)&req,
                                   (const coap_pkt_t *)&resp,
-                                  NANOCOAP_CACHE_RESPONSE_SIZE);
+                                  CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE);
     TEST_ASSERT_NOT_NULL(c);
 
-    TEST_ASSERT_EQUAL_INT(NANOCOAP_CACHE_ENTRIES - 1,
+    TEST_ASSERT_EQUAL_INT(CONFIG_NANOCOAP_CACHE_ENTRIES - 1,
                           nanocoap_cache_free_count());
     TEST_ASSERT_EQUAL_INT(1, nanocoap_cache_used_count());
 
     /* delete previously added cache entry */
     res = nanocoap_cache_del(c);
     TEST_ASSERT_EQUAL_INT(0, res);
-    TEST_ASSERT_EQUAL_INT(NANOCOAP_CACHE_ENTRIES ,
+    TEST_ASSERT_EQUAL_INT(CONFIG_NANOCOAP_CACHE_ENTRIES ,
                           nanocoap_cache_free_count());
     TEST_ASSERT_EQUAL_INT(0, nanocoap_cache_used_count());
 }
@@ -230,7 +230,7 @@ static void test_nanocoap_cache__max_age(void)
 
     c = nanocoap_cache_add_by_req((const coap_pkt_t *)&req,
                                   (const coap_pkt_t *)&resp,
-                                  NANOCOAP_CACHE_RESPONSE_SIZE);
+                                  CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE);
 
     /* the absolute time of max-age should be at approx. now + 30 sec
        (1 sec buffer) */
@@ -250,7 +250,7 @@ static void test_nanocoap_cache__max_age(void)
 
     c = nanocoap_cache_add_by_req((const coap_pkt_t *)&req,
                                   (const coap_pkt_t *)&resp,
-                                  NANOCOAP_CACHE_RESPONSE_SIZE);
+                                  CONFIG_NANOCOAP_CACHE_RESPONSE_SIZE);
 
     /* the absolute time of max-age should be at approx. now + 60 sec
        (1 sec buffer) */

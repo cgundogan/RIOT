@@ -25,7 +25,7 @@ typedef struct {
     int in_use;
     sock_udp_ep_t ep;
 #if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
-    uint8_t cache_key[NANOCOAP_CACHE_KEY_LENGTH];
+    uint8_t cache_key[CONFIG_NANOCOAP_CACHE_KEY_LENGTH];
 #endif
 } client_ep_t;
 
@@ -102,7 +102,7 @@ static int _cache_lookup_and_process(coap_pkt_t *pdu,
     }
 
 #if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
-    memcpy(cep->cache_key, cache_key, NANOCOAP_CACHE_KEY_LENGTH);
+    memcpy(cep->cache_key, cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH);
 #endif
 
     return 0;
