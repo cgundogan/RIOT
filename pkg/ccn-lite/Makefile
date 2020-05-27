@@ -1,6 +1,6 @@
 PKG_NAME=ccn-lite
 PKG_URL=https://github.com/cgundogan/ccn-lite/
-PKG_VERSION=1734aea61ae448db90269a91393c0232d4bab23c
+PKG_VERSION=c5db340de1b39de5aefdbdf13b1b91d654f47686
 PKG_LICENSE=ISC
 
 include $(RIOTBASE)/pkg/pkg.mk
