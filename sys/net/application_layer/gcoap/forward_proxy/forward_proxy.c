@@ -99,8 +99,11 @@ static int _cache_lookup_and_process(coap_pkt_t *pdu,
         (ce->request_method == coap_get_code(pdu)) &&
         (ce->max_age > now)) {
         /* use response from cache */
-        printf("cshit;%u\n", ntohs(pdu->hdr->id));
+        printf("csh;%u\n", ntohs(pdu->hdr->id));
         return _cache_build_response(ce, pdu, buf, len);
+    }
+    else {
+        printf("csm;%u\n", ntohs(pdu->hdr->id));
     }
 
 #if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
