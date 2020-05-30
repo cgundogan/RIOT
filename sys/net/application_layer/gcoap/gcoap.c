@@ -266,7 +266,7 @@ static void _on_resp_timeout(void *arg) {
                                       memo->msg.data.pdu_len, &memo->remote_ep);
         coap_pkt_t rreq;
         rreq.hdr = (coap_hdr_t *) memo->msg.data.pdu_buf;
-        printf("rreq;%u\n", coap_get_id(&rreq));
+        printf("rrqtx;%u\n", coap_get_id(&rreq));
         if (bytes <= 0) {
             printf("gcoap: sock resend failed: %d\n", (int)bytes);
             _expire_request(memo);
