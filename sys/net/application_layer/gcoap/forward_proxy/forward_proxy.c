@@ -282,6 +282,7 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
     size_t pdu_len = pdu->payload_len +
         (pdu->payload - (uint8_t *)pdu->hdr);
     nanocoap_cache_process(cep->cache_key, coap_get_code(&req), pdu, pdu_len);
+    printf("csp;%u\n", ntohs(pdu->hdr->id));
 #endif
 
     _free_client_ep(cep);
