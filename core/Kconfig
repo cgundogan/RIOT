@@ -13,6 +13,13 @@ config MOD_CORE
     help
         RIOT's core module.
 
+config MOD_CORE_IDLE_THREAD
+    bool
+    prompt "Use Idle thread"  if HAS_NO_IDLE_THREAD
+    default y if !HAS_NO_IDLE_THREAD
+    help
+        Select y to include the Idle thread. This is mandatory for some CPUs.
+
 config MOD_CORE_INIT
     bool "Kernel initialization module"
     default y
