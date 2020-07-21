@@ -74,6 +74,7 @@ endif # MOD_AT86RF2XX
 config HAS_AT86RF2XX
     bool
     select HAS_RADIO_IEEE802154
+    select HAS_RADIO_IEEE802154_OQPSK
     help
         Indicates that a radio of the AT86RF2XX family is present.
 
