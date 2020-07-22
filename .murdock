@@ -4,7 +4,7 @@
 : ${TEST_BOARDS_LLVM_COMPILE:="iotlab-m3 native nrf52dk mulle nucleo-f401re samr21-xpro slstk3402a"}
 : ${TEST_KCONFIG_APPS:="samr21-xpro:examples/gnrc_networking"}
 declare -A TEST_KCONFIG=( \
-                          [samr21-xpro]="examples/gnrc_networking examples/hello-world" \
+                          [samr21-xpro]="examples/gnrc_networking examples/hello-world"
     )
 
 export RIOT_CI_BUILD=1
@@ -236,25 +236,28 @@ compile() {
     [ ! -d "$appdir" ] && error "$0: compile: error: application directory \"$appdir\" doesn't exist"
 
     # compile
-    CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 TEST_EXTRA_FILES='$(BINDIR)/**/*.o' \
+    CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 \
         make -C${appdir} clean all test-input-hash -j${JOBS:-4}
     RES=$?
 
     test_hash=$(test_hash_calc "$BINDIR")
 
+    # We compile a second time with Kconfig based dependency
+    # resolution for regression purposes. $TEST_KCONFIG contains a
+    # list of board-application tuples that are currently modeled to
+    # run with Kconfig
     if [ $RES -eq 0 ]; then
         for app in ${TEST_KCONFIG[${board}]}
         do
             if [ ${app} = ${appdir} ]; then
-                echo $test_hash;
-                CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 KCONFIG_DEPS=1 TEST_EXTRA_FILES='$(BINDIR)/**/*.o' \
-                              make -C${appdir} clean all test-input-hash -j${JOBS:-4}
+                BOARD=$board make -C${appdir} clean
+                CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 TEST_KCONFIG=1 \
+                              make -C${appdir} all test-input-hash -j${JOBS:-4}
                 RES=$?
-                new_test_hash=$(test_hash_calc "$BINDIR")
-                echo $new_test_hash;
                 if [ $RES -eq 0 ]; then
+                    new_test_hash=$(test_hash_calc "$BINDIR")
                     if [ ${new_test_hash} != ${test_hash} ]; then
-                        echo "hashes mismatch";
+                        echo "Hashes of binaries mismatch for ${app}";
                     fi
                 fi
             fi
