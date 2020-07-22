@@ -236,7 +236,7 @@ compile() {
     [ ! -d "$appdir" ] && error "$0: compile: error: application directory \"$appdir\" doesn't exist"
 
     # compile
-    CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 \
+    CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 TEST_EXTRA_FILES='$(BINDIR)/**/*.o' \
         make -C${appdir} clean all test-input-hash -j${JOBS:-4}
     RES=$?
 
@@ -247,13 +247,14 @@ compile() {
         do
             if [ ${app} = ${appdir} ]; then
                 echo $test_hash;
-                CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 KCONFIG_DEPS=1 \
+                CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 KCONFIG_DEPS=1 TEST_EXTRA_FILES='$(BINDIR)/**/*.o' \
                               make -C${appdir} clean all test-input-hash -j${JOBS:-4}
                 RES=$?
                 new_test_hash=$(test_hash_calc "$BINDIR")
+                echo $new_test_hash;
                 if [ $RES -eq 0 ]; then
-                    if [ ${new_test_hash} = ${test_hash} ]; then
-                        echo "hashes match";
+                    if [ ${new_test_hash} != ${test_hash} ]; then
+                        echo "hashes mismatch";
                     fi
                 fi
             fi
