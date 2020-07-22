@@ -2,6 +2,10 @@
 
 : ${TEST_BOARDS_AVAILABLE:="esp32-wroom-32 nrf52dk samr21-xpro"}
 : ${TEST_BOARDS_LLVM_COMPILE:="iotlab-m3 native nrf52dk mulle nucleo-f401re samr21-xpro slstk3402a"}
+: ${TEST_KCONFIG_APPS:="samr21-xpro:examples/gnrc_networking"}
+declare -A TEST_KCONFIG=( \
+                          [samr21-xpro]="examples/gnrc_networking examples/hello-world" \
+    )
 
 export RIOT_CI_BUILD=1
 export STATIC_TESTS=${STATIC_TESTS:-1}
@@ -235,6 +239,26 @@ compile() {
     CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 \
         make -C${appdir} clean all test-input-hash -j${JOBS:-4}
     RES=$?
+
+    test_hash=$(test_hash_calc "$BINDIR")
+
+    if [ $RES -eq 0 ]; then
+        for app in ${TEST_KCONFIG[${board}]}
+        do
+            if [ ${app} = ${appdir} ]; then
+                echo $test_hash;
+                CCACHE_BASEDIR="$(pwd)" BOARD=$board TOOLCHAIN=$toolchain RIOT_CI_BUILD=1 KCONFIG_DEPS=1 \
+                              make -C${appdir} clean all test-input-hash -j${JOBS:-4}
+                RES=$?
+                new_test_hash=$(test_hash_calc "$BINDIR")
+                if [ $RES -eq 0 ]; then
+                    if [ ${new_test_hash} = ${test_hash} ]; then
+                        echo "hashes match";
+                    fi
+                fi
+            fi
+        done
+    fi
 
     # run tests
     if [ $RES -eq 0 ]; then

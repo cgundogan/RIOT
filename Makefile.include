@@ -1,3 +1,8 @@
+ifdef KCONFIG_DEPS
+  $(info "KCONFIG_DEPS IS SET")
+  USEPKG+="tinycbor"
+endif
+
 MATCH_MAKE_VERSION = 4.%
 
 MAKEFLAGS += --no-builtin-rules
