@@ -7,7 +7,6 @@
 
 config MOD_PM_LAYERED
     bool "Platform-independent Power Management"
-    default y
     depends on MOD_PERIPH_PM
 
 config HAS_PM_LAYERED_OFF
