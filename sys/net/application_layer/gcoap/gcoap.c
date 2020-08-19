@@ -1184,7 +1184,7 @@ void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
                                        coap_pkt_t *src_pdu,
                                        const sock_udp_ep_t *remote)
 {
-    _find_req_memo(memo_ptr, src_pdu, remote);
+    _find_req_memo(memo_ptr, src_pdu, remote, false);
 }
 
 ssize_t gcoap_response_emptyack(coap_pkt_t *pdu) {
