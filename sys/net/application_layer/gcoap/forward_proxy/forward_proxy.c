@@ -492,7 +492,7 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     pkt.hdr->code = client_pkt->hdr->code;
     // should be likein gcoap_req_init (but that whole function is too inflexible):
 //     pkt.hdr->id = (uint16_t)atomic_fetch_add(&_coap_state.next_message_id, 1);
-    pkt.hdr->id = client_pkt->hdr->id + 42;
+    pkt.hdr->id = client_pkt->hdr->id;
 
     if (token_len) {
         // Shouldn't do that (what if different clients use same token?) but convenient for forwarding probably

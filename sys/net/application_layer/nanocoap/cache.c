@@ -89,8 +89,8 @@ void nanocoap_cache_key_generate(const coap_pkt_t *req, uint8_t *cache_key)
     coap_optpos_t opt = {0, 0};
     uint8_t *value;
 
-    sha256_update(&ctx, &req->hdr->id, sizeof(req->hdr->id));
-    sha256_update(&ctx, req->token, coap_get_token_len(req));
+//    sha256_update(&ctx, &req->hdr->id, sizeof(req->hdr->id));
+//    sha256_update(&ctx, req->token, coap_get_token_len(req));
     for (int i = 0; i < req->options_len; i++) {
         ssize_t optlen = coap_opt_get_next(req, &opt, &value, !i);
         if (optlen >= 0) {
@@ -260,7 +260,7 @@ nanocoap_cache_entry_t *nanocoap_cache_add_by_key(const uint8_t *cache_key,
     ce->request_method = request_method;
 
     /* default value is 60 seconds, if MAX_AGE not present */
-    uint32_t max_age = 60;
+    uint32_t max_age = 30;
     coap_opt_get_uint(resp, COAP_OPT_MAX_AGE, &max_age);
     ce->max_age = xtimer_now_usec64() + (max_age * US_PER_SEC);
 
