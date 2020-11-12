@@ -26,7 +26,6 @@ typedef struct {
 } client_ep_t;
 
 static uint8_t proxy_req_buf[CONFIG_GCOAP_PDU_BUF_SIZE];
-static uint8_t scratch[48];
 static client_ep_t _client_eps[CONFIG_GCOAP_REQ_WAITING_MAX];
 
 static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
@@ -117,44 +116,35 @@ static ssize_t _forward_proxy_handler(coap_pkt_t *pdu, uint8_t *buf,
 static bool _parse_endpoint(sock_udp_ep_t *remote,
                             uri_parser_result_t *urip)
 {
+    char scratch[8];
     ipv6_addr_t addr;
     remote->family = AF_INET6;
 
-    /* copy host to scratch for safe string operations with '\0' */
-    if (urip->host_len >= sizeof(scratch)) {
-        return false;
-    }
-    memcpy(scratch, urip->host, urip->host_len);
-    scratch[urip->host_len] = '\0';
-
-    char *addr_str = (char *) scratch;
-    uint16_t addr_str_len = urip->host_len;
-
     /* support IPv6 only for now */
-    if (addr_str[0] != '[') {
+    if (!urip->ipv6addr) {
         return false;
     }
 
     /* check for interface */
-    char *iface_str = strchr(addr_str, '%');
-    if (iface_str) {
-        /* do not count '%' and ']' */
-        unsigned iface_len = addr_str_len - (iface_str - addr_str) - 2;
+    if (urip->zoneid) {
+        /* only works with integer based zoneids */
 
-        /* also do not count '%' */
-        addr_str_len -= iface_len + 1;
+        if (urip->zoneid_len > (sizeof(scratch)/sizeof(scratch[0]) - 1)) {
+            return false;
+        }
 
-        /* skip '%' */
-        iface_str++;
-        iface_str[iface_len] = '\0';
+        memcpy(scratch, urip->zoneid, urip->zoneid_len);
 
-        int pid = atoi(iface_str);
+        scratch[urip->zoneid_len] = '\0';
+
+        int pid = atoi(scratch);
+
         if (gnrc_netif_get_by_pid(pid) == NULL) {
             return false;
         }
         remote->netif = pid;
     }
-    /* no interface present in host string */
+    /* no interface present */
     else {
         if (gnrc_netif_numof() == 1) {
             /* assign the single interface found in gnrc_netif_numof() */
@@ -165,15 +155,8 @@ static bool _parse_endpoint(sock_udp_ep_t *remote,
         }
     }
 
-    /* skip '[' and reduce length by 2 for '[' and ']' */
-    addr_str++;
-    addr_str_len -= 2;
-
-    /* replace ']' with '\0' for safe string operations */
-    addr_str[addr_str_len] = '\0';
-
     /* parse destination address */
-    if (ipv6_addr_from_str(&addr, addr_str) == NULL) {
+    if (ipv6_addr_from_buf(&addr, urip->ipv6addr, urip->ipv6addr_len) == NULL) {
         return false;
     }
     if ((remote->netif == SOCK_ADDR_ANY_NETIF) &&
@@ -186,7 +169,7 @@ static bool _parse_endpoint(sock_udp_ep_t *remote,
     memcpy(scratch, urip->port, urip->port_len);
     scratch[urip->port_len] = '\0';
 
-    remote->port = atoi((char *) scratch);
+    remote->port = atoi(scratch);
 
     if (remote->port == 0) {
         return false;
