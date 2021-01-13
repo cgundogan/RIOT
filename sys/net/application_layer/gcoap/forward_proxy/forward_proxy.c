@@ -323,6 +323,12 @@ static int _gcoap_forward_proxy_copy_options(coap_pkt_t *pkt,
     return len;
 }
 
+extern int get_proxy_nexthop(ipv6_addr_t *dest, ipv6_addr_t *nexthop);
+extern ssize_t forward_to_forwarders(coap_pkt_t *client_pkt,
+                                     client_ep_t *client_ep,
+                                     ipv6_addr_t *nexthop_addr,
+                                     gcoap_resp_handler_t resp_handler);
+
 static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
                                          client_ep_t *client_ep,
                                          uri_parser_result_t *urip)
@@ -330,6 +336,7 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     coap_pkt_t pkt;
     sock_udp_ep_t origin_server_ep;
 
+    ssize_t len;
     gcoap_request_memo_t *memo = NULL;
 
     if (!_parse_endpoint(&origin_server_ep, urip)) {
@@ -339,10 +346,26 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     /* do not forward requests if they already exist, e.g., due to CON
        and retransmissions. In the future, the proxy should set an
        empty ACK message to stop the retransmissions of a client */
-    gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &origin_server_ep);
+    ipv6_addr_t dest_addr, nexthop_addr;
+    memcpy(dest_addr.u16, origin_server_ep.addr.ipv6, sizeof(origin_server_ep.addr.ipv6));
+    int lastforwarder = get_proxy_nexthop(&dest_addr, &nexthop_addr);
+    if (lastforwarder) {
+        gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &origin_server_ep);
+    }
+    else {
+        sock_udp_ep_t tmp_ep = {.family = AF_INET6, .port = COAP_PORT};
+        memcpy(&tmp_ep.addr.ipv6[0], &nexthop_addr.u8[0], sizeof(nexthop_addr.u8));
+        gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &tmp_ep);
+    }
+
     if (memo) {
         DEBUG("gcoap_forward_proxy: request already exists, ignore!\n");
+        _free_client_ep(client_ep); // TODO really?
         return 0;
+    }
+
+    if (!lastforwarder) {
+        return forward_to_forwarders(client_pkt, client_ep, &nexthop_addr, _forward_resp_handler);
     }
 
     unsigned token_len = coap_get_token_len(client_pkt);
@@ -358,7 +381,7 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     }
 
     /* copy all options from client_pkt to pkt */
-    ssize_t len = _gcoap_forward_proxy_copy_options(&pkt, client_pkt, urip);
+    len =_gcoap_forward_proxy_copy_options(&pkt, client_pkt, urip);
 
     if (len == -EINVAL) {
         return -EINVAL;
