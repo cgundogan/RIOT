@@ -18,7 +18,7 @@
 #include "uri_parser.h"
 #include "net/nanocoap/cache.h"
 
-#define ENABLE_DEBUG    (0)
+#define ENABLE_DEBUG    0
 #include "debug.h"
 
 typedef struct {
@@ -32,10 +32,9 @@ typedef struct {
 static uint8_t proxy_req_buf[CONFIG_GCOAP_PDU_BUF_SIZE];
 static client_ep_t _client_eps[CONFIG_GCOAP_REQ_WAITING_MAX];
 
-static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
-                                          const coap_resource_t *resource,
-                                          coap_method_flags_t method_flag,
-                                          uint8_t *uri);
+static int _request_matcher_forward_proxy(gcoap_listener_t *listener,
+                                          const coap_resource_t **resource,
+                                          const coap_pkt_t *pdu);
 static ssize_t _forward_proxy_handler(coap_pkt_t* pdu, uint8_t *buf,
                                       size_t len, void *ctx);
 
@@ -129,22 +128,20 @@ static void _free_client_ep(client_ep_t *cep)
     memset(cep, 0, sizeof(*cep));
 }
 
-static int _request_matcher_forward_proxy(const coap_pkt_t *pdu,
-                                          const coap_resource_t *resource,
-                                          coap_method_flags_t method_flag,
-                                          uint8_t *uri)
+static int _request_matcher_forward_proxy(gcoap_listener_t *listener,
+                                          const coap_resource_t **resource,
+                                          const coap_pkt_t *pdu)
 {
-    (void) resource;
-    (void) method_flag;
-    (void) uri;
+    (void) listener;
 
     char *offset;
 
     if (coap_get_proxy_uri(pdu, &offset) > 0) {
+        *resource = &listener->resources[0];
         return GCOAP_RESOURCE_FOUND;
     }
 
-    return GCOAP_RESOURCE_ERROR;
+    return GCOAP_RESOURCE_NO_PATH;
 }
 
 static ssize_t _forward_proxy_handler(coap_pkt_t *pdu, uint8_t *buf,
@@ -242,9 +239,6 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
 {
     (void) remote; /* this is the origin server */
     client_ep_t *cep = (client_ep_t *)memo->context;
-    coap_pkt_t req;
-
-    req.hdr = (coap_hdr_t *) &memo->msg.hdr_buf[0];
 
     /* forward the response packet as-is to the client */
     gcoap_forward_proxy_dispatch((uint8_t *)pdu->hdr,
@@ -253,6 +247,14 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
                                  &cep->ep);
 
 #if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
+    coap_pkt_t req;
+    if (memo->send_limit == GCOAP_SEND_LIMIT_NON) {
+        req.hdr = (coap_hdr_t *) &memo->msg.hdr_buf[0];
+    }
+    else {
+        req.hdr = (coap_hdr_t *)memo->msg.data.pdu_buf;
+    }
+
     size_t pdu_len = pdu->payload_len +
         (pdu->payload - (uint8_t *)pdu->hdr);
     nanocoap_cache_process(cep->cache_key, coap_get_code(&req), pdu, pdu_len);
@@ -271,7 +273,7 @@ static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
     }
 
     if (urip->query) {
-        res = coap_opt_add_chars(pkt, COAP_OPT_URI_PATH,
+        res = coap_opt_add_chars(pkt, COAP_OPT_URI_QUERY,
                                  urip->query, urip->path_len, '&');
         if (res < 0) {
             return -EINVAL;
@@ -345,9 +347,7 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
 
     unsigned token_len = coap_get_token_len(client_pkt);
 
-    coap_pkt_init(&pkt, proxy_req_buf,
-                  (CONFIG_GCOAP_PDU_BUF_SIZE - CONFIG_GCOAP_REQ_OPTIONS_BUF),
-                  sizeof(coap_hdr_t) + token_len);
+    coap_pkt_init(&pkt, proxy_req_buf, CONFIG_GCOAP_PDU_BUF_SIZE, sizeof(coap_hdr_t) + token_len);
 
     pkt.hdr->ver_t_tkl = client_pkt->hdr->ver_t_tkl;
     pkt.hdr->code = client_pkt->hdr->code;
@@ -400,6 +400,7 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
 
     if (optlen < 0) {
         /* -ENOENT, -EINVAL */
+        _free_client_ep(cep);
         return optlen;
     }
 
@@ -407,6 +408,7 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
 
     /* cannot parse Proxy-URI option, or URI is relative */
     if (ures || (!uri_parser_is_absolute((const char *) uri, optlen))) {
+        _free_client_ep(cep);
         return -EINVAL;
     }
 
@@ -414,11 +416,13 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
     if (!strncmp("coap", urip.scheme, urip.scheme_len)) {
         int res = _gcoap_forward_proxy_via_coap(pkt, cep, &urip);
         if (res < 0) {
+            _free_client_ep(cep);
             return -EINVAL;
         }
     }
     /* no other scheme supported for now */
     else {
+        _free_client_ep(cep);
         return -EPERM;
     }
 

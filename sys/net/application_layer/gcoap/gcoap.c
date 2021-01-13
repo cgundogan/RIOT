@@ -764,11 +764,6 @@ kernel_pid_t gcoap_init(void)
     /* randomize initial value */
     atomic_init(&_coap_state.next_message_id, (unsigned)random_uint32());
 
-    /* initialize the forward proxy operation, if compiled */
-    if (IS_ACTIVE(MODULE_GCOAP_FORWARD_PROXY)) {
-        gcoap_forward_proxy_init();
-    }
-
     return _pid;
 }
 
@@ -1087,12 +1082,12 @@ void gcoap_forward_proxy_find_req_memo(gcoap_request_memo_t **memo_ptr,
                                        coap_pkt_t *src_pdu,
                                        const sock_udp_ep_t *remote)
 {
-    _find_req_memo(memo_ptr, src_pdu, remote);
+    _find_req_memo(memo_ptr, src_pdu, remote, false);
 }
 
 ssize_t gcoap_forward_proxy_dispatch(const uint8_t *buf, size_t len, sock_udp_ep_t *remote)
 {
-    return sock_udp_send(&_sock, buf, len, remote);
+    return sock_udp_send(&_sock_udp, buf, len, remote);
 }
 
 /** @} */
