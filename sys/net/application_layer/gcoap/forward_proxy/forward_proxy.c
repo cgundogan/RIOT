@@ -24,6 +24,7 @@
 typedef struct {
     int in_use;
     sock_udp_ep_t ep;
+    uint8_t token[CONFIG_GCOAP_TOKENLEN];
 #if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
     uint8_t cache_key[CONFIG_NANOCOAP_CACHE_KEY_LENGTH];
 #endif
@@ -54,10 +55,41 @@ void gcoap_forward_proxy_init(void)
 {
     gcoap_register_listener(&forward_proxy_listener);
 
+    memset(_client_eps, 0, sizeof(_client_eps));
+
     /* initialize the nanocoap cache operation, if compiled */
     if (IS_ACTIVE(MODULE_NANOCOAP_CACHE)) {
         nanocoap_cache_init();
     }
+}
+
+static int _request_aggregate(client_ep_t *cep) {
+    if (IS_ACTIVE(MODULE_NANOCOAP_CACHE)) {
+        client_ep_t *cepit;
+        for (cepit = _client_eps;
+             cepit < (_client_eps + CONFIG_GCOAP_REQ_WAITING_MAX);
+             cepit++) {
+            if ((!cepit->in_use) || (cepit == cep)) {
+                continue;
+            }
+
+            if (memcmp(cepit->cache_key, cep->cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH) == 0)
+            {
+                /* cache keys as well as tokens are equal => ignore request */
+                if (memcmp(cepit->token, cep->token, ARRAY_SIZE(cep->token)) == 0) {
+                    DEBUG("gcoap_forward_proxy: request already exists, ignore!\n");
+                    return 0;
+                }
+                /* only cache keys are equal => aggregate request */
+                else {
+                    DEBUG("gcoap_forward_proxy: request already exists, aggregate!\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return -1;
 }
 
 static int _cache_build_response(nanocoap_cache_entry_t *ce,
@@ -108,7 +140,7 @@ static int _cache_lookup_and_process(coap_pkt_t *pdu,
 }
 
 
-static client_ep_t *_allocate_client_ep(sock_udp_ep_t *ep)
+static client_ep_t *_allocate_client_ep(sock_udp_ep_t *ep, coap_pkt_t *pkt)
 {
     client_ep_t *cep;
     for (cep = _client_eps;
@@ -117,6 +149,7 @@ static client_ep_t *_allocate_client_ep(sock_udp_ep_t *ep)
         if (!cep->in_use) {
             cep->in_use = 1;
             memcpy(&cep->ep, ep, sizeof(*ep));
+            memcpy(&cep->token, pkt->token, coap_get_token_len(pkt));
             return cep;
         }
     }
@@ -240,27 +273,52 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
     (void) remote; /* this is the origin server */
     client_ep_t *cep = (client_ep_t *)memo->context;
 
-    /* forward the response packet as-is to the client */
-    gcoap_forward_proxy_dispatch((uint8_t *)pdu->hdr,
-                                 (pdu->payload -
-                                  (uint8_t *)pdu->hdr + pdu->payload_len),
-                                 &cep->ep);
+    if (IS_ACTIVE(MODULE_NANOCOAP_CACHE)) {
+        coap_pkt_t req;
+        if (memo->send_limit == GCOAP_SEND_LIMIT_NON) {
+            req.hdr = (coap_hdr_t *) &memo->msg.hdr_buf[0];
+        }
+        else {
+            req.hdr = (coap_hdr_t *)memo->msg.data.pdu_buf;
+        }
 
-#if IS_ACTIVE(MODULE_NANOCOAP_CACHE)
-    coap_pkt_t req;
-    if (memo->send_limit == GCOAP_SEND_LIMIT_NON) {
-        req.hdr = (coap_hdr_t *) &memo->msg.hdr_buf[0];
+        size_t pdu_len = pdu->payload_len +
+            (pdu->payload - (uint8_t *)pdu->hdr);
+        nanocoap_cache_process(cep->cache_key, coap_get_code(&req), pdu, pdu_len);
+
+        uint8_t cache_key[SHA256_DIGEST_LENGTH];
+        memcpy(cache_key, cep->cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH);
+
+        /* forward the response packet as-is to all matching clients */
+        client_ep_t *cepit;
+        for (cepit = _client_eps;
+             cepit < (_client_eps + CONFIG_GCOAP_REQ_WAITING_MAX);
+             cepit++) {
+
+            if (!cepit->in_use) {
+                continue;
+            }
+
+            if (memcmp(cepit->cache_key, cache_key, CONFIG_NANOCOAP_CACHE_KEY_LENGTH) == 0) {
+                /* replace token, WARNING! currently, token must be
+                 * of same length, otherwise we need to fiddle with
+                 * the serialized packet */
+                memcpy(pdu->token, cepit->token, coap_get_token_len(pdu));
+                gcoap_forward_proxy_dispatch(
+                    (uint8_t *)pdu->hdr,
+                    (pdu->payload - (uint8_t *)pdu->hdr + pdu->payload_len),
+                    &cepit->ep);
+                _free_client_ep(cepit);
+            }
+        }
     }
     else {
-        req.hdr = (coap_hdr_t *)memo->msg.data.pdu_buf;
+        gcoap_forward_proxy_dispatch(
+            (uint8_t *)pdu->hdr,
+            (pdu->payload - (uint8_t *)pdu->hdr + pdu->payload_len),
+            &cep->ep);
+        _free_client_ep(cep);
     }
-
-    size_t pdu_len = pdu->payload_len +
-        (pdu->payload - (uint8_t *)pdu->hdr);
-    nanocoap_cache_process(cep->cache_key, coap_get_code(&req), pdu, pdu_len);
-#endif
-
-    _free_client_ep(cep);
 }
 
 static int _gcoap_forward_proxy_add_uri_path(coap_pkt_t *pkt,
@@ -337,32 +395,14 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
     sock_udp_ep_t origin_server_ep;
 
     ssize_t len;
-    gcoap_request_memo_t *memo = NULL;
 
     if (!_parse_endpoint(&origin_server_ep, urip)) {
         return -EINVAL;
     }
 
-    /* do not forward requests if they already exist, e.g., due to CON
-       and retransmissions. In the future, the proxy should set an
-       empty ACK message to stop the retransmissions of a client */
     ipv6_addr_t dest_addr, nexthop_addr;
     memcpy(dest_addr.u16, origin_server_ep.addr.ipv6, sizeof(origin_server_ep.addr.ipv6));
     int lastforwarder = get_proxy_nexthop(&dest_addr, &nexthop_addr);
-    if (lastforwarder) {
-        gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &origin_server_ep);
-    }
-    else {
-        sock_udp_ep_t tmp_ep = {.family = AF_INET6, .port = COAP_PORT};
-        memcpy(&tmp_ep.addr.ipv6[0], &nexthop_addr.u8[0], sizeof(nexthop_addr.u8));
-        gcoap_forward_proxy_find_req_memo(&memo, client_pkt, &tmp_ep);
-    }
-
-    if (memo) {
-        DEBUG("gcoap_forward_proxy: request already exists, ignore!\n");
-        _free_client_ep(client_ep); // TODO really?
-        return 0;
-    }
 
     if (!lastforwarder) {
         return forward_to_forwarders(client_pkt, client_ep, &nexthop_addr, _forward_resp_handler);
@@ -399,7 +439,7 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
     uri_parser_result_t urip;
     ssize_t optlen = 0;
 
-    client_ep_t *cep = _allocate_client_ep(client);
+    client_ep_t *cep = _allocate_client_ep(client, pkt);
 
     if (!cep) {
         return -ENOMEM;
@@ -433,6 +473,14 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
     if (ures || (!uri_parser_is_absolute((const char *) uri, optlen))) {
         _free_client_ep(cep);
         return -EINVAL;
+    }
+
+    int res = _request_aggregate(cep);
+    if (res >= 0) {
+        if (res == 0) {
+            _free_client_ep(cep);
+        }
+        return 0;
     }
 
     /* target is using CoAP */
