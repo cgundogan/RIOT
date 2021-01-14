@@ -273,6 +273,8 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
     (void) remote; /* this is the origin server */
     client_ep_t *cep = (client_ep_t *)memo->context;
 
+    pdu->token = coap_hdr_data_ptr(pdu->hdr);
+
     if (IS_ACTIVE(MODULE_NANOCOAP_CACHE)) {
         coap_pkt_t req;
         if (memo->send_limit == GCOAP_SEND_LIMIT_NON) {
