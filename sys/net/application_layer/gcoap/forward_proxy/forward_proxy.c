@@ -78,11 +78,13 @@ static int _request_aggregate(client_ep_t *cep) {
                 /* cache keys as well as tokens are equal => ignore request */
                 if (memcmp(cepit->token, cep->token, ARRAY_SIZE(cep->token)) == 0) {
                     DEBUG("gcoap_forward_proxy: request already exists, ignore!\n");
+                    printf("fqi;%04x\n", *((uint16_t *) cep->token));
                     return 0;
                 }
                 /* only cache keys are equal => aggregate request */
                 else {
                     DEBUG("gcoap_forward_proxy: request already exists, aggregate!\n");
+                    printf("fqa;%04x;%04x\n", *((uint16_t *) cep->token), *((uint16_t *) cepit->token));
                     return 1;
                 }
             }
@@ -275,6 +277,11 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
 
     pdu->token = coap_hdr_data_ptr(pdu->hdr);
 
+    uint8_t token[CONFIG_GCOAP_TOKENLEN];
+    memcpy(token, pdu->token, CONFIG_GCOAP_TOKENLEN);
+
+    printf("frxp;%04x\n", *((uint16_t *) token));
+
     if (IS_ACTIVE(MODULE_NANOCOAP_CACHE)) {
         coap_pkt_t req;
         if (memo->send_limit == GCOAP_SEND_LIMIT_NON) {
@@ -306,6 +313,7 @@ static void _forward_resp_handler(const gcoap_request_memo_t *memo,
                  * of same length, otherwise we need to fiddle with
                  * the serialized packet */
                 memcpy(pdu->token, cepit->token, coap_get_token_len(pdu));
+                printf("ftxp;%04x;%04x\n", *((uint16_t *) token), *((uint16_t *) pdu->token));
                 gcoap_forward_proxy_dispatch(
                     (uint8_t *)pdu->hdr,
                     (pdu->payload - (uint8_t *)pdu->hdr + pdu->payload_len),
@@ -429,6 +437,8 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
         return -EINVAL;
     }
 
+    printf("fqs;%04x\n", *((uint16_t *) client_pkt->token));
+
     len = gcoap_req_send((uint8_t *)pkt.hdr, len,
                          &origin_server_ep,
                          _forward_resp_handler, (void *)client_ep);
@@ -456,9 +466,11 @@ int gcoap_forward_proxy_request_process(coap_pkt_t *pkt,
          * length of that response message */
         if (pdu_len > 0) {
             _free_client_ep(cep);
+            printf("fch;%04x\n", *((uint16_t *) pkt->token));
             return pdu_len;
         }
         /* if there was no cache hit, then we continue forwarding */
+        printf("fcm;%04x\n", *((uint16_t *) pkt->token));
     }
 
     optlen = coap_get_proxy_uri(pkt, &uri);
