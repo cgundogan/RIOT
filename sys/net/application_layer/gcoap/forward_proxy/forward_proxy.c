@@ -203,6 +203,7 @@ static ssize_t _forward_proxy_handler(coap_pkt_t *pdu, uint8_t *buf,
     return pdu_len;
 }
 
+__attribute__((unused))
 static bool _parse_endpoint(sock_udp_ep_t *remote,
                             uri_parser_result_t *urip)
 {
@@ -401,6 +402,8 @@ extern ssize_t forward_to_forwarders(coap_pkt_t *client_pkt,
                                      ipv6_addr_t *nexthop_addr,
                                      gcoap_resp_handler_t resp_handler);
 
+extern void find_origin_server(sock_udp_ep_t *remote,
+                            void *urip);
 static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
                                          client_ep_t *client_ep,
                                          uri_parser_result_t *urip)
@@ -410,9 +413,16 @@ static int _gcoap_forward_proxy_via_coap(coap_pkt_t *client_pkt,
 
     ssize_t len;
 
-    if (!_parse_endpoint(&origin_server_ep, urip)) {
-        return -EINVAL;
-    }
+    // This is a very very hard-coded version of the FIB that says:
+    //
+    // For all incoming requests that match 'coap://2d-3e*' (and these are all
+    // that'll ever come in), send towards fe80::644e:6f87:a1fa:2d3e if you
+    // don't have a next hop, or just proxy-forward downstream otherwise.
+
+//     if (!_parse_endpoint(&origin_server_ep, urip)) {
+//         return -EINVAL;
+//     }
+    find_origin_server(&origin_server_ep, urip);
 
     ipv6_addr_t dest_addr, nexthop_addr;
     memcpy(dest_addr.u16, origin_server_ep.addr.ipv6, sizeof(origin_server_ep.addr.ipv6));
